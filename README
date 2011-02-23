@@ -1,10 +1,10 @@
-
+Yappi: Yet Another Python Profiler, but this time Thread-Aware
 
 INSTALLATION
 ------------
+
 *nix:
 -----
-Type in shell with admin privieleges:
 >python setup.py install  
 
 Windows:

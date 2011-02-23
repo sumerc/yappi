@@ -7,8 +7,6 @@ _flgrow(_freelist *flp)
     int i, newsize;
     void **old;
 
-    yerr("flgrow called.");
-
     old = flp->items;
     newsize = flp->size * 2;
     flp->items = ymalloc(newsize * sizeof(void *));

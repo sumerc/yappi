@@ -27,8 +27,8 @@ SHOW_ALL = _yappi.SHOW_ALL
  structure. This is an internal function please don't mess with it.
 '''
 def __callback(frame, event, arg):
-	_yappi.profile_event(frame, event, arg)
-	return __callback
+    _yappi.profile_event(frame, event, arg)
+    return __callback
 '''
 ...
 Args:
@@ -38,32 +38,32 @@ timing_sample: will cause the profiler to do timing measuresements
                decrease accuracy.
 '''
 def start(builtins = False, timing_sample=1):
-	threading.setprofile(__callback)
-	_yappi.start(builtins, timing_sample)
+    threading.setprofile(__callback)
+    _yappi.start(builtins, timing_sample)
 
 def stop():
-	threading.setprofile(None)
-	_yappi.stop()
+    threading.setprofile(None)
+    _yappi.stop()
 
 def enum_stats(fenum):
-	_yappi.enum_stats(fenum)
+    _yappi.enum_stats(fenum)
 
 def get_stats(sorttype=_yappi.SORTTYPE_NCALL,
-			  sortorder=_yappi.SORTORDER_DESCENDING,
-			  limit=_yappi.SHOW_ALL):
-	return _yappi.get_stats(sorttype, sortorder, limit)
+        sortorder=_yappi.SORTORDER_DESCENDING,
+        limit=_yappi.SHOW_ALL):
+    return _yappi.get_stats(sorttype, sortorder, limit)
 
 def print_stats(sorttype=_yappi.SORTTYPE_NCALL,
-				sortorder=_yappi.SORTORDER_DESCENDING,
-				limit=_yappi.SHOW_ALL):
-	li = get_stats(sorttype, sortorder, limit)
-	for it in li:
-		print it
+        sortorder=_yappi.SORTORDER_DESCENDING,
+        limit=_yappi.SHOW_ALL):
+    li = get_stats(sorttype, sortorder, limit)
+    for it in li:
+        print it
 
 def clear_stats():
-	_yappi.clear_stats()
+    _yappi.clear_stats()
 
 if __name__ != "__main__":
-	pass
+    pass
 
 
