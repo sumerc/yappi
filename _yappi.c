@@ -407,8 +407,8 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     // get current ctx
     current_ctx = _thread2ctx(frame->f_tstate);
     if (!current_ctx) {
-        //yerr("context not found.");
-        return 0;
+        // this is somehow an expected situation...
+    	return 0;
     }
 
     switch (what) {
