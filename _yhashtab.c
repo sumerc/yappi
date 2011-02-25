@@ -89,7 +89,7 @@ htdestroy(_htab *ht)
 
 
 int
-hadd(_htab *ht, int key, int val)
+hadd(_htab *ht, int key, uintptr_t val)
 {
     unsigned int h;
     _hitem *new, *p;

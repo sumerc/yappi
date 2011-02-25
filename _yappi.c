@@ -407,7 +407,7 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     // get current ctx
     current_ctx = _thread2ctx(frame->f_tstate);
     if (!current_ctx) {
-        yerr("context not found.");
+        //yerr("context not found.");
         return 0;
     }
 
@@ -471,7 +471,7 @@ _profile_thread(PyThreadState *ts)
     if (!hadd(contexts, (uintptr_t)ts, (uintptr_t)ctx)) {
         _del_ctx(ctx);
         if (!flput(flctx, ctx))
-            yerr("Context cannot be recycled. Possible memory leak.[%d bytes]", sizeof(_ctx));
+            yerr("Context cannot be recycled. Possible memory leak.");
         dprintf("Context add failed. Already added?(%p, %ld)", ts,
                 PyThreadState_GET()->thread_id);
     }
@@ -640,7 +640,7 @@ _pitenumstat(_hitem *item, void * arg)
 }
 
 // adds spaces to extend to the size, or shrinks the string
-// from wrapfrom dýrection with adding dots.
+// from wrapfrom dï¿½rection with adding dots.
 void
 _yzipstr(char *s, int size, int wrapfrom)
 {
@@ -765,7 +765,7 @@ _create_statitem(char *fname, unsigned long callcount, double ttot, double tsub,
 // sorttype param. Note that sorting is descending by default. Read reverse from list
 // to have a ascending order.
 void
-_insert_stats_internal(_statnode *sn, int sorttype)
+_insert_stats_internal(_statnode *sn, uintptr_t sorttype)
 {
     _statnode *p, *prev;
 
@@ -870,7 +870,7 @@ _pitenumstat2(_hitem *item, void * arg)
         return 1; // abort enumeration
     sni->it = si;
 
-    _insert_stats_internal(sni, (int)arg);
+    _insert_stats_internal(sni, (uintptr_t)arg);
 
     return 0;
 }
@@ -978,7 +978,8 @@ get_stats(PyObject *self, PyObject *args)
     char *prof_state,*timestr;
     _statnode *p;
     PyObject *buf,*li;
-    int type, order, limit, fcnt;
+    int order, limit, fcnt;
+    uintptr_t type;
     char temp[LINE_LEN];
     long long appttotal;
 

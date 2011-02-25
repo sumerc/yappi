@@ -3,6 +3,8 @@
 *    Sumer Cip 2010
 */
 
+#include "_ystatic.h"
+
 #ifndef YHASHTAB_H
 #define YHASHTAB_H
 
@@ -17,7 +19,7 @@
 
 struct _hitem {
     int key;
-    int val;
+    uintptr_t val;
     int free; // for recycling.
     struct _hitem *next;
 };
@@ -35,7 +37,7 @@ typedef struct {
 _htab *htcreate(int logsize);
 void htdestroy(_htab *ht);
 _hitem *hfind(_htab *ht, int key);
-int hadd(_htab *ht, int key, int val);
+int hadd(_htab *ht, int key, uintptr_t val);
 void henum(_htab *ht, int (*fn) (_hitem *item, void *arg), void *arg);
 int hcount(_htab *ht);
 void hfree(_htab *ht, _hitem *item);

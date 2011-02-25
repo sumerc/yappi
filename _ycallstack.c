@@ -99,7 +99,7 @@ spush(_cstack *cs, void *ckey)
 _cstackitem *
 spop(_cstack * cs)
 {
-    int v;
+	uintptr_t v;
     _cstackitem *ci;
     _hitem *it;
 
@@ -109,7 +109,7 @@ spop(_cstack * cs)
     ci = &cs->_items[cs->head--];
     it = hfind(cs->_counts, (uintptr_t)ci->ckey);
     if (it) {
-        v = it->val-1;
+        v = (it->val)-1; /*supress warning -- it is safe to cast long vs pointers*/
         if (v == 0) {
             hfree(cs->_counts, it);
         }

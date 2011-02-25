@@ -1,0 +1,3 @@
+glob:.cproject
+glob:.project
+glob:*.pyc

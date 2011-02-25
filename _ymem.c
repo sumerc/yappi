@@ -49,16 +49,16 @@ ymalloc(size_t size)
 
     p = PyMem_Malloc(size+sizeof(size_t));
     if (!p) {
-        yerr("malloc(%d) failed. No memory?", size);
+        yerr("malloc(%u) failed. No memory?", (unsigned int)size);
         return NULL;
     }
     memused += size;
     *(size_t *)p = size;
 #ifdef DEBUG_MEM
     if (dhead)
-        yinfo("_ymalloc(%d) called[%p].[old_head:%p]", size, p, dhead->ptr);
+        yinfo("_ymalloc(%u) called[%p].[old_head:%p]", (unsigned int)size, p, dhead->ptr);
     else
-        yinfo("_ymalloc(%d) called[%p].[old_head:nil]", size, p);
+        yinfo("_ymalloc(%u) called[%p].[old_head:nil]", (unsigned int)size, p);
     v = PyMem_Malloc(sizeof(dnode_t));
     v->ptr = p;
     v->size = size;
