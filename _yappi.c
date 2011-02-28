@@ -414,7 +414,7 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     // get current ctx
     current_ctx = _thread2ctx(frame->f_tstate);
     if (!current_ctx) {
-        yerr("no context found or can be created. No available memory?");
+        yerr("no context found or can be created.");
         return 0;
     }
     
