@@ -4,6 +4,7 @@
 */
 
 #include "_ystatic.h"
+#include "Python.h"
 
 #ifndef YHASHTAB_H
 #define YHASHTAB_H
