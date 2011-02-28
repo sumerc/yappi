@@ -80,6 +80,9 @@ static long long yappstoptick;
 static _ctx *prev_ctx;
 static _ctx *current_ctx;
 
+// forward
+static _ctx * _profile_thread(PyThreadState *ts);
+
 // module functions
 static _pit *
 _create_pit(void)
@@ -188,8 +191,12 @@ _thread2ctx(PyThreadState *ts)
     _hitem *it;
 
     it = hfind(contexts, (uintptr_t)ts);
-    if (!it)
-        return NULL;
+    if (!it) {        
+        // callback functions in some circumtances, can be called before the context entry is not
+        // created. (See issue 21). To prevent this problem we need to ensure the context entry for
+        // the thread is always available here. 
+        return _profile_thread(ts);        
+    }
     return (_ctx *)it->val;
 }
 
@@ -407,10 +414,10 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     // get current ctx
     current_ctx = _thread2ctx(frame->f_tstate);
     if (!current_ctx) {
-        // this is somehow an expected situation...
-    	return 0;
+        yerr("no context found or can be created. No available memory?");
+        return 0;
     }
-
+    
     switch (what) {
     case PyTrace_CALL:
         _call_enter(self, frame, arg, 0);
@@ -447,14 +454,15 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
 }
 
 
-static void
+static _ctx *
 _profile_thread(PyThreadState *ts)
 {
     _ctx *ctx;
 
     ctx = _create_ctx();
-    if (!ctx)
-        return;
+    if (!ctx) {
+        return NULL;
+    }
 
     ts->use_tracing = 1;
     ts->c_profilefunc = _yapp_callback;
@@ -464,25 +472,29 @@ _profile_thread(PyThreadState *ts)
     // the ThreadState objects are actually recycled. We are using pointer
     // to map to the internal contexts table, and Python VM will try to use
     // the destructed thread's pointer when a new thread is created. They are
-    // pooled inside the VM. Sp this means we wii use the same pointer for our
+    // pooled inside the VM. So this means we wii use the same pointer for our
     // hash table like lazy deletion. This is a hecky solution, but there is no
     // efficient and easy way to somehow know that a Python Thread is about
     // to be destructed.
     if (!hadd(contexts, (uintptr_t)ts, (uintptr_t)ctx)) {
         _del_ctx(ctx);
-        if (!flput(flctx, ctx))
+        if (!flput(flctx, ctx)) {
             yerr("Context cannot be recycled. Possible memory leak.");
-        dprintf("Context add failed. Already added?(%p, %ld)", ts,
+        }
+        yerr("Context add failed. Already added?(%p, %ld)", ts,
                 PyThreadState_GET()->thread_id);
+        return NULL;
     }
     ctx->id = ts->thread_id;
+    return ctx;
 }
 
-static void
+static _ctx*
 _unprofile_thread(PyThreadState *ts)
 {
     ts->use_tracing = 0;
     ts->c_profilefunc = NULL;
+    return NULL; //dummy return for enum_threads() func. prototype
 }
 
 static void
@@ -491,13 +503,14 @@ _ensure_thread_profiled(PyThreadState *ts)
     PyThreadState *p = NULL;
 
     for (p=ts->interp->tstate_head ; p != NULL; p = p->next) {
-        if (ts->c_profilefunc != _yapp_callback)
+        if (ts->c_profilefunc != _yapp_callback) {
             _profile_thread(ts);
+        }
     }
 }
 
 static void
-_enum_threads(void (*f) (PyThreadState *))
+_enum_threads(_ctx* (*f) (PyThreadState *))
 {
     PyThreadState *p = NULL;
 
