@@ -57,8 +57,7 @@ def print_stats(sorttype=_yappi.SORTTYPE_NCALL,
         sortorder=_yappi.SORTORDER_DESCENDING,
         limit=_yappi.SHOW_ALL):
     li = get_stats(sorttype, sortorder, limit)
-    for it in li:
-        print it
+    for it in li: print(it)
 
 def clear_stats():
     _yappi.clear_stats()

@@ -17,6 +17,8 @@
 #include "_ystatic.h"
 #include "_ymem.h"
 
+PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
+
 // module macros
 #define YSTRMOVEND(s) (*s += strlen(*s))
 
@@ -141,14 +143,27 @@ _item2fname(_pit *pt)
         return NULL;
 
     if (PyCode_Check(pt->co)) {
-        fname =  PyString_FromFormat( "%s.%s:%d",
-                                      PyString_AS_STRING(((PyCodeObject *)pt->co)->co_filename),
-                                      PyString_AS_STRING(((PyCodeObject *)pt->co)->co_name),
-                                      ((PyCodeObject *)pt->co)->co_firstlineno );
+#ifdef IS_PY3K
+    fname =  PyUnicode_FromFormat( "%s.%s:%d",
+                                  _PyUnicode_AsString(((PyCodeObject *)pt->co)->co_filename),
+                                  _PyUnicode_AsString(((PyCodeObject *)pt->co)->co_name),
+                                  ((PyCodeObject *)pt->co)->co_firstlineno );   
+#else
+    fname =  PyString_FromFormat( "%s.%s:%d",
+                                  PyString_AS_STRING(((PyCodeObject *)pt->co)->co_filename),
+                                  PyString_AS_STRING(((PyCodeObject *)pt->co)->co_name),
+                                  ((PyCodeObject *)pt->co)->co_firstlineno );
+#endif
     } else {
         fname = pt->co;
     }
-    buf = PyString_AS_STRING(fname); // TODO:memleak on buf?
+    
+// TODO:memleak on buf?
+#ifdef IS_PY3K    
+    buf = _PyUnicode_AsString(fname);
+#else
+    buf = PyString_AS_STRING(fname); 
+#endif    
     if (PyCode_Check(pt->co)) {
         Py_DECREF(fname);
     }
@@ -174,8 +189,12 @@ _get_current_thread_class_name(void)
     tattr2 = PyObject_GetAttrString(tattr1, "__name__");
     if (!tattr2)
         goto err;
-
+        
+#ifdef IS_PY3K
+    return _PyUnicode_AsString(tattr2); 
+#else
     return PyString_AS_STRING(tattr2);
+#endif
 
 err:
     Py_XDECREF(mthr);
@@ -235,12 +254,16 @@ _ccode2pit(void *cco)
         if (cfn->m_self == NULL) {
 
             PyObject *mod = cfn->m_module;
-            char *modname;
+            const char *modname;
 
 
-
+#ifdef IS_PY3K
+            if (mod && PyUnicode_Check(mod)) {
+                modname = _PyUnicode_AsString(mod);
+#else
             if (mod && PyString_Check(mod)) {
                 modname = PyString_AS_STRING(mod);
+#endif
             } else if (mod && PyModule_Check(mod)) {
                 modname = PyModule_GetName(mod);
                 if (modname == NULL) {
@@ -250,17 +273,33 @@ _ccode2pit(void *cco)
             } else {
                 modname = "__builtin__";
             }
-            if (strcmp(modname, "__builtin__") != 0)
+            if (strcmp(modname, "__builtin__") != 0) {
+#ifdef IS_PY3K
+                pit->co = PyUnicode_FromFormat("<%s.%s>",
+                                               modname,
+                                               cfn->m_ml->ml_name);
+#else
                 pit->co = PyString_FromFormat("<%s.%s>",
                                               modname,
                                               cfn->m_ml->ml_name);
-            else
+#endif                                              
+            } else {
+#ifdef IS_PY3K
+                pit->co = PyUnicode_FromFormat("<%s>",
+                                               cfn->m_ml->ml_name);
+#else
                 pit->co = PyString_FromFormat("<%s>",
                                               cfn->m_ml->ml_name);
+#endif
+            }
 
         } else { // built-in method?
             PyObject *self = cfn->m_self;
+#ifdef IS_PY3K
+            PyObject *name = PyUnicode_FromString(cfn->m_ml->ml_name);
+#else
             PyObject *name = PyString_FromString(cfn->m_ml->ml_name);
+#endif
             if (name != NULL) {
                 PyObject *mo = _PyType_Lookup((PyTypeObject *)PyObject_Type(self), name);
                 Py_XINCREF(mo);
@@ -275,8 +314,13 @@ _ccode2pit(void *cco)
                 }
             }
             PyErr_Clear();
+#ifdef IS_PY3K
+            pit->co = PyUnicode_FromFormat("<built-in method %s>",
+                                           cfn->m_ml->ml_name);
+#else
             pit->co = PyString_FromFormat("<built-in method %s>",
                                           cfn->m_ml->ml_name);
+#endif
         }
         return pit;
     }
@@ -550,7 +594,7 @@ profile_event(PyObject *self, PyObject *args)
 {
     char *ev;
     PyObject *arg;
-    PyStringObject *event;
+    PyObject *event;
     PyFrameObject * frame;
 
     if (!PyArg_ParseTuple(args, "OOO", &frame, &event, &arg)) {
@@ -558,8 +602,12 @@ profile_event(PyObject *self, PyObject *args)
     }
 
     _ensure_thread_profiled(PyThreadState_GET());
-
+    
+#ifdef IS_PY3K
+    ev = _PyUnicode_AsString(event);
+#else
     ev = PyString_AS_STRING(event);
+#endif
 
     if (strcmp("call", ev)==0)
         _yapp_callback(self, frame, PyTrace_CALL, arg);
@@ -928,8 +976,11 @@ _ctxenumstat(_hitem *item, void *arg)
     _yformat_ulong(ctx->sched_cnt, temp);
     _yformat_double(ctx->ttotal * tickfactor(), temp);
 
-
+#ifdef IS_PY3K  
+    buf = PyUnicode_FromString(temp);    
+#else
     buf = PyString_FromString(temp);
+#endif
     if (!buf)
         return 0; // just continue.
 
@@ -1030,8 +1081,14 @@ get_stats(PyObject *self, PyObject *args)
     li = PyList_New(0);
     if (!li)
         goto err;
-    if (PyList_Append(li, PyString_FromString(STAT_HEADER_STR)) < 0)
+
+#ifdef IS_PY3K
+    if (PyList_Append(li, PyUnicode_FromString(STAT_HEADER_STR)) < 0) {
+#else
+    if (PyList_Append(li, PyString_FromString(STAT_HEADER_STR)) < 0) {
+#endif
         goto err;
+    }
 
     fcnt = 0;
     p = statshead;
@@ -1041,7 +1098,11 @@ get_stats(PyObject *self, PyObject *args)
             if (fcnt == limit)
                 break;
         }
+#ifdef IS_PY3K
+        buf = PyUnicode_FromString(p->it->result);
+#else
         buf = PyString_FromString(p->it->result);
+#endif
         if (!buf)
             goto err;
         if (PyList_Append(li, buf) < 0)
@@ -1051,15 +1112,24 @@ get_stats(PyObject *self, PyObject *args)
         fcnt++;
         p = p->next;
     }
-
-    if (PyList_Append(li, PyString_FromString(STAT_FOOTER_STR)) < 0)
+#ifdef IS_PY3K
+    if (PyList_Append(li, PyUnicode_FromString(STAT_FOOTER_STR)) < 0) {
+#else
+    if (PyList_Append(li, PyString_FromString(STAT_FOOTER_STR)) < 0) {
+#endif
         goto err;
-
+    }
+    
     henum(contexts, _ctxenumstat, (void *)li);
-
-    if (PyList_Append(li, PyString_FromString(STAT_FOOTER_STR2)) < 0)
+    
+#ifdef IS_PY3K
+    if (PyList_Append(li, PyUnicode_FromString(STAT_FOOTER_STR2)) < 0) {
+#else
+    if (PyList_Append(li, PyString_FromString(STAT_FOOTER_STR2)) < 0) {        
+#endif
         goto err;
-
+    }
+    
     if (yapprunning) {
         appttotal = tickcount()-yappstarttick;
         prof_state = "running";
@@ -1083,8 +1153,13 @@ get_stats(PyObject *self, PyObject *args)
     _yformat_int(hcount(contexts), temp);
     _yformat_ulong(ymemusage(), temp);
 
-    if (PyList_Append(li, PyString_FromString(temp)) < 0)
+#ifdef IS_PY3K
+    if (PyList_Append(li, PyUnicode_FromString(temp)) < 0) {
+#else
+    if (PyList_Append(li, PyString_FromString(temp)) < 0) {
+#endif
         goto err;
+    }
 
     // clear the internal pit stat items that are generated temporarily.
     _clear_stats_internal();
@@ -1133,15 +1208,39 @@ static PyMethodDef yappi_methods[] = {
     {NULL, NULL}      /* sentinel */
 };
 
+#ifdef IS_PY3K
+static struct PyModuleDef _yappi_module = {
+        PyModuleDef_HEAD_INIT,
+        "_yappi",
+        _yappi__doc__,
+        -1,
+        yappi_methods,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+};
+#endif
 
 PyMODINIT_FUNC
+#ifdef IS_PY3K
+PyInit__yappi(void)
+#else
 init_yappi(void)
+#endif
 {
     PyObject *m, *d;
 
+#ifdef IS_PY3K
+    m = PyModule_Create(&_yappi_module);
+    if (m == NULL)
+        return NULL;
+#else
     m = Py_InitModule("_yappi",  yappi_methods);
     if (m == NULL)
         return;
+#endif        
+
     d = PyModule_GetDict(m);
     YappiProfileError = PyErr_NewException("_yappi.error", NULL, NULL);
     PyDict_SetItemString(d, "error", YappiProfileError);
@@ -1163,6 +1262,14 @@ init_yappi(void)
 
     if (!_init_profiler()) {
         PyErr_SetString(YappiProfileError, "profiler cannot be initialized.");
+#ifdef IS_PY3K
+        return NULL;
+#else
         return;
+#endif
     }
+    
+#ifdef IS_PY3K
+    return m;
+#endif
 }
