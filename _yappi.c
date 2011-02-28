@@ -463,10 +463,7 @@ _profile_thread(PyThreadState *ts)
     if (!ctx) {
         return NULL;
     }
-
-    ts->use_tracing = 1;
-    ts->c_profilefunc = _yapp_callback;
-
+    
     // If a ThreadState object is destroyed, currently yappi does not
     // delete the associated resources. Instead, we rely on the fact that
     // the ThreadState objects are actually recycled. We are using pointer
@@ -481,10 +478,13 @@ _profile_thread(PyThreadState *ts)
         if (!flput(flctx, ctx)) {
             yerr("Context cannot be recycled. Possible memory leak.");
         }
-        yerr("Context add failed. Already added?(%p, %ld)", ts,
+        dprintf("Context add failed. Already added?(%p, %ld)", ts,
                 PyThreadState_GET()->thread_id);
         return NULL;
     }
+
+    ts->use_tracing = 1;
+    ts->c_profilefunc = _yapp_callback;
     ctx->id = ts->thread_id;
     return ctx;
 }
