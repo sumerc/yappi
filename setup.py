@@ -1,7 +1,7 @@
 from distutils.core import setup, Extension
 
 setup(name="_yappi", 
-    version="0.5 beta",
+    version="0.5",
     description="Yet Another Python Profiler",
     author="Sumer Cip",
     author_email="sumerc@gmail.com",
