@@ -9,6 +9,7 @@
 
 #include "Python.h"
 #include "frameobject.h"
+#include "bytesobject.h"
 #include "_ycallstack.h"
 #include "_yhashtab.h"
 #include "_ydebug.h"
@@ -144,15 +145,15 @@ _item2fname(_pit *pt)
 
     if (PyCode_Check(pt->co)) {
 #ifdef IS_PY3K
-    fname =  PyUnicode_FromFormat( "%s.%s:%d",
-    		PyUnicode_AsUTF8String(((PyCodeObject *)pt->co)->co_filename),
-    		PyUnicode_AsUTF8String(((PyCodeObject *)pt->co)->co_name),
-            ((PyCodeObject *)pt->co)->co_firstlineno );
+    fname =  PyUnicode_FromFormat( "%U.%U:%d",
+    								(((PyCodeObject *)pt->co)->co_filename),
+    								(((PyCodeObject *)pt->co)->co_name),
+                                    ((PyCodeObject *)pt->co)->co_firstlineno );
 #else
     fname =  PyString_FromFormat( "%s.%s:%d",
-                                  PyString_AS_STRING(((PyCodeObject *)pt->co)->co_filename),
-                                  PyString_AS_STRING(((PyCodeObject *)pt->co)->co_name),
-                                  ((PyCodeObject *)pt->co)->co_firstlineno );
+                                    PyString_AS_STRING(((PyCodeObject *)pt->co)->co_filename),
+                                    PyString_AS_STRING(((PyCodeObject *)pt->co)->co_name),
+                                    ((PyCodeObject *)pt->co)->co_firstlineno );
 #endif
     } else {
         fname = pt->co;
@@ -160,7 +161,7 @@ _item2fname(_pit *pt)
     
 // TODO:memleak on buf?
 #ifdef IS_PY3K    
-    buf = PyUnicode_AsUTF8String(fname);
+    buf = PyBytes_AS_STRING(PyUnicode_AsUTF8String(fname));
 #else
     buf = PyString_AS_STRING(fname); 
 #endif    
@@ -191,7 +192,7 @@ _get_current_thread_class_name(void)
         goto err;
         
 #ifdef IS_PY3K
-    return PyUnicode_AsUTF8String(tattr2);
+    return PyBytes_AS_STRING(PyUnicode_AsUTF8String(tattr2));
 #else
     return PyString_AS_STRING(tattr2);
 #endif
@@ -259,7 +260,7 @@ _ccode2pit(void *cco)
 
 #ifdef IS_PY3K
             if (mod && PyUnicode_Check(mod)) {
-                modname = PyUnicode_AsUTF8String(mod);
+                modname = PyBytes_AS_STRING(PyUnicode_AsUTF8String(mod));
 #else
             if (mod && PyString_Check(mod)) {
                 modname = PyString_AS_STRING(mod);
@@ -604,7 +605,7 @@ profile_event(PyObject *self, PyObject *args)
     _ensure_thread_profiled(PyThreadState_GET());
     
 #ifdef IS_PY3K
-    ev = PyUnicode_AsUTF8String(event);
+    ev = PyBytes_AS_STRING(PyUnicode_AsUTF8String(event));
 #else
     ev = PyString_AS_STRING(event);
 #endif
