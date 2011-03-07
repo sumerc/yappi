@@ -1,0 +1,1 @@
+INSTALLATION------------*nix:----->python setup.py install  Windows:--------If you have mingw installed, type:>python setup.py build --compiler=mingw32 install(Note: It is recommended to use VC Express compiler for Python versions >2.6. Thereare some DLL problems regarding MingW compiled extensions on Python >2.6 versions.)
