@@ -827,7 +827,7 @@ _create_statitem(char *fname, unsigned long callcount, double ttot, double tsub,
 // sorttype param. Note that sorting is descending by default. Read reverse from list
 // to have a ascending order.
 void
-_insert_stats_internal(_statnode *sn, uintptr_t sorttype)
+_insert_stats_internal(_statnode *sn, int sorttype)
 {
     _statnode *p, *prev;
 
@@ -932,7 +932,7 @@ _pitenumstat2(_hitem *item, void * arg)
         return 1; // abort enumeration
     sni->it = si;
 
-    _insert_stats_internal(sni, (uintptr_t)arg);
+    _insert_stats_internal(sni, (int)arg);
 
     return 0;
 }
@@ -1043,8 +1043,7 @@ get_stats(PyObject *self, PyObject *args)
     char *prof_state,*timestr;
     _statnode *p;
     PyObject *buf,*li;
-    int order, limit, fcnt;
-    uintptr_t type;
+    int order, limit, fcnt, type;
     char temp[LINE_LEN];
     long long appttotal;
 
@@ -1073,9 +1072,12 @@ get_stats(PyObject *self, PyObject *args)
         goto err;
     }
 
-
-
     // enum and present stats in a linked list.(statshead)
+    // issue 22: It is safe to cast type to void * here because, we only need and int, we do not have
+    // a pointer data for using in _pitenumstat2(). On x86-64, int is 32 while pointer is 64, intptr_t
+    // is used for this conversions, but here, we do not need that functionality and also on some platforms
+    // (OSX) comparison between uintptr_t and int do not work as intended even if the values are in int bounds.
+    // Somebody know the reason? Well, I don't...:)
     henum(pits, _pitenumstat2, (void *)type);
     _order_stats_internal(order);
 
