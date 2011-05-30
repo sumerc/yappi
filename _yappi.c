@@ -9,7 +9,9 @@
 
 #include "Python.h"
 #include "frameobject.h"
+#ifdef IS_PY3K
 #include "bytesobject.h"
+#endif
 #include "_ycallstack.h"
 #include "_yhashtab.h"
 #include "_ydebug.h"
