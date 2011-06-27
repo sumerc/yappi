@@ -709,9 +709,10 @@ _pitenumstat(_hitem *item, void * arg)
     PyObject_CallFunction(efn, "((skff))", fname_s.c_str,
                           pt->callcount, pt->ttotal * tickfactor() * flags.timing_sample,
                           cumdiff * tickfactor() * flags.timing_sample);
-    
-    if (PyCode_Check(pt->co)) {
-        Py_DECREF(fname_s.py_str);
+    if (pt) {
+        if (PyCode_Check(pt->co)) {
+            Py_DECREF(fname_s.py_str);
+        }
     }
     
     return 0;
@@ -939,8 +940,10 @@ _pitenumstat2(_hitem *item, void * arg)
                           cumdiff * tickfactor() * flags.timing_sample,
                           (pt->ttotal * tickfactor() * flags.timing_sample) / pt->callcount);
     
-    if (PyCode_Check(pt->co)) {
-        Py_DECREF(fname_s.py_str);
+    if (pt) {
+        if (PyCode_Check(pt->co)) {
+            Py_DECREF(fname_s.py_str);
+        }
     }
     
     if (!si)
@@ -994,10 +997,13 @@ _ctxenumstat(_hitem *item, void *arg)
     _yformat_string(fname_s.c_str, temp, FUNC_NAME_LEN);
     _yformat_ulong(ctx->sched_cnt, temp);
     _yformat_double(ctx->ttotal * tickfactor(), temp);
-
-    if (PyCode_Check(ctx->last_pit)) {
-        Py_DECREF(fname_s.py_str);
+    
+    if (ctx->last_pit) {
+        if (PyCode_Check(ctx->last_pit->co)) {
+            Py_DECREF(fname_s.py_str);
+        }
     }
+           
     
 #ifdef IS_PY3K  
     buf = PyUnicode_FromString(temp);    
