@@ -1,6 +1,5 @@
 #ifndef YDEBUG_H
 #define YDEBUG_H
-#include "stdio.h"
 
 #ifdef DEBUG_CALL
 #ifndef _MSC_VER

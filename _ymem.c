@@ -1,5 +1,4 @@
 #include "_ymem.h"
-#include "Python.h"
 
 static unsigned long memused=0;
 

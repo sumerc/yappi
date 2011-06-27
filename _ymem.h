@@ -1,7 +1,7 @@
 #ifndef YMEM_H
 #define YMEM_H
 
-#include "stdlib.h"
+#include "_ystatic.h"
 #include "_ydebug.h"
 
 struct dnode {
