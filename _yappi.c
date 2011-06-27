@@ -60,6 +60,11 @@ typedef struct {
     char fname[FUNC_NAME_LEN+1];
 } _statitem; //statitem created while getting stats
 
+// Issue #25: Python debug build reference count fix.
+typedef struct {
+    char *c_str;
+    PyObject *py_str;
+} _mstr;
 
 struct _stat_node_t {
     _statitem *it;
@@ -133,44 +138,46 @@ _create_ctx(void)
     return ctx;
 }
 
-
 // extracts the function name from a given pit. Note that pit->co may be
 // either a PyCodeObject or a descriptive string.
-static char *
+static _mstr
 _item2fname(_pit *pt)
 {
-    char *buf;
-    PyObject *fname;
+    _mstr result;
 
-    if (!pt)
-        return NULL;
+    result.c_str = "N/A";
+    result.py_str = NULL;
+    
+    if (!pt) {
+        return result;
+    }
 
     if (PyCode_Check(pt->co)) {
 #ifdef IS_PY3K
-    fname =  PyUnicode_FromFormat( "%U.%U:%d",
+    result.py_str =  PyUnicode_FromFormat( "%U.%U:%d",
     								(((PyCodeObject *)pt->co)->co_filename),
     								(((PyCodeObject *)pt->co)->co_name),
                                     ((PyCodeObject *)pt->co)->co_firstlineno );
 #else
-    fname =  PyString_FromFormat( "%s.%s:%d",
+    result.py_str =  PyString_FromFormat( "%s.%s:%d",
                                     PyString_AS_STRING(((PyCodeObject *)pt->co)->co_filename),
                                     PyString_AS_STRING(((PyCodeObject *)pt->co)->co_name),
                                     ((PyCodeObject *)pt->co)->co_firstlineno );
 #endif
     } else {
-        fname = pt->co;
+        result.py_str = pt->co;
     }
     
 // TODO:memleak on buf?
 #ifdef IS_PY3K    
-    buf = PyBytes_AS_STRING(PyUnicode_AsUTF8String(fname));
+    result.c_str = PyBytes_AS_STRING(PyUnicode_AsUTF8String(result.py_str));
 #else
-    buf = PyString_AS_STRING(fname); 
+    result.c_str = PyString_AS_STRING(result.py_str); 
 #endif    
-    if (PyCode_Check(pt->co)) {
-        Py_DECREF(fname);
+    if (!result.c_str) {
+        result.c_str = "N/A";
     }
-    return buf;
+    return result;
 }
 
 char *
@@ -676,30 +683,32 @@ _pitenumstat(_hitem *item, void * arg)
 {
     long long cumdiff;
     PyObject *efn;
-    char *fname;
+    _mstr fname_s;
     _pit *pt;
 
     pt = (_pit *)item->val;
-    cumdiff = _calc_cumdiff(pt->ttotal, pt->tsubtotal);
-    efn = (PyObject *)arg;
-
-    fname = _item2fname(pt);
-    if (!fname)
-        fname = "N/A";
-
     // do not show builtin pits if specified
     if  ((!flags.builtins) && (pt->builtin))
         return 0;
+    
+    cumdiff = _calc_cumdiff(pt->ttotal, pt->tsubtotal);
+    efn = (PyObject *)arg;
 
+    fname_s = _item2fname(pt);
+    
     // We may have MT issues here!!! declaring a preenum func in yappi.py
     // does not help as we need a per-profiler sync. object for this. This means
     // additional complexity and additional overhead. Any idea on this?
     // Do we really have an mt issue here? The parameters that are sent to the
     // function does not directly use the same ones, they will copied over to the VM.
-    PyObject_CallFunction(efn, "((skff))", fname,
+    PyObject_CallFunction(efn, "((skff))", fname_s.c_str,
                           pt->callcount, pt->ttotal * tickfactor() * flags.timing_sample,
                           cumdiff * tickfactor() * flags.timing_sample);
-
+    
+    if (PyCode_Check(pt->co)) {
+        Py_DECREF(fname_s.py_str);
+    }
+    
     return 0;
 }
 
@@ -908,27 +917,30 @@ static int
 _pitenumstat2(_hitem *item, void * arg)
 {
     _pit *pt;
-    char *fname;
+    _mstr fname_s;
     _statitem *si;
     long long cumdiff;
     _statnode *sni;
 
     pt = (_pit *)item->val;
-    cumdiff = _calc_cumdiff(pt->ttotal, pt->tsubtotal);
-    fname = _item2fname(pt);
-    if (!fname)
-        fname = "N/A";
-
     // do not show builtins if specified in yappi.start(..)
     if  ((!flags.builtins) && (pt->builtin))
         return 0;
-
-    si = _create_statitem(fname, pt->callcount, pt->ttotal * tickfactor() * flags.timing_sample,
+    cumdiff = _calc_cumdiff(pt->ttotal, pt->tsubtotal);
+    
+    fname_s = _item2fname(pt);
+    
+    si = _create_statitem(fname_s.c_str, pt->callcount, pt->ttotal * tickfactor() * flags.timing_sample,
                           cumdiff * tickfactor() * flags.timing_sample,
                           (pt->ttotal * tickfactor() * flags.timing_sample) / pt->callcount);
-
+    
+    if (PyCode_Check(pt->co)) {
+        Py_DECREF(fname_s.py_str);
+    }
+    
     if (!si)
         return 1; // abort enumeration
+        
     sni = (_statnode *)ymalloc(sizeof(_statnode));
     if (!sni)
         return 1; // abort enumeration
@@ -956,17 +968,16 @@ _ctxenumdel(_hitem *item, void *arg)
 static int
 _ctxenumstat(_hitem *item, void *arg)
 {
-    char *fname, *tcname;
+    char *tcname;
+    _mstr fname_s;
     _ctx * ctx;
     char temp[LINE_LEN];
     PyObject *buf;
 
     ctx = (_ctx *)item->val;
 
-    fname = _item2fname(ctx->last_pit);
-    if (!fname)
-        fname = "N/A";
-
+    fname_s = _item2fname(ctx->last_pit);
+    
     memset(temp, 0, LINE_LEN);
 
     tcname = ctx->class_name;
@@ -975,10 +986,14 @@ _ctxenumstat(_hitem *item, void *arg)
 
     _yformat_string(tcname, temp, THREAD_NAME_LEN);
     _yformat_long(ctx->id, temp);
-    _yformat_string(fname, temp, FUNC_NAME_LEN);
+    _yformat_string(fname_s.c_str, temp, FUNC_NAME_LEN);
     _yformat_ulong(ctx->sched_cnt, temp);
     _yformat_double(ctx->ttotal * tickfactor(), temp);
 
+    if (PyCode_Check(ctx->last_pit)) {
+        Py_DECREF(fname_s.py_str);
+    }
+    
 #ifdef IS_PY3K  
     buf = PyUnicode_FromString(temp);    
 #else
