@@ -5,7 +5,7 @@ long_description = f.read()
 
 HOMEPAGE = "http://yappi.googlecode.com/"
 NAME = "yappi"
-VERSION = "0.53"
+VERSION = "0.54"
 
 setup(name=NAME, 
     version=VERSION,    
