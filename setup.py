@@ -23,6 +23,7 @@ setup(name=NAME,
             #define_macros=[('DEBUG_MEM', '1')],		
             #extra_link_args = ["-lrt"]
             #extra_compile_args = ["TEST"]
+            #extra_compile_args = ["-E"]
         )
     ],
     py_modules =  ["yappi"],

@@ -3,7 +3,7 @@
  yappi
  Yet Another Python Profiler
 
- Sumer Cip 2010
+ Sumer Cip 2011
 
 */
 
@@ -22,10 +22,11 @@
 #include "_ydebug.h"
 #include "_ytiming.h"
 #include "_yfreelist.h"
-
 #include "_ymem.h"
 
+#ifdef IS_PY3K
 PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
+#endif
 
 // module macros
 #define YSTRMOVEND(s) (*s += strlen(*s))
@@ -173,7 +174,6 @@ _item2fname(_pit *pt)
         result.py_str = pt->co;
     }
     
-// TODO:memleak on buf?
 #ifdef IS_PY3K    
     result.c_str = PyBytes_AS_STRING(PyUnicode_AsUTF8String(result.py_str));
 #else
@@ -616,6 +616,7 @@ profile_event(PyObject *self, PyObject *args)
         return NULL;
     }
 
+
     _ensure_thread_profiled(PyThreadState_GET());
     
 #ifdef IS_PY3K
@@ -920,7 +921,7 @@ _clear_stats_internal(void)
 }
 
 static int
-_pitenumstat2(_hitem *item, void * arg)
+_pitenumstat2(_hitem *item, void *arg)
 {
     _pit *pt;
     _mstr fname_s;
@@ -954,7 +955,7 @@ _pitenumstat2(_hitem *item, void * arg)
         return 1; // abort enumeration
     sni->it = si;
 
-    _insert_stats_internal(sni, (int)arg);
+    _insert_stats_internal(sni, *(int *)arg);
 
     return 0;
 }
@@ -1101,12 +1102,8 @@ get_stats(PyObject *self, PyObject *args)
     }
 
     // enum and present stats in a linked list.(statshead)
-    // issue 22: It is safe to cast type to void * here because, we only need and int, we do not have
-    // a pointer data for using in _pitenumstat2(). On x86-64, int is 32 while pointer is 64, intptr_t
-    // is used for this conversions, but here, we do not need that functionality and also on some platforms
-    // (OSX) comparison between uintptr_t and int do not work as intended even if the values are in int bounds.
-    // Somebody know the reason? Well, I don't...:)
-    henum(pits, _pitenumstat2, (void *)type);
+    // issue 22: pass pointer instead of all of the comparison mess.
+    henum(pits, _pitenumstat2, &type);
     _order_stats_internal(order);
 
     li = PyList_New(0);

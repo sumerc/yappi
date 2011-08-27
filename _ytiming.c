@@ -43,7 +43,7 @@ tickcount(void)
 #ifdef GETTIMEOFDAY_NO_TZ
     gettimeofday(&tv);
 #else
-gettimeofday(&tv, (struct timezone *)NULL);
+    gettimeofday(&tv, (struct timezone *)NULL);
 #endif
     rc = tv.tv_sec;
     rc = rc * 1000000 + tv.tv_usec;
