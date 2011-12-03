@@ -62,7 +62,36 @@ def print_stats(sorttype=_yappi.SORTTYPE_NCALL,
 def clear_stats():
     _yappi.clear_stats()
 
-if __name__ != "__main__":
-    pass
+def main():
+    import os, sys
+    from optparse import OptionParser
+    usage = "yappi.py [-b] [-s timing_sample_value] [scriptfile] args ..."
+    parser = OptionParser(usage=usage)
+    parser.allow_interspersed_args = False
+    parser.add_option("-b", "--builtins",
+                  action="store_true", dest="profile_builtins", default=False,
+                  help="Profiles builtin functions when set. [default: False]") 
+    parser.add_option("-s", "--sample",
+                  type="int", dest="timing_sample", default=1,
+                  help="Profiles functions every sample call. [default: 1]")
+    if not sys.argv[1:]:
+        parser.print_usage()
+        sys.exit(2)
+
+    (options, args) = parser.parse_args()
+    sys.argv[:] = args
+
+    if (len(sys.argv) > 0):
+        sys.path.insert(0, os.path.dirname(sys.argv[0]))
+        start(options.profile_builtins, options.timing_sample)
+        execfile(sys.argv[0])
+        stop()
+        print_stats() # TODO: accept params for this
+    else:
+        parser.print_usage()
+    return parser
+    
+if __name__ == "__main__":
+    main()
 
 
