@@ -12,14 +12,14 @@ import _yappi
 
 __all__ = ['start', 'stop', 'enum_stats', 'print_stats', 'clear_stats']
 
-SORTTYPE_NAME = _yappi.SORTTYPE_NAME
-SORTTYPE_NCALL = _yappi.SORTTYPE_NCALL
-SORTTYPE_TTOTAL = _yappi.SORTTYPE_TTOTAL
-SORTTYPE_TSUB = _yappi.SORTTYPE_TSUB
-SORTTYPE_TAVG = _yappi.SORTTYPE_TAVG
-SORTORDER_ASCENDING = _yappi.SORTORDER_ASCENDING
-SORTORDER_DESCENDING = _yappi.SORTORDER_DESCENDING
-SHOW_ALL = _yappi.SHOW_ALL
+SORTTYPE_NAME = 0
+SORTTYPE_NCALL = 1
+SORTTYPE_TTOTAL = 2
+SORTTYPE_TSUB = 3
+SORTTYPE_TAVG = 4
+SORTORDER_ASCENDING = 0
+SORTORDER_DESCENDING = 1
+SHOW_ALL = 0
 
 '''
  __callback will only be called once per-thread. _yappi will detect
@@ -48,14 +48,13 @@ def stop():
 def enum_stats(fenum):
     _yappi.enum_stats(fenum)
 
-def get_stats(sorttype=_yappi.SORTTYPE_NCALL,
-        sortorder=_yappi.SORTORDER_DESCENDING,
-        limit=_yappi.SHOW_ALL):
+def enum_thread_stats(fenum):
+    _yappi.enum_thread_stats(fenum)
+
+def get_stats():
     return _yappi.get_stats(sorttype, sortorder, limit)
 
-def print_stats(sorttype=_yappi.SORTTYPE_NCALL,
-        sortorder=_yappi.SORTORDER_DESCENDING,
-        limit=_yappi.SHOW_ALL):
+def print_stats():
     li = get_stats(sorttype, sortorder, limit)
     for it in li: print(it)
 

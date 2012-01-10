@@ -28,9 +28,6 @@
 PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
 #endif
 
-// module macros
-#define YSTRMOVEND(s) (*s += strlen(*s))
-
 // module definitions
 typedef struct {
     PyObject *co; // CodeObject or MethodDef descriptive string.
@@ -52,33 +49,14 @@ typedef struct {
     int builtins;
 } _flag; // flags passed from yappi.start()
 
-
-// stat related definitions
-typedef struct {
-    unsigned long callcount;
-    double ttot;
-    double tsub;
-    double tavg;
-    char result[LINE_LEN+1];
-    char fname[FUNC_NAME_LEN+1];
-} _statitem; //statitem created while getting stats
-
 // Issue #25: Python debug build reference count fix.
 typedef struct {
     char *c_str;
     PyObject *py_str;
 } _mstr;
 
-struct _stat_node_t {
-    _statitem *it;
-    struct _stat_node_t *next;
-};
-typedef struct _stat_node_t _statnode; // linked list used for appending stats
-
-
 // profiler global vars
 static PyObject *YappiProfileError;
-static _statnode *statshead;
 static _htab *contexts;
 static _htab *pits;
 static _flag flags;
@@ -572,7 +550,6 @@ _init_profiler(void)
         if (!flctx)
             return 0;
         yappinitialized = 1;
-        statshead = NULL;
         current_ctx = NULL;
         prev_ctx = NULL;
     }
@@ -655,282 +632,6 @@ _calc_cumdiff(long long a, long long b)
 }
 
 static int
-_pitenumstat(_hitem *item, void * arg)
-{
-    long long cumdiff;
-    PyObject *efn;
-    _mstr fname_s;
-    _pit *pt;
-
-    pt = (_pit *)item->val;
-    // do not show builtin pits if specified
-    if  ((!flags.builtins) && (pt->builtin))
-        return 0;
-    
-    cumdiff = _calc_cumdiff(pt->ttotal, pt->tsubtotal);
-    efn = (PyObject *)arg;
-
-    fname_s = _item2fname(pt);
-    
-    // We may have MT issues here!!! declaring a preenum func in yappi.py
-    // does not help as we need a per-profiler sync. object for this. This means
-    // additional complexity and additional overhead. Any idea on this?
-    // Do we really have an mt issue here? The parameters that are sent to the
-    // function does not directly use the same ones, they will copied over to the VM.
-    PyObject_CallFunction(efn, "((skff))", fname_s.c_str,
-                          pt->callcount, pt->ttotal * tickfactor(),
-                          cumdiff * tickfactor());
-    if (pt) {
-        if (PyCode_Check(pt->co)) {
-            Py_DECREF(fname_s.py_str);
-        }
-    }
-    
-    return 0;
-}
-
-// adds spaces to extend to the size, or shrinks the string
-// from wrapfrom d�rection with adding dots.
-void
-_yzipstr(char *s, int size, int wrapfrom)
-{
-    int i,len;
-
-    len = strlen(s);
-
-    for(i=len; i<size; i++)
-        s[i]  = ' ';
-    s[size] = '\0';
-
-    // no wrapping needed?
-    if (len+ZIP_MARGIN_LEN < size)
-        return;
-
-    // extend the string with spaces
-    for(i=0; i<ZIP_MARGIN_LEN; i++)
-        s[size-i-1] = ' ';
-
-    // wrap the string according to the direction
-    if (wrapfrom == M_LEFT) {
-        for(i=0; i<ZIP_DOT_COUNT; i++)
-            s[i] = '.';
-    } else {
-        for(i=0; i<ZIP_DOT_COUNT; i++)
-            s[size-i-ZIP_MARGIN_LEN-1] = '.';
-    }
-}
-
-// From Python 2.6.5 Doc:
-// PyOS_snprintf() and PyOS_vsnprintf() wrap the Standard C library functions snprintf() and vsnprintf(). Their
-// purpose is to guarantee consistent behavior in corner cases, which the Standard C functions do not.
-// The wrappers ensure that str*[*size-1] is always '\0' upon return. They never write more than size bytes
-// (including the trailing '\0' into str. Both functions require that str != NULL, size > 0 and format != NULL.
-// If the platform doesn't have vsnprintf() and the buffer size needed to avoid truncation exceeds size by more
-// than 512 bytes, Python aborts with a Py_FatalError.The return value (rv) for these functions should be
-// interpreted as follows: When 0 <= rv < size, the output conversion was successful and rv characters were
-// written to str (excluding the trailing '\0' byte at str*[*rv]).When rv >= size, the output conversion was
-// truncated and a buffer with rv + 1 bytes would have been needed to succeed. str*[*size-1] is '\0' in this
-// case.When rv < 0, something bad happened. str*[*size-1] is '\0' in this case too, but the rest of str is
-// undefined. The exact cause of the error depends on the underlying platform. The following functions provide
-// locale-independent string to number conversions. Copies the size bytes of the string 'a' to the end of the
-// result string 's' and zipstr the result string.
-void
-_yformat_string(char *a, char *s, int size)
-{
-    int slen;
-
-    YSTRMOVEND(&s);
-    slen = strlen(a);
-    if (slen > size) {
-        PyOS_snprintf(s, size, "%s", &a[slen-size]);
-    } else {
-        PyOS_snprintf(s, size, "%s", a);
-    }
-    _yzipstr(s, size, M_LEFT);
-}
-
-void
-_yformat_double(double a, char *s)
-{
-    YSTRMOVEND(&s);
-    PyOS_snprintf(s, DOUBLE_COLUMN_LEN, "%0.6f", a);
-    _yzipstr(s, DOUBLE_COLUMN_LEN, M_RIGHT);
-}
-
-void
-_yformat_ulong(unsigned long a, char *s)
-{
-    YSTRMOVEND(&s);
-    PyOS_snprintf(s, INT_COLUMN_LEN, "%lu", a);
-    _yzipstr(s, INT_COLUMN_LEN, M_RIGHT);
-}
-
-void
-_yformat_long(long a, char *s)
-{
-    YSTRMOVEND(&s);
-    PyOS_snprintf(s, LONG_COLUMN_LEN, "%ld", a);
-    _yzipstr(s, LONG_COLUMN_LEN, M_RIGHT);
-}
-
-void
-_yformat_int(int a, char *s)
-{
-    YSTRMOVEND(&s);
-    PyOS_snprintf(s, INT_COLUMN_LEN, "%d", a);
-    _yzipstr(s, INT_COLUMN_LEN, M_RIGHT);
-}
-
-_statitem *
-_create_statitem(char *fname, unsigned long callcount, double ttot, double tsub, double tavg)
-{
-    _statitem *si;
-
-    si = (_statitem *)ymalloc(sizeof(_statitem));
-    if (!si)
-        return NULL;
-
-    // init the stat item fields.
-    memset(si->fname, 0, FUNC_NAME_LEN);
-    memset(si->result, 0, LINE_LEN);
-
-    _yformat_string(fname, si->fname, FUNC_NAME_LEN);
-    si->callcount = callcount;
-    si->ttot = ttot;
-    si->tsub = tsub;
-    si->tavg = tavg;
-
-    // generate the result string field.
-    _yformat_string(fname, si->result, FUNC_NAME_LEN);
-    _yformat_ulong(callcount, si->result);
-    _yformat_double(tsub, si->result);
-    _yformat_double(ttot, si->result);
-    _yformat_double(tavg, si->result);
-
-
-    return si;
-}
-
-// inserts items to statshead pointed linked list for later usage according to the
-// sorttype param. Note that sorting is descending by default. Read reverse from list
-// to have a ascending order.
-void
-_insert_stats_internal(_statnode *sn, int sorttype)
-{
-    _statnode *p, *prev;
-
-    prev = NULL;
-    p = statshead;
-    while(p) {
-        //dprintf("sn:%p, sn->it:%p : p:%p, p->it:%p.\n", sn, sn->it, p, p->it);
-        if (sorttype == STAT_SORT_TIME_TOTAL) {
-            if (sn->it->ttot > p->it->ttot)
-                break;
-        } else if (sorttype == STAT_SORT_CALL_COUNT) {
-            if (sn->it->callcount > p->it->callcount)
-                break;
-        } else if (sorttype == STAT_SORT_TIME_SUB) {
-            if (sn->it->tsub > p->it->tsub)
-                break;
-        } else if (sorttype == STAT_SORT_TIME_AVG) {
-            if (sn->it->tavg > p->it->tavg)
-                break;
-        } else if (sorttype == STAT_SORT_FUNC_NAME) {
-            if (strcmp(sn->it->fname, p->it->fname) > 0)
-                break;
-        }
-        prev = p;
-        p = p->next;
-    }
-
-    // insert at head
-    if (!prev) {
-        sn->next = statshead;
-        statshead = sn;
-    } else {
-        sn->next = prev->next;
-        prev->next = sn;
-    }
-}
-
-// reverses the statshead list according to a given order.
-void
-_order_stats_internal(int order)
-{
-    _statnode *p,*tmp,*pr;
-
-    if (order == STAT_SORT_DESCENDING) {
-        ; // nothing to do as internal order is by default descending
-    } else if (order == STAT_SORT_ASCENDING) {
-        // reverse stat linked list
-        pr = tmp = NULL;
-        p = statshead;
-        while (p != NULL) {
-            tmp  = p->next;
-            p->next = pr;
-            pr = p;
-            p = tmp;
-        }
-        statshead = pr;
-    }
-}
-
-void
-_clear_stats_internal(void)
-{
-    _statnode *p,*next;
-
-    p = statshead;
-    while(p) {
-        next = p->next;
-        yfree(p->it);
-        yfree(p);
-        p = next;
-    }
-    statshead = NULL;
-}
-
-static int
-_pitenumstat2(_hitem *item, void *arg)
-{
-    _pit *pt;
-    _mstr fname_s;
-    _statitem *si;
-    long long cumdiff;
-    _statnode *sni;
-
-    pt = (_pit *)item->val;
-    // do not show builtins if specified in yappi.start(..)
-    if  ((!flags.builtins) && (pt->builtin))
-        return 0;
-    cumdiff = _calc_cumdiff(pt->ttotal, pt->tsubtotal);
-    
-    fname_s = _item2fname(pt);
-    
-    si = _create_statitem(fname_s.c_str, pt->callcount, pt->ttotal * tickfactor(),
-                          cumdiff * tickfactor(),
-                          (pt->ttotal * tickfactor()) / pt->callcount);
-    
-    if (pt) {
-        if (PyCode_Check(pt->co)) {
-            Py_DECREF(fname_s.py_str);
-        }
-    }
-    
-    if (!si)
-        return 1; // abort enumeration
-        
-    sni = (_statnode *)ymalloc(sizeof(_statnode));
-    if (!sni)
-        return 1; // abort enumeration
-    sni->it = si;
-
-    _insert_stats_internal(sni, *(int *)arg);
-
-    return 0;
-}
-
-static int
 _pitenumdel(_hitem *item, void *arg)
 {
     _del_pit((_pit *)item->val);
@@ -941,51 +642,6 @@ static int
 _ctxenumdel(_hitem *item, void *arg)
 {
     _del_ctx(((_ctx *)item->val) );
-    return 0;
-}
-
-static int
-_ctxenumstat(_hitem *item, void *arg)
-{
-    char *tcname;
-    _mstr fname_s;
-    _ctx * ctx;
-    char temp[LINE_LEN];
-    PyObject *buf;
-
-    ctx = (_ctx *)item->val;
-
-    fname_s = _item2fname(ctx->last_pit);
-    
-    memset(temp, 0, LINE_LEN);
-
-    tcname = ctx->class_name;
-    if (tcname == NULL)
-        tcname = "N/A";
-
-    _yformat_string(tcname, temp, THREAD_NAME_LEN);
-    _yformat_long(ctx->id, temp);
-    _yformat_string(fname_s.c_str, temp, FUNC_NAME_LEN);
-    _yformat_ulong(ctx->sched_cnt, temp);
-    
-    if (ctx->last_pit) {
-        if (PyCode_Check(ctx->last_pit->co)) {
-            Py_DECREF(fname_s.py_str);
-        }
-    }
-           
-    
-#ifdef IS_PY3K  
-    buf = PyUnicode_FromString(temp);    
-#else
-    buf = PyString_FromString(temp);
-#endif
-    if (!buf)
-        return 0; // just continue.
-
-    if (PyList_Append((PyObject *)arg, buf) < 0)
-        return 0; // just continue.
-
     return 0;
 }
 
@@ -1034,139 +690,91 @@ clear_stats(PyObject *self, PyObject *args)
     return Py_None;
 }
 
-static PyObject*
-get_stats(PyObject *self, PyObject *args)
+static int
+_ctxenumstat(_hitem *item, void *arg)
 {
+    PyObject *efn;
+    char *tcname;
+    _mstr fname_s;
+    _ctx * ctx;
 
-    char *prof_state,*timestr;
-    _statnode *p;
-    PyObject *buf,*li;
-    int order, limit, fcnt, type;
-    char temp[LINE_LEN];
-    long long appttotal;
+    ctx = (_ctx *)item->val;
 
-    li = buf = NULL;
+    fname_s = _item2fname(ctx->last_pit);
+    tcname = ctx->class_name;
+    if (tcname == NULL)
+        tcname = "N/A";
+    efn = (PyObject *)arg;
+    
+    PyObject_CallFunction(efn, "((sksk))", tcname,
+                          ctx->id, fname_s.c_str,
+                          ctx->sched_cnt);
+    
+    if (ctx->last_pit) {
+        if (PyCode_Check(ctx->last_pit->co)) {
+            Py_DECREF(fname_s.py_str);
+        }
+    }
+    
+    return 0;
+           
+}
+
+static PyObject*
+enum_thread_stats(PyObject *self, PyObject *args)
+{
+    PyObject *enumfn;
 
     if (!yapphavestats) {
         PyErr_SetString(YappiProfileError, "profiler do not have any statistics. not started?");
-        goto err;
+        return NULL;
     }
 
-    if (!PyArg_ParseTuple(args, "iii", &type, &order, &limit)) {
-        PyErr_SetString(YappiProfileError, "invalid param to get_stats");
-        goto err;
-    }
-    // sorttype/order/limit is in valid bounds?
-    if ((type < 0) || (type > STAT_SORT_TYPE_MAX)) {
-        PyErr_SetString(YappiProfileError, "sorttype param for get_stats is out of bounds");
-        goto err;
-    }
-    if ((order < 0) || (order > STAT_SORT_ORDER_MAX)) {
-        PyErr_SetString(YappiProfileError, "sortorder param for get_stats is out of bounds");
-        goto err;
-    }
-    if (limit < STAT_SHOW_ALL) {
-        PyErr_SetString(YappiProfileError, "limit param for get_stats is out of bounds");
-        goto err;
+    if (!PyArg_ParseTuple(args, "O", &enumfn)) {
+        PyErr_SetString(YappiProfileError, "invalid param to enum_thread_stats");
+        return NULL;
     }
 
-    // enum and present stats in a linked list.(statshead)
-    // issue 22: pass pointer instead of all of the comparison mess.
-    henum(pits, _pitenumstat2, &type);
-    _order_stats_internal(order);
-
-    li = PyList_New(0);
-    if (!li)
-        goto err;
-
-#ifdef IS_PY3K
-    if (PyList_Append(li, PyUnicode_FromString(STAT_HEADER_STR)) < 0) {
-#else
-    if (PyList_Append(li, PyString_FromString(STAT_HEADER_STR)) < 0) {
-#endif
-        goto err;
+    if (!PyCallable_Check(enumfn)) {
+        PyErr_SetString(YappiProfileError, "enum function must be callable");
+        return NULL;
     }
+    
+    henum(contexts, _ctxenumstat, enumfn);
 
-    fcnt = 0;
-    p = statshead;
-    while(p) {
-        // limit reached?
-        if (limit != STAT_SHOW_ALL) {
-            if (fcnt == limit)
-                break;
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
+static int
+_pitenumstat(_hitem *item, void * arg)
+{
+    long long cumdiff;
+    PyObject *efn;
+    _mstr fname_s;
+    _pit *pt;
+
+    pt = (_pit *)item->val;
+    // do not show builtin pits if specified
+    if  ((!flags.builtins) && (pt->builtin))
+        return 0;
+    
+    cumdiff = _calc_cumdiff(pt->ttotal, pt->tsubtotal);
+    efn = (PyObject *)arg;
+
+    fname_s = _item2fname(pt);
+    
+    PyObject_CallFunction(efn, "((skff))", fname_s.c_str,
+                          pt->callcount, pt->ttotal * tickfactor(),
+                          cumdiff * tickfactor());
+    if (pt) {
+        if (PyCode_Check(pt->co)) {
+            Py_DECREF(fname_s.py_str);
         }
-#ifdef IS_PY3K
-        buf = PyUnicode_FromString(p->it->result);
-#else
-        buf = PyString_FromString(p->it->result);
-#endif
-        if (!buf)
-            goto err;
-        if (PyList_Append(li, buf) < 0)
-            goto err;
-
-        Py_DECREF(buf);
-        fcnt++;
-        p = p->next;
-    }
-#ifdef IS_PY3K
-    if (PyList_Append(li, PyUnicode_FromString(STAT_FOOTER_STR)) < 0) {
-#else
-    if (PyList_Append(li, PyString_FromString(STAT_FOOTER_STR)) < 0) {
-#endif
-        goto err;
     }
     
-    henum(contexts, _ctxenumstat, (void *)li);
-    
-#ifdef IS_PY3K
-    if (PyList_Append(li, PyUnicode_FromString(STAT_FOOTER_STR2)) < 0) {
-#else
-    if (PyList_Append(li, PyString_FromString(STAT_FOOTER_STR2)) < 0) {        
-#endif
-        goto err;
-    }
-    
-    if (yapprunning) {
-        appttotal = tickcount()-yappstarttick;
-        prof_state = "running";
-    } else {
-        appttotal = yappstoptick - yappstarttick;
-        prof_state = "stopped";
-    }
-
-    memset(temp, 0, LINE_LEN);
-    _yformat_string(prof_state, temp, DOUBLE_COLUMN_LEN);
-
-    // FIX: Issue #13.
-    // ctime() string is a static allocated block of char and it is followed by a '\n'
-    // char let's exclude it. See:
-    // http://www.cplusplus.com/reference/clibrary/ctime/ctime/
-    timestr = ctime(&yappstarttime);
-    timestr[strlen(timestr)-1] = '\0';
-
-    _yformat_string(timestr, temp, TIMESTR_COLUMN_LEN);
-    _yformat_int(hcount(pits), temp);
-    _yformat_int(hcount(contexts), temp);
-    _yformat_ulong(ymemusage(), temp);
-
-#ifdef IS_PY3K
-    if (PyList_Append(li, PyUnicode_FromString(temp)) < 0) {
-#else
-    if (PyList_Append(li, PyString_FromString(temp)) < 0) {
-#endif
-        goto err;
-    }
-
-    // clear the internal pit stat items that are generated temporarily.
-    _clear_stats_internal();
-
-    return li;
-err:
-    _clear_stats_internal();
-    Py_XDECREF(li);
-    Py_XDECREF(buf);
-    return NULL;
+    return 0;
 }
 
 static PyObject*
@@ -1198,8 +806,8 @@ enum_stats(PyObject *self, PyObject *args)
 static PyMethodDef yappi_methods[] = {
     {"start", start, METH_VARARGS, NULL},
     {"stop", stop, METH_VARARGS, NULL},
-    {"get_stats", get_stats, METH_VARARGS, NULL},
     {"enum_stats", enum_stats, METH_VARARGS, NULL},
+    {"enum_thread_stats", enum_thread_stats, METH_VARARGS, NULL},
     {"clear_stats", clear_stats, METH_VARARGS, NULL},
     {"profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage. do not call this.
     {NULL, NULL}      /* sentinel */
@@ -1241,16 +849,6 @@ init_yappi(void)
     d = PyModule_GetDict(m);
     YappiProfileError = PyErr_NewException("_yappi.error", NULL, NULL);
     PyDict_SetItemString(d, "error", YappiProfileError);
-
-    // add int constants
-    PyModule_AddIntConstant(m, "SORTTYPE_NAME", STAT_SORT_FUNC_NAME);
-    PyModule_AddIntConstant(m, "SORTTYPE_NCALL", STAT_SORT_CALL_COUNT);
-    PyModule_AddIntConstant(m, "SORTTYPE_TTOTAL", STAT_SORT_TIME_TOTAL);
-    PyModule_AddIntConstant(m, "SORTTYPE_TSUB", STAT_SORT_TIME_SUB);
-    PyModule_AddIntConstant(m, "SORTTYPE_TAVG", STAT_SORT_TIME_AVG);
-    PyModule_AddIntConstant(m, "SORTORDER_ASCENDING", STAT_SORT_ASCENDING);
-    PyModule_AddIntConstant(m, "SORTORDER_DESCENDING", STAT_SORT_DESCENDING);
-    PyModule_AddIntConstant(m, "SHOW_ALL", STAT_SHOW_ALL);
 
     // init the profiler memory and internal constants
     yappinitialized = 0;
