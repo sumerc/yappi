@@ -51,10 +51,16 @@ def enum_stats(fenum):
 def enum_thread_stats(fenum):
     _yappi.enum_thread_stats(fenum)
 
-def get_stats():
-    return _yappi.get_stats(sorttype, sortorder, limit)
+def get_stats(sorttype=SORTTYPE_NCALL, sortorder=SORTORDER_DESCENDING, limit=SHOW_ALL):
+    def fenum(entry):
+        print entry
+    def tenum(entry):
+        print entry
+    enum_stats(fenum)
+    enum_thread_stats(tenum)
+    return ""
 
-def print_stats():
+def print_stats(sorttype=SORTTYPE_NCALL, sortorder=SORTORDER_DESCENDING, limit=SHOW_ALL):
     li = get_stats(sorttype, sortorder, limit)
     for it in li: print(it)
 

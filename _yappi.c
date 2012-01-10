@@ -568,7 +568,6 @@ profile_event(PyObject *self, PyObject *args)
         return NULL;
     }
 
-
     _ensure_thread_profiled(PyThreadState_GET());
     
 #ifdef IS_PY3K
@@ -706,9 +705,9 @@ _ctxenumstat(_hitem *item, void *arg)
         tcname = "N/A";
     efn = (PyObject *)arg;
     
-    PyObject_CallFunction(efn, "((sksk))", tcname,
-                          ctx->id, fname_s.c_str,
-                          ctx->sched_cnt);
+    PyObject_CallFunction(efn, "{sssksssk}", "thread_name", tcname,
+                          "thread_id", ctx->id, "last_func_name", fname_s.c_str,
+                          "thread_schedule_count", ctx->sched_cnt);
     
     if (ctx->last_pit) {
         if (PyCode_Check(ctx->last_pit->co)) {
@@ -765,9 +764,9 @@ _pitenumstat(_hitem *item, void * arg)
 
     fname_s = _item2fname(pt);
     
-    PyObject_CallFunction(efn, "((skff))", fname_s.c_str,
-                          pt->callcount, pt->ttotal * tickfactor(),
-                          cumdiff * tickfactor());
+    PyObject_CallFunction(efn, "{sssksfsf}", "func_name", fname_s.c_str,
+                          "call_count", pt->callcount, "time_total", pt->ttotal * tickfactor(),
+                          "time_sub_total", cumdiff * tickfactor());
     if (pt) {
         if (PyCode_Check(pt->co)) {
             Py_DECREF(fname_s.py_str);
