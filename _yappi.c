@@ -38,7 +38,6 @@ typedef struct {
     long long tsubtotal;
     long long ttotal;
     int builtin;
-    int cpc;
 } _pit; // profile_item
 
 typedef struct {
@@ -46,13 +45,11 @@ typedef struct {
     long id;
     _pit *last_pit;
     unsigned long sched_cnt;
-    long long ttotal;
     char *class_name;
 } _ctx; // context
 
 typedef struct {
     int builtins;
-    int timing_sample;
 } _flag; // flags passed from yappi.start()
 
 
@@ -114,14 +111,6 @@ _create_pit(void)
     pit->co = NULL;
     pit->builtin = 0;
 
-    // we do not profile the fist time as if the first timing measures
-    // can give incorrect calculations because of the caching behavior
-    // of Python. This is because we multiply the flags.timing_sample
-    // with the timing values of the function for the cold start. So just
-    // do not measure time the first time unless timing sample is "1" of
-    // course.
-    pit->cpc = 0;
-
     return pit;
 }
 
@@ -138,7 +127,6 @@ _create_ctx(void)
         return NULL;
     ctx->last_pit = NULL;
     ctx->sched_cnt = 0;
-    ctx->ttotal = 0;
     ctx->id = 0;
     ctx->class_name = NULL;
     return ctx;
@@ -368,7 +356,7 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     _pit *cp;
     PyObject *last_type, *last_value, *last_tb;
     _cstackitem *hci;
-
+    
     PyErr_Fetch(&last_type, &last_value, &last_tb);
 
     if (ccall) {
@@ -390,11 +378,7 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         goto err;
     }
 
-    // do not do timing measures until timing_sample is reached.
-    if (++cp->cpc >= flags.timing_sample) {
-        hci->t0 = tickcount();
-    }
-
+    hci->t0 = tickcount();
     cp->callcount++;
 
     // do not show builtin pits if specified even in last_pit of the context.
@@ -419,20 +403,14 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg)
     _pit *cp, *pp;
     _cstackitem *ci,*pi;
     long long elapsed;
-
+   
     ci = spop(current_ctx->cs);
     if (!ci) {
         return; // leaving a frame while callstack is empty
     }
     cp = ci->ckey;
 
-    // timing sample reached?
-    if (cp->cpc < flags.timing_sample) {
-        return;
-    }
-
     elapsed = tickcount() - ci->t0;
-    cp->cpc = 0;
 
     // get the parent function in the callstack
     pi = shead(current_ctx->cs);
@@ -441,12 +419,11 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg)
         return;
     }
     pp = pi->ckey;
-
+    
     // are we leaving a recursive function that is already in the callstack?
     // then extract the elapsed from subtotal of the the current pit(profile item).
     if (scount(current_ctx->cs, cp) > 0) {
         cp->tsubtotal -= elapsed;
-        current_ctx->ttotal -= elapsed;
     } else {
         cp->ttotal += elapsed;
     }
@@ -454,8 +431,6 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg)
     // update parent's sub total if recursive above code will extract the subtotal and
     // below code will have no effect.
     pp->tsubtotal += elapsed;
-
-    current_ctx->ttotal += elapsed;
 }
 
 // context will be cleared by the free list. we do not free it here.
@@ -648,13 +623,8 @@ start(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    if (!PyArg_ParseTuple(args, "ii", &flags.builtins, &flags.timing_sample))
+    if (!PyArg_ParseTuple(args, "i", &flags.builtins))
         return NULL;
-
-    if (flags.timing_sample < 1) {
-        PyErr_SetString(YappiProfileError, "profiler timing sample value cannot be less than 1.");
-        return NULL;
-    }
 
     if (!_init_profiler()) {
         PyErr_SetString(YappiProfileError, "profiler cannot be initialized.");
@@ -708,8 +678,8 @@ _pitenumstat(_hitem *item, void * arg)
     // Do we really have an mt issue here? The parameters that are sent to the
     // function does not directly use the same ones, they will copied over to the VM.
     PyObject_CallFunction(efn, "((skff))", fname_s.c_str,
-                          pt->callcount, pt->ttotal * tickfactor() * flags.timing_sample,
-                          cumdiff * tickfactor() * flags.timing_sample);
+                          pt->callcount, pt->ttotal * tickfactor(),
+                          cumdiff * tickfactor());
     if (pt) {
         if (PyCode_Check(pt->co)) {
             Py_DECREF(fname_s.py_str);
@@ -937,9 +907,9 @@ _pitenumstat2(_hitem *item, void *arg)
     
     fname_s = _item2fname(pt);
     
-    si = _create_statitem(fname_s.c_str, pt->callcount, pt->ttotal * tickfactor() * flags.timing_sample,
-                          cumdiff * tickfactor() * flags.timing_sample,
-                          (pt->ttotal * tickfactor() * flags.timing_sample) / pt->callcount);
+    si = _create_statitem(fname_s.c_str, pt->callcount, pt->ttotal * tickfactor(),
+                          cumdiff * tickfactor(),
+                          (pt->ttotal * tickfactor()) / pt->callcount);
     
     if (pt) {
         if (PyCode_Check(pt->co)) {
@@ -997,7 +967,6 @@ _ctxenumstat(_hitem *item, void *arg)
     _yformat_long(ctx->id, temp);
     _yformat_string(fname_s.c_str, temp, FUNC_NAME_LEN);
     _yformat_ulong(ctx->sched_cnt, temp);
-    _yformat_double(ctx->ttotal * tickfactor(), temp);
     
     if (ctx->last_pit) {
         if (PyCode_Check(ctx->last_pit->co)) {

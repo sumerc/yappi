@@ -37,9 +37,9 @@ timing_sample: will cause the profiler to do timing measuresements
                according to the value. Will increase profiler speed but
                decrease accuracy.
 '''
-def start(builtins = False, timing_sample=1):
+def start(builtins = False):
     threading.setprofile(__callback)
-    _yappi.start(builtins, timing_sample)
+    _yappi.start(builtins)
 
 def stop():
     threading.setprofile(None)
@@ -65,15 +65,12 @@ def clear_stats():
 def main():
     import os, sys
     from optparse import OptionParser
-    usage = "yappi.py [-b] [-s timing_sample_value] [scriptfile] args ..."
+    usage = "yappi.py [-b] [scriptfile] args ..."
     parser = OptionParser(usage=usage)
     parser.allow_interspersed_args = False
     parser.add_option("-b", "--builtins",
                   action="store_true", dest="profile_builtins", default=False,
                   help="Profiles builtin functions when set. [default: False]") 
-    parser.add_option("-s", "--sample",
-                  type="int", dest="timing_sample", default=1,
-                  help="Profiles functions every sample call. [default: 1]")
     if not sys.argv[1:]:
         parser.print_usage()
         sys.exit(2)
