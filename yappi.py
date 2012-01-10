@@ -21,6 +21,24 @@ SORTORDER_ASCENDING = 0
 SORTORDER_DESCENDING = 1
 SHOW_ALL = 0
 
+class Stats:
+    """
+    Holds lists of func/thread entries (entry is a dict of profile statistics)
+    """
+    func_stats = [] 
+    thread_stats = []
+        
+    def __init__(self, sort_type, sort_order, limit):
+        self._sort_type = sort_type
+        self._sort_order = sort_order
+        self._limit = limit
+    
+    def func_enumerator(self, stat_entry):
+        self.func_stats.append(stat_entry)
+        
+    def thread_enumerator(self, stat_entry):
+        self.thread_stats.append(stat_entry)
+    
 '''
  __callback will only be called once per-thread. _yappi will detect
  the new thread and changes the profilefunc param of the ThreadState
@@ -29,17 +47,26 @@ SHOW_ALL = 0
 def __callback(frame, event, arg):
     _yappi.profile_event(frame, event, arg)
     return __callback
-'''
-...
-Args:
-builtins: If set true, then builtin functions are profiled too.
-timing_sample: will cause the profiler to do timing measuresements
-               according to the value. Will increase profiler speed but
-               decrease accuracy.
-'''
+
+
 def start(builtins = False):
+    '''
+    ...
+    Args:
+    builtins: If set true, then builtin functions are profiled too.
+    timing_sample: will cause the profiler to do timing measuresements
+                   according to the value. Will increase profiler speed but
+                   decrease accuracy.
+    '''
     threading.setprofile(__callback)
     _yappi.start(builtins)
+    
+    
+def __get_stats(sorttype=SORTTYPE_NCALL, sortorder=SORTORDER_DESCENDING, limit=SHOW_ALL):
+    stats = Stats(sorttype, sortorder, limit)
+    enum_stats(stats.func_enumerator)
+    enum_thread_stats(stats.thread_enumerator)
+    return stats
 
 def stop():
     threading.setprofile(None)
@@ -51,18 +78,12 @@ def enum_stats(fenum):
 def enum_thread_stats(fenum):
     _yappi.enum_thread_stats(fenum)
 
-def get_stats(sorttype=SORTTYPE_NCALL, sortorder=SORTORDER_DESCENDING, limit=SHOW_ALL):
-    def fenum(entry):
-        print entry
-    def tenum(entry):
-        print entry
-    enum_stats(fenum)
-    enum_thread_stats(tenum)
-    return ""
-
 def print_stats(sorttype=SORTTYPE_NCALL, sortorder=SORTORDER_DESCENDING, limit=SHOW_ALL):
-    li = get_stats(sorttype, sortorder, limit)
-    for it in li: print(it)
+    stats = __get_stats(sorttype, sortorder, limit)
+    print "FUNCS"
+    for stat in stats.func_stats: print(stat)
+    print "THREAD"
+    for stat in stats.thread_stats: print(stat)
 
 def clear_stats():
     _yappi.clear_stats()
