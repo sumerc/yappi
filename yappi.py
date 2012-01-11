@@ -3,14 +3,15 @@
  yappi.py
  Yet Another Python Profiler
 
- Sumer Cip 2010
+ Sumer Cip 2011
 
 '''
 import sys
 import threading
 import _yappi
+from collections import namedtuple
 
-__all__ = ['start', 'stop', 'enum_stats', 'print_stats', 'clear_stats']
+__all__ = ['start', 'stop', 'enum_stats', 'print_stats', 'clear_stats', 'is_running', 'get_stats']
 
 SORTTYPE_NAME = 0
 SORTTYPE_NCALL = 1
@@ -21,23 +22,82 @@ SORTORDER_ASCENDING = 0
 SORTORDER_DESCENDING = 1
 SHOW_ALL = 0
 
-class Stats:
-    """
-    Holds lists of func/thread entries (entry is a dict of profile statistics)
-    """
-    func_stats = [] 
-    thread_stats = []
+class StatString:
+    
+    _s = ""
+    _TRAIL_DOT = ".."
+    
+    def __init__(self, s):        
+        self._s = str(s)
+    
+    def left_trailing_dots(self, length):
+        if len(self._s) > length:
+            self._s = self._s[-length:]
+            return self._TRAIL_DOT + self._s[len(self._TRAIL_DOT):]
+        else:
+            return self._s + " " * (length - len(self._s))
         
+    def right_trailing_dots(self, length):
+        if len(self._s) > length:
+            self._s = self._s[length:]
+            return self._s[:-len(self._TRAIL_DOT)] + self._TRAIL_DOT
+        else:
+            return self._s + (" " * (length - len(self._s)))
+
+class YFuncStatEntry:
+    def __init__(self, entry):
+        self.name = entry[0]
+        self.ncall = entry[1]
+        self.ttot = entry[2]
+        self.tsub = entry[3]
+        self.tavg = (entry[2] / entry[1])
+    
+class YThreadStatEntry:
+    def __init__(self, entry):
+        self.name = entry[0]
+        self.id = entry[1]
+        self.last_func = entry[2]
+        self.sched_count = entry[3]
+    
+class YStats:
+    
     def __init__(self, sort_type, sort_order, limit):
+        
+        self.func_stats = [] 
+        self.thread_stats = []
+    
         self._sort_type = sort_type
         self._sort_order = sort_order
         self._limit = limit
+                
+    def _sort_key(self, value):
+        if self._sort_type == SORTTYPE_NAME:
+            return value.name
+        elif self._sort_type == SORTTYPE_NCALL:
+            return value.ncall
+        elif self._sort_type == SORTTYPE_TTOTAL:
+            return value.ttot
+        elif self._sort_type == SORTTYPE_TSUB:
+            return value.tsub
+        elif self._sort_type == SORTTYPE_TAVG:
+            return value.tavg
+   
+    def sort(self):
+        self.func_stats.sort(key=self._sort_key, reverse=(self._sort_order==SORTORDER_DESCENDING))
     
+    def limit(self):
+        if self._limit != SHOW_ALL:
+            self.func_stats = self.func_stats[:self._limit]
+        
     def func_enumerator(self, stat_entry):
-        self.func_stats.append(stat_entry)
+        
+        fstat = YFuncStatEntry(stat_entry)
+        if "yappi.py" not in fstat.name: # TODO : decide to exclude this?
+            self.func_stats.append(fstat)
         
     def thread_enumerator(self, stat_entry):
-        self.thread_stats.append(stat_entry)
+        tstat = YThreadStatEntry(stat_entry)
+        self.thread_stats.append(tstat)
     
 '''
  __callback will only be called once per-thread. _yappi will detect
@@ -47,11 +107,13 @@ class Stats:
 def __callback(frame, event, arg):
     _yappi.profile_event(frame, event, arg)
     return __callback
+    
+def is_running():
+    return bool(_yappi.is_running())
 
 
 def start(builtins = False):
     '''
-    ...
     Args:
     builtins: If set true, then builtin functions are profiled too.
     timing_sample: will cause the profiler to do timing measuresements
@@ -62,13 +124,18 @@ def start(builtins = False):
     _yappi.start(builtins)
     
     
-def __get_stats(sorttype=SORTTYPE_NCALL, sortorder=SORTORDER_DESCENDING, limit=SHOW_ALL):
-    stats = Stats(sorttype, sortorder, limit)
+def get_stats(sorttype=SORTTYPE_NCALL, sortorder=SORTORDER_DESCENDING, limit=SHOW_ALL):
+    stats = YStats(sorttype, sortorder, limit)
     enum_stats(stats.func_enumerator)
     enum_thread_stats(stats.thread_enumerator)
+    stats.sort()
+    stats.limit()
     return stats
 
 def stop():
+    '''
+    Stop profiling.
+    '''
     threading.setprofile(None)
     _yappi.stop()
 
@@ -79,12 +146,43 @@ def enum_thread_stats(fenum):
     _yappi.enum_thread_stats(fenum)
 
 def print_stats(sorttype=SORTTYPE_NCALL, sortorder=SORTORDER_DESCENDING, limit=SHOW_ALL):
-    stats = __get_stats(sorttype, sortorder, limit)
-    print "FUNCS"
-    for stat in stats.func_stats: print(stat)
-    print "THREAD"
-    for stat in stats.thread_stats: print(stat)
-
+    stats = get_stats(sorttype, sortorder, limit)
+    
+    FUNC_NAME_LEN = 35
+    CALLCOUNT_LEN = 12
+    TIME_COLUMN_LEN = 7 # 0.00000, 12345.9
+    COLUMN_GAP = 2
+    THREAD_NAME_LEN = 13
+    THREAD_ID_LEN = 12
+    THREAD_SCHED_CNT_LEN = 12
+    
+    print ""
+    print  "name                                 #n            tsub     ttot     tavg"
+    for stat in stats.func_stats: 
+        sys.stdout.write(StatString(stat.name).left_trailing_dots(FUNC_NAME_LEN))
+        sys.stdout.write(" " * COLUMN_GAP)
+        sys.stdout.write(StatString(stat.ncall).right_trailing_dots(CALLCOUNT_LEN))
+        sys.stdout.write(" " * COLUMN_GAP)
+        sys.stdout.write(StatString("%0.5f" % stat.tsub).right_trailing_dots(TIME_COLUMN_LEN))
+        sys.stdout.write(" " * COLUMN_GAP)
+        sys.stdout.write(StatString("%0.5f" % stat.ttot).right_trailing_dots(TIME_COLUMN_LEN))
+        sys.stdout.write(" " * COLUMN_GAP)
+        sys.stdout.write(StatString("%0.5f" % stat.tavg).right_trailing_dots(TIME_COLUMN_LEN))
+        print ""
+        
+    print ""
+    print "name           tid           fname                                scnt"
+    for stat in stats.thread_stats: 
+        sys.stdout.write(StatString(stat.name).left_trailing_dots(THREAD_NAME_LEN))
+        sys.stdout.write(" " * COLUMN_GAP)
+        sys.stdout.write(StatString(stat.id).right_trailing_dots(THREAD_ID_LEN))
+        sys.stdout.write(" " * COLUMN_GAP)
+        sys.stdout.write(StatString(stat.last_func).left_trailing_dots(FUNC_NAME_LEN))
+        sys.stdout.write(" " * COLUMN_GAP)
+        sys.stdout.write(StatString(stat.sched_count).right_trailing_dots(THREAD_SCHED_CNT_LEN))
+        sys.stdout.write(" " * COLUMN_GAP)
+        print ""
+        
 def clear_stats():
     _yappi.clear_stats()
 
