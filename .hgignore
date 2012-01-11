@@ -1,3 +1,4 @@
 glob:.cproject
 glob:.project
 glob:*.pyc
+glob:build

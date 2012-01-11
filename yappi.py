@@ -69,8 +69,7 @@ class YStats:
     def func_enumerator(self, stat_entry):
         tavg = stat_entry[2]/stat_entry[1]
         fstat = YFuncStatEntry(*(stat_entry+(tavg,)))
-        if "yappi.py" not in fstat.name: # TODO : decide to exclude this?
-            self.func_stats.append(fstat)
+        self.func_stats.append(fstat)
         
     def thread_enumerator(self, stat_entry):
         tstat = YThreadStatEntry(*stat_entry)
@@ -184,7 +183,7 @@ def main():
         start(options.profile_builtins, options.timing_sample)
         execfile(sys.argv[0])
         stop()
-        print_stats() # TODO: accept params for this
+        print_stats() # we will currently use default params for this.
     else:
         parser.print_usage()
     return parser
