@@ -1,5 +1,8 @@
 
 
+def test_passed(msg):
+    print "[+]    TEST: %s passed." % (msg)
+
 def _run(func):
     import __main__
     globals = locals = __main__.__dict__

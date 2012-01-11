@@ -342,7 +342,7 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     } else {
         cp = _code2pit(frame->f_code);
     }
-
+    
     // something went wrong. No mem, or another error. we cannot find
     // a corresponding pit. just run away:)
     if (!cp) {
@@ -376,20 +376,20 @@ err:
 
 
 static void
-_call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg)
+_call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 {
     _pit *cp, *pp;
     _cstackitem *ci,*pi;
     long long elapsed;
    
     ci = spop(current_ctx->cs);
-    if (!ci) {
+    if (!ci) {   
         return; // leaving a frame while callstack is empty
     }
     cp = ci->ckey;
 
     elapsed = tickcount() - ci->t0;
-
+    
     // get the parent function in the callstack
     pi = shead(current_ctx->cs);
     if (!pi) { // no head this is the first function in the callstack?
@@ -435,7 +435,7 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         _call_enter(self, frame, arg, 0);
         break;
     case PyTrace_RETURN: // either normally or with an exception
-        _call_leave(self, frame, arg);
+        _call_leave(self, frame, arg, 0);
         break;
 
 #ifdef PyTrace_C_CALL	// not defined in Python <= 2.3 
@@ -447,7 +447,7 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     case PyTrace_C_RETURN:
     case PyTrace_C_EXCEPTION:
         if (PyCFunction_Check(arg))
-            _call_leave(self, frame, arg);
+            _call_leave(self, frame, arg, 1);
         break;
 #endif
     default:
@@ -800,7 +800,7 @@ enum_stats(PyObject *self, PyObject *args)
 }
 
 static PyObject *
-is_running(void)
+is_running(PyObject *self, PyObject *args)
 {
     return Py_BuildValue("i", yapprunning);
 }

@@ -30,14 +30,14 @@ class StatString:
     def __init__(self, s):        
         self._s = str(s)
     
-    def left_trailing_dots(self, length):
+    def ltrim(self, length):
         if len(self._s) > length:
             self._s = self._s[-length:]
             return self._TRAIL_DOT + self._s[len(self._TRAIL_DOT):]
         else:
             return self._s + " " * (length - len(self._s))
         
-    def right_trailing_dots(self, length):
+    def rtrim(self, length):
         if len(self._s) > length:
             self._s = self._s[length:]
             return self._s[:-len(self._TRAIL_DOT)] + self._TRAIL_DOT
@@ -100,10 +100,12 @@ def start(builtins = False):
     _yappi.start(builtins)
     
     
-def get_stats(sorttype=SORTTYPE_NCALL, sortorder=SORTORDER_DESCENDING, limit=SHOW_ALL):
-    stats = YStats(sorttype, sortorder, limit)
+def get_stats(sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESCENDING, limit=SHOW_ALL, 
+        thread_stats_on=True):
+    stats = YStats(sort_type, sort_order, limit)
     enum_stats(stats.func_enumerator)
-    enum_thread_stats(stats.thread_enumerator)
+    if thread_stats_on:
+        enum_thread_stats(stats.thread_enumerator)
     stats.sort()
     stats.limit()
     return stats
@@ -121,8 +123,9 @@ def enum_stats(fenum):
 def enum_thread_stats(fenum):
     _yappi.enum_thread_stats(fenum)
 
-def print_stats(sorttype=SORTTYPE_NCALL, sortorder=SORTORDER_DESCENDING, limit=SHOW_ALL):
-    stats = get_stats(sorttype, sortorder, limit)
+def print_stats(sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESCENDING, limit=SHOW_ALL, 
+        thread_stats_on=True):
+    stats = get_stats(sort_type, sort_order, limit, thread_stats_on)
     
     FUNC_NAME_LEN = 35
     CALLCOUNT_LEN = 12
@@ -135,29 +138,29 @@ def print_stats(sorttype=SORTTYPE_NCALL, sortorder=SORTORDER_DESCENDING, limit=S
     print ""
     print  "name                                 #n            tsub     ttot     tavg"
     for stat in stats.func_stats: 
-        sys.stdout.write(StatString(stat.name).left_trailing_dots(FUNC_NAME_LEN))
+        sys.stdout.write(StatString(stat.name).ltrim(FUNC_NAME_LEN))
         sys.stdout.write(" " * COLUMN_GAP)
-        sys.stdout.write(StatString(stat.ncall).right_trailing_dots(CALLCOUNT_LEN))
+        sys.stdout.write(StatString(stat.ncall).rtrim(CALLCOUNT_LEN))
         sys.stdout.write(" " * COLUMN_GAP)
-        sys.stdout.write(StatString("%0.5f" % stat.tsub).right_trailing_dots(TIME_COLUMN_LEN))
+        sys.stdout.write(StatString("%0.5f" % stat.tsub).rtrim(TIME_COLUMN_LEN))
         sys.stdout.write(" " * COLUMN_GAP)
-        sys.stdout.write(StatString("%0.5f" % stat.ttot).right_trailing_dots(TIME_COLUMN_LEN))
+        sys.stdout.write(StatString("%0.5f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
         sys.stdout.write(" " * COLUMN_GAP)
-        sys.stdout.write(StatString("%0.5f" % stat.tavg).right_trailing_dots(TIME_COLUMN_LEN))
+        sys.stdout.write(StatString("%0.5f" % stat.tavg).rtrim(TIME_COLUMN_LEN))
         print ""
-        
-    print ""
-    print "name           tid           fname                                scnt"
-    for stat in stats.thread_stats: 
-        sys.stdout.write(StatString(stat.name).left_trailing_dots(THREAD_NAME_LEN))
-        sys.stdout.write(" " * COLUMN_GAP)
-        sys.stdout.write(StatString(stat.id).right_trailing_dots(THREAD_ID_LEN))
-        sys.stdout.write(" " * COLUMN_GAP)
-        sys.stdout.write(StatString(stat.last_func).left_trailing_dots(FUNC_NAME_LEN))
-        sys.stdout.write(" " * COLUMN_GAP)
-        sys.stdout.write(StatString(stat.sched_count).right_trailing_dots(THREAD_SCHED_CNT_LEN))
-        sys.stdout.write(" " * COLUMN_GAP)
+    
+    if thread_stats_on:
         print ""
+        print "name           tid           fname                                scnt"
+        for stat in stats.thread_stats: 
+            sys.stdout.write(StatString(stat.name).ltrim(THREAD_NAME_LEN))
+            sys.stdout.write(" " * COLUMN_GAP)
+            sys.stdout.write(StatString(stat.id).rtrim(THREAD_ID_LEN))
+            sys.stdout.write(" " * COLUMN_GAP)
+            sys.stdout.write(StatString(stat.last_func).ltrim(FUNC_NAME_LEN))
+            sys.stdout.write(" " * COLUMN_GAP)
+            sys.stdout.write(StatString(stat.sched_count).rtrim(THREAD_SCHED_CNT_LEN))
+            sys.stdout.write(" " * COLUMN_GAP)
         
 def clear_stats():
     _yappi.clear_stats()
