@@ -381,7 +381,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     _pit *cp, *pp;
     _cstackitem *ci,*pi;
     long long elapsed;
-   
+    
     ci = spop(current_ctx->cs);
     if (!ci) {   
         return; // leaving a frame while callstack is empty

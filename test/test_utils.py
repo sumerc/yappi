@@ -1,12 +1,16 @@
-
+import sys
 
 def test_passed(msg):
-    print "[+]    TEST: %s passed." % (msg)
-
+    sys.stdout.write("[+]    TEST: %s passed.\r\n" % (msg))
+    
 def _run(func):
     import __main__
     globals = locals = __main__.__dict__
-    exec func in globals, locals
+    if sys.hexversion > 0x03000000:
+        exec_function(func, globals, locals) 
+    else:   
+        # todo: port python 2.x??
+        pass
         
 def func_stat_from_name(stats, fname):
     for stat in stats.func_stats:

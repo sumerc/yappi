@@ -3,7 +3,6 @@ import yappi
 import threading
 from test_utils import func_stat_from_name, assert_raises_exception, run_with_yappi, test_passed
 
-"""
 # try get_stats() before start
 assert_raises_exception('yappi.get_stats()')
 
@@ -70,7 +69,7 @@ assert fsb.ttot >= 5.0
 yappi.clear_stats()
 
 test_passed("chained-recursive function")
-"""
+
 class MyThread(threading.Thread):
     
     def __init__(self, tid):
@@ -78,11 +77,11 @@ class MyThread(threading.Thread):
         threading.Thread.__init__(self)
     
     def sleep1(self):
-        time.sleep(1.0)
+        pass
     
     def run(self):
         self.sleep1()
-        print "Thread %d exits." % (self._tid)
+        #print "Thread %d exits." % (self._tid)
 
 def bar():
     n = 25
@@ -90,10 +89,9 @@ def bar():
         c = MyThread(i)
         c.start()
         #c.join()
-    time.sleep(5.0)
-
-stats = run_with_yappi('bar()') 
-yappi.print_stats(thread_stats_on=False)
+    time.sleep(2.0)
+stats = run_with_yappi('bar()')
+#yappi.print_stats(thread_stats_on=False)
 
 test_passed("trivial multithread function")
 #fsa = func_stat_from_name(stats, '.run:')
@@ -102,4 +100,4 @@ test_passed("trivial multithread function")
 #import cProfile -- cProfile does have a bug with chained recursive funcs?
 #cProfile.run('a()')   
 
-print "\r\nGeneral tests passed...\r\n"
+test_passed("General tests passed.:)")

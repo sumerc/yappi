@@ -135,8 +135,8 @@ def print_stats(sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESCENDING, limit
     THREAD_ID_LEN = 12
     THREAD_SCHED_CNT_LEN = 12
     
-    print ""
-    print  "name                                 #n            tsub     ttot     tavg"
+    sys.stdout.write("\r\n")
+    sys.stdout.write("name                                 #n            tsub     ttot     tavg\r\n")
     for stat in stats.func_stats: 
         sys.stdout.write(StatString(stat.name).ltrim(FUNC_NAME_LEN))
         sys.stdout.write(" " * COLUMN_GAP)
@@ -147,11 +147,11 @@ def print_stats(sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESCENDING, limit
         sys.stdout.write(StatString("%0.5f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
         sys.stdout.write(" " * COLUMN_GAP)
         sys.stdout.write(StatString("%0.5f" % stat.tavg).rtrim(TIME_COLUMN_LEN))
-        print ""
+        sys.stdout.write("\r\n")
     
     if thread_stats_on:
-        print ""
-        print "name           tid           fname                                scnt"
+        sys.stdout.write("\r\n")
+        sys.stdout.write("name           tid           fname                                scnt\r\n") 
         for stat in stats.thread_stats: 
             sys.stdout.write(StatString(stat.name).ltrim(THREAD_NAME_LEN))
             sys.stdout.write(" " * COLUMN_GAP)
