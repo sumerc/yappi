@@ -43,7 +43,7 @@ yappi.clear_stats()
 test_passed("recursive function")
 
 # try profiling a chained-recursive function
-ncount = 5
+ncount = 3
 ncc = 0
 def a():
     global ncount
@@ -60,16 +60,33 @@ def b():
 stats = run_with_yappi('a()')  
 fsa = func_stat_from_name(stats, '.a:')
 fsb = func_stat_from_name(stats, '.b:')
-assert fsa.ncall == 6
+assert fsa.ncall == 4
 assert fsa.tsub < fsa.ttot
 assert fsa.ttot >= fsb.ttot
-assert fsb.ncall == 5
-assert fsa.ttot >= 5.0
-assert fsb.ttot >= 5.0
+assert fsb.ncall == 3
+assert fsa.ttot >= 3.0
+assert fsb.ttot >= 3.0
 yappi.clear_stats()
 
-test_passed("chained-recursive function")
+def x(n):
+    if n==0:
+        return
+    y(n)
+    
+def y(n):
+    time.sleep(1.0)
+    z(n)
+    
+def z(n):
+    x(n-1)
+stats = run_with_yappi('x(2)')  
+fsx = func_stat_from_name(stats, '.x:')
+fsy = func_stat_from_name(stats, '.y:')
+fsz = func_stat_from_name(stats, '.z:')
 
+yappi.clear_stats()
+test_passed("chained-recursive function #2")
+"""
 class MyThread(threading.Thread):
     
     def __init__(self, tid):
@@ -91,9 +108,8 @@ def bar():
         #c.join()
     time.sleep(2.0)
 stats = run_with_yappi('bar()')
-#yappi.print_stats(thread_stats_on=False)
-
 test_passed("trivial multithread function")
+"""
 #fsa = func_stat_from_name(stats, '.run:')
 #fsb = func_stat_from_name(stats, '.')
 
