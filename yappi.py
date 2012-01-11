@@ -43,22 +43,10 @@ class StatString:
             return self._s[:-len(self._TRAIL_DOT)] + self._TRAIL_DOT
         else:
             return self._s + (" " * (length - len(self._s)))
+        
+YFuncStatEntry = namedtuple('YFuncStatEntry', 'name ncall ttot tsub tavg')
+YThreadStatEntry = namedtuple('YThreadStatEntry', 'name id last_func sched_count')
 
-class YFuncStatEntry:
-    def __init__(self, entry):
-        self.name = entry[0]
-        self.ncall = entry[1]
-        self.ttot = entry[2]
-        self.tsub = entry[3]
-        self.tavg = (entry[2] / entry[1])
-    
-class YThreadStatEntry:
-    def __init__(self, entry):
-        self.name = entry[0]
-        self.id = entry[1]
-        self.last_func = entry[2]
-        self.sched_count = entry[3]
-    
 class YStats:
     
     def __init__(self, sort_type, sort_order, limit):
@@ -69,36 +57,25 @@ class YStats:
         self._sort_type = sort_type
         self._sort_order = sort_order
         self._limit = limit
-                
-    def _sort_key(self, value):
-        if self._sort_type == SORTTYPE_NAME:
-            return value.name
-        elif self._sort_type == SORTTYPE_NCALL:
-            return value.ncall
-        elif self._sort_type == SORTTYPE_TTOTAL:
-            return value.ttot
-        elif self._sort_type == SORTTYPE_TSUB:
-            return value.tsub
-        elif self._sort_type == SORTTYPE_TAVG:
-            return value.tavg
-   
+    
     def sort(self):
-        self.func_stats.sort(key=self._sort_key, reverse=(self._sort_order==SORTORDER_DESCENDING))
+        self.func_stats.sort(key=lambda stat: stat[self._sort_type], 
+            reverse=(self._sort_order==SORTORDER_DESCENDING))
     
     def limit(self):
         if self._limit != SHOW_ALL:
             self.func_stats = self.func_stats[:self._limit]
         
     def func_enumerator(self, stat_entry):
-        
-        fstat = YFuncStatEntry(stat_entry)
+        tavg = stat_entry[2]/stat_entry[1]
+        fstat = YFuncStatEntry(*(stat_entry+(tavg,)))
         if "yappi.py" not in fstat.name: # TODO : decide to exclude this?
             self.func_stats.append(fstat)
         
     def thread_enumerator(self, stat_entry):
-        tstat = YThreadStatEntry(stat_entry)
+        tstat = YThreadStatEntry(*stat_entry)
         self.thread_stats.append(tstat)
-    
+        
 '''
  __callback will only be called once per-thread. _yappi will detect
  the new thread and changes the profilefunc param of the ThreadState
