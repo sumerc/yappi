@@ -9,7 +9,6 @@
 import sys
 import threading
 import _yappi
-from collections import namedtuple
 
 __all__ = ['start', 'stop', 'enum_stats', 'print_stats', 'clear_stats', 'is_running', 'get_stats']
 
@@ -44,9 +43,15 @@ class StatString:
         else:
             return self._s + (" " * (length - len(self._s)))
         
-YFuncStatEntry = namedtuple('YFuncStatEntry', 'name ncall ttot tsub tavg')
-YThreadStatEntry = namedtuple('YThreadStatEntry', 'name id last_func sched_count')
-
+class YStatDict(dict):
+    def __init__(self, keys, values):
+        super(YStatDict, self).__init__()        
+        assert len(keys) == len(values)        
+        length = len(keys);
+        for i in range(length):
+            setattr(self, keys[i], values[i])      
+            self[i] = values[i]
+        
 class YStats:
     
     def __init__(self, sort_type, sort_order, limit):
@@ -68,11 +73,11 @@ class YStats:
         
     def func_enumerator(self, stat_entry):
         tavg = stat_entry[2]/stat_entry[1]
-        fstat = YFuncStatEntry(*(stat_entry+(tavg,)))
+        fstat = YStatDict(('name', 'ncall', 'ttot', 'tsub', 'tavg'), stat_entry+(tavg,))
         self.func_stats.append(fstat)
         
     def thread_enumerator(self, stat_entry):
-        tstat = YThreadStatEntry(*stat_entry)
+        tstat = YStatDict(('name', 'id', 'last_func', 'sched_count'), stat_entry)
         self.thread_stats.append(tstat)
         
 '''
