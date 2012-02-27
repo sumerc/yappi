@@ -128,6 +128,7 @@ def print_stats(sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESCENDING, limit
     stats = get_stats(sort_type, sort_order, limit, thread_stats_on)
     
     FUNC_NAME_LEN = 35
+    THREAD_FUNC_NAME_LEN = 25
     CALLCOUNT_LEN = 12
     TIME_COLUMN_LEN = 8 # 0.000000, 12345.98, precision is microsecs
     COLUMN_GAP = 2
@@ -151,18 +152,18 @@ def print_stats(sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESCENDING, limit
     
     if thread_stats_on:
         sys.stdout.write("\r\n")
-        sys.stdout.write("name           tid           fname                                ttot      scnt\r\n") 
+        sys.stdout.write("name           tid           fname                      ttot      scnt\r\n") 
         for stat in stats.thread_stats: 
             sys.stdout.write(StatString(stat.name).ltrim(THREAD_NAME_LEN))
             sys.stdout.write(" " * COLUMN_GAP)
             sys.stdout.write(StatString(stat.id).rtrim(THREAD_ID_LEN))
             sys.stdout.write(" " * COLUMN_GAP)
-            sys.stdout.write(StatString(stat.last_func).ltrim(FUNC_NAME_LEN))
+            sys.stdout.write(StatString(stat.last_func).ltrim(THREAD_FUNC_NAME_LEN))
             sys.stdout.write(" " * COLUMN_GAP)
             sys.stdout.write(StatString("%0.6f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
             sys.stdout.write(" " * COLUMN_GAP)
             sys.stdout.write(StatString(stat.sched_count).rtrim(THREAD_SCHED_CNT_LEN))
-            sys.stdout.write(" " * COLUMN_GAP)
+            sys.stdout.write("\r\n")
         
 def clear_stats():
     _yappi.clear_stats()

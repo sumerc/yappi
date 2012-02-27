@@ -21,7 +21,7 @@ def assert_raises_exception(func):
     try:
         _run(func)
         assert 0 == 1
-    except Exception,e:
+    except:
         pass
 
 def run_with_yappi(func):

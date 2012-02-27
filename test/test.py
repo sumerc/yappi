@@ -3,6 +3,12 @@ import yappi
 import threading
 from test_utils import func_stat_from_name, assert_raises_exception, run_with_yappi, test_passed
 
+"""
+NOTE: Please note that below tests are only for development, on some _slow_ hardware they may fail.
+There are implicit assumptions on how much time a specific statement can take at much. Tested on
+i5 2.8 and AMD Dual 2.4 processors.
+"""
+
 # try get_stats() before start
 assert_raises_exception('yappi.get_stats()')
 
@@ -11,13 +17,15 @@ assert_raises_exception('yappi.clear_stats()')
 
 # trivial function timing check
 def foo():
+    for i in range(1000000):
+        pass
     import time
-    time.sleep(1.2)
+    time.sleep(1.0)
     
 stats = run_with_yappi('foo()')
 fs = func_stat_from_name(stats, 'foo')
 assert fs != None
-assert fs.ttot > 1.0
+assert fs.ttot < 1.0
 assert fs.tsub < 1.0
 assert fs.ncall == 1
 
@@ -46,6 +54,7 @@ test_passed("recursive function")
 ncount = 3
 ncc = 0
 def a():
+    for i in range(1000000): pass
     global ncount
     global ncc
     if ncc == ncount:
@@ -54,8 +63,9 @@ def a():
     b()
     
 def b():
-    time.sleep(1.1)
+    for i in range(1000000): pass
     a()
+    time.sleep(1.0)
     
 stats = run_with_yappi('a()')  
 fsa = func_stat_from_name(stats, '.a:')
@@ -64,8 +74,8 @@ assert fsa.ncall == 4
 assert fsa.tsub < fsa.ttot
 assert fsa.ttot >= fsb.ttot
 assert fsb.ncall == 3
-assert fsa.ttot >= 3.0
-assert fsb.ttot >= 3.0
+assert fsa.ttot <= 3.0
+assert fsb.ttot <= 3.0
 yappi.clear_stats()
 
 def x(n):
@@ -97,23 +107,21 @@ class MyThread(threading.Thread):
         pass
     
     def run(self):
-        self.sleep1()
-        #print "Thread %d exits." % (self._tid)
-
+        for i in range(1000000): pass
+        time.sleep(1.0)
+        
 def bar():
     n = 25
     for i in range(0,n):
         c = MyThread(i)
         c.start()
         #c.join()
-    time.sleep(2.0)
+    time.sleep(1.0)
 stats = run_with_yappi('bar()')
+fsa = func_stat_from_name(stats, '.run:')
+print(fsa.ttot)
+import yappi
+yappi.print_stats()
 test_passed("trivial multithread function")
 """
-#fsa = func_stat_from_name(stats, '.run:')
-#fsb = func_stat_from_name(stats, '.')
-
-#import cProfile -- cProfile does have a bug with chained recursive funcs?
-#cProfile.run('a()')   
-
 test_passed("General tests passed.:)")
