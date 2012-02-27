@@ -9,8 +9,7 @@ def _run(func):
     if sys.hexversion > 0x03000000:
         exec(func, globals, locals) 
     else:   
-        # todo: port python 2.x??
-        pass
+        eval(func, globals, locals)
         
 def func_stat_from_name(stats, fname):
     for stat in stats.func_stats:
@@ -22,7 +21,7 @@ def assert_raises_exception(func):
     try:
         _run(func)
         assert 0 == 1
-    except:
+    except Exception,e:
         pass
 
 def run_with_yappi(func):

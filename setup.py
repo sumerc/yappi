@@ -1,14 +1,28 @@
 #!/usr/bin/env python
-
+import sys
 from distutils.core import setup, Extension
+from distutils.ccompiler import new_compiler
 
 f = open('README')
 long_description = f.read()
 
 HOMEPAGE = "http://yappi.googlecode.com/"
 NAME = "yappi"
-VERSION = "0.54"
+VERSION = "0.55"
 
+user_macros = []
+user_libraries = []
+
+if sys.platform.startswith('linux'): 
+    compiler = new_compiler()
+    if compiler.has_function('timer_create', libraries=('rt',)):
+        user_macros.append(('LIB_RT_AVAILABLE','1'))
+        user_libraries.append('rt')
+    
+#user_macros.append(('DEBUG_MEM', '1')),
+#user_macros.append(('DEBUG_CALL', '1'))
+#user_macros.append(('YDEBUG', '1')), 
+print user_libraries
 setup(name=NAME, 
     version=VERSION,    
     author="Sumer Cip",
@@ -18,14 +32,8 @@ setup(name=NAME,
             sources = ["_yappi.c", "_ycallstack.c", 
                 "_yhashtab.c", "_ymem.c", "_yfreelist.c", 
                 "_ytiming.c"],
-            depends = ["_ycallstack.h"],
-            #define_macros=[('DEBUG_MEM', '1'), ('DEBUG_CALL', '1'), ('YDEBUG', '1')],
-            #define_macros=[('YDEBUG', '1')],
-            #define_macros=[('DEBUG_CALL', '1')],
-            #define_macros=[('DEBUG_MEM', '1')],		
-            #extra_link_args = ["-lrt"]
-            #extra_compile_args = ["TEST"]
-            #extra_compile_args = ["-E"]
+            define_macros = user_macros,
+            libraries = user_libraries,
         )
     ],
     py_modules =  ["yappi"],
