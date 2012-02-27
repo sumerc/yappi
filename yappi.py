@@ -167,6 +167,13 @@ def print_stats(sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESCENDING, limit
         
 def clear_stats():
     _yappi.clear_stats()
+    
+def clock_type():
+    """
+    Returns the internal native(OS dependant) API used to retrieve per-thread cputime and
+    its resolution.
+    """
+    return _yappi.clock_type()
 
 def main():
     import os, sys

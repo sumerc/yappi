@@ -3,7 +3,15 @@
 
 #include "Python.h"
 
-#ifndef _MSC_VER
+#if defined(MS_WINDOWS)
+#define _WINDOWS
+#elif (defined(__MACH__) && defined(__APPLE__))
+#define _MACH
+#else /* *nix */
+#define _UNIX
+#endif
+
+#ifndef _MSC_VER /* non-windows compiler */
 #include "stdint.h"
 #endif
 

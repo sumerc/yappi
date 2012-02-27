@@ -1,8 +1,8 @@
 #include "_ytiming.h"
 
-#if defined(MS_WINDOWS)
+extern int deneme;
 
-#include <windows.h>
+#if defined(_WINDOWS)
 
 long long
 tickcount(void)
@@ -25,45 +25,50 @@ tickfactor(void)
     return 0.0000001;
 }
 
-#elif (defined(__MACH__) && defined(__APPLE__))
-    // TODO:
-#else /* *nix */
+#elif defined(_MACH)
 
-#include <time.h>
-#include <unistd.h>
-#include <sys/time.h>
-#include <sys/resource.h>
+long long
+tickcount(void)
+{
+	long long rc;
+	kern_return_t kr;
+    thread_basic_info_t tinfo_basic;
+	thread_info_data_t tinfo_data;
+	mach_msg_type_number_t tinfo_count;
+	
+	tinfo_count = THREAD_INFO_MAX;
+	kr = thread_info(mach_thread_self(), THREAD_BASIC_INFO,
+		(thread_info_t)tinfo_data, &tinfo_count);
+	tinfo_basic = (thread_basic_info_t)tinfo_data;
+    
+    rc = 0;
+    if (!(tinfo_basic->flags & TH_FLAGS_IDLE))
+    {
+        rc = (tinfo_basic->user_time.seconds + tinfo_basic->system_time.seconds);
+        rc = (rc * 1000000) + (tinfo_basic->user_time.microseconds + tinfo_basic->system_time.microseconds);
+    }
+    return rc;
+}
 
-/* 
-    Policy of clock usage on *nix systems is as follows:
-    1)  If clock_gettime() is possible, then use it, it has nanosecond 
-        resolution. It is available in >Linux 2.6.0.
-    2)  If get_rusage() is possible use that. >Linux 2.6.26 and Solaris have that.
-    3)  If here, at least use clock_gettime() CLOCK_REALTIME which has nanosecond 
-        resolution.
-*/
-#if (defined(_POSIX_THREAD_CPUTIME) && defined(LIB_RT_AVAILABLE))
-#define USE_CLOCK_GETTIME
-#elif (defined(RUSAGE_THREAD) || defined(RUSAGE_LWP))
-    #define USE_RUSAGE
-    #if defined(RUSAGE_LWP)
-        #define RUSAGE_WHO RUSAGE_LWP
-    #elif defined(RUSAGE_THREAD)
-        #define RUSAGE_WHO RUSAGE_THREAD
-    #endif
-#endif    
+double
+tickfactor(void)
+{
+     return 0.000001;
+}
+
+#elif defined(_UNIX)
 
 long long
 tickcount(void)
 {
     long long rc;
-#if defined(USE_CLOCK_GETTIME)
+#if defined(USE_CLOCK_TYPE_CLOCKGETTIME)
     struct timespec tp;
     
     clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tp);
     rc = tp.tv_sec;
     rc = rc * 1000000000 + (tp.tv_nsec);
-#elif defined(USE_RUSAGE)
+#elif (defined(USE_CLOCK_TYPE_RUSAGE) && defined(RUSAGE_WHO))
     struct timeval tv;
     struct rusage usage;
     
@@ -77,9 +82,9 @@ tickcount(void)
 double
 tickfactor(void)
 {
-#if defined(USE_CLOCK_GETTIME)
+#if defined(USE_CLOCK_TYPE_CLOCKGETTIME)
     return 0.000000001;
-#elif defined(USE_RUSAGE)
+#elif defined(USE_CLOCK_TYPE_RUSAGE)
     return 0.000001;
 #endif
 }

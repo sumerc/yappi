@@ -12,10 +12,10 @@
 #if !defined(HAVE_LONG_LONG)
 #error "Yappi requires long longs!"
 #endif
+
 #ifdef IS_PY3K
 #include "bytesobject.h"
 #endif
-
 #include "frameobject.h"
 #include "_ycallstack.h"
 #include "_yhashtab.h"
@@ -806,6 +806,32 @@ is_running(PyObject *self, PyObject *args)
     return Py_BuildValue("i", yapprunning);
 }
 
+static PyObject *
+clock_type(PyObject *self, PyObject *args)
+{
+    PyObject *type,*result,*resolution;
+    
+    result = PyDict_New();
+    
+#if defined(USE_CLOCK_TYPE_GETTHREADTIMES)
+    type = Py_BuildValue("s", "getthreadtimes");
+    resolution = Py_BuildValue("s", "100ns");
+#elif defined(USE_CLOCK_TYPE_THREADINFO)
+    type = Py_BuildValue("s", "threadinfo");
+    resolution = Py_BuildValue("s", "1000ns");
+#elif defined(USE_CLOCK_TYPE_CLOCKGETTIME)
+    type = Py_BuildValue("s", "clockgettime");
+    resolution = Py_BuildValue("s", "1ns");
+#elif defined(USE_CLOCK_TYPE_RUSAGE)
+    type = Py_BuildValue("s", "getrusage");
+    resolution = Py_BuildValue("s", "1000ns");
+#endif
+
+    PyDict_SetItemString(result, "clock_type", type);
+    PyDict_SetItemString(result, "resolution", resolution);
+    
+    return result;
+}
 
 static PyMethodDef yappi_methods[] = {
     {"start", start, METH_VARARGS, NULL},
@@ -814,6 +840,7 @@ static PyMethodDef yappi_methods[] = {
     {"enum_thread_stats", enum_thread_stats, METH_VARARGS, NULL},
     {"clear_stats", clear_stats, METH_VARARGS, NULL},
     {"is_running", is_running, METH_VARARGS, NULL},
+    {"clock_type", clock_type, METH_VARARGS, NULL},
     {"profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage. do not call this.
     {NULL, NULL}      /* sentinel */
 };
