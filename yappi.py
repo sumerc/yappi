@@ -54,22 +54,17 @@ class YStatDict(dict):
         
 class YStats:
     
-    def __init__(self, sort_type, sort_order, limit):
-        
+    def __init__(self):        
         self.func_stats = [] 
         self.thread_stats = []
     
-        self._sort_type = sort_type
-        self._sort_order = sort_order
-        self._limit = limit
+    def sort(self, sort_type, sort_order):
+        self.func_stats.sort(key=lambda stat: stat[sort_type], 
+            reverse=(sort_order==SORTORDER_DESCENDING))
     
-    def sort(self):
-        self.func_stats.sort(key=lambda stat: stat[self._sort_type], 
-            reverse=(self._sort_order==SORTORDER_DESCENDING))
-    
-    def limit(self):
-        if self._limit != SHOW_ALL:
-            self.func_stats = self.func_stats[:self._limit]
+    def limit(self, limit):
+        if limit != SHOW_ALL:
+            self.func_stats = self.func_stats[:limit]
         
     def func_enumerator(self, stat_entry):
         tavg = stat_entry[2]/stat_entry[1]
@@ -77,7 +72,7 @@ class YStats:
         self.func_stats.append(fstat)
         
     def thread_enumerator(self, stat_entry):
-        tstat = YStatDict(('name', 'id', 'last_func', 'sched_count'), stat_entry)
+        tstat = YStatDict(('name', 'id', 'last_func', 'ttot', 'sched_count'), stat_entry)
         self.thread_stats.append(tstat)
         
 '''
@@ -107,12 +102,12 @@ def start(builtins = False):
     
 def get_stats(sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESCENDING, limit=SHOW_ALL, 
         thread_stats_on=True):
-    stats = YStats(sort_type, sort_order, limit)
+    stats = YStats()
     enum_stats(stats.func_enumerator)
     if thread_stats_on:
         enum_thread_stats(stats.thread_enumerator)
-    stats.sort()
-    stats.limit()
+    stats.sort(sort_type, sort_order)
+    stats.limit(limit)
     return stats
 
 def stop():
@@ -134,35 +129,37 @@ def print_stats(sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESCENDING, limit
     
     FUNC_NAME_LEN = 35
     CALLCOUNT_LEN = 12
-    TIME_COLUMN_LEN = 7 # 0.00000, 12345.9
+    TIME_COLUMN_LEN = 8 # 0.000000, 12345.98, precision is microsecs
     COLUMN_GAP = 2
     THREAD_NAME_LEN = 13
     THREAD_ID_LEN = 12
     THREAD_SCHED_CNT_LEN = 12
     
     sys.stdout.write("\r\n")
-    sys.stdout.write("name                                 #n            tsub     ttot     tavg\r\n")
+    sys.stdout.write("name                                 #n            tsub      ttot      tavg\r\n")
     for stat in stats.func_stats: 
         sys.stdout.write(StatString(stat.name).ltrim(FUNC_NAME_LEN))
         sys.stdout.write(" " * COLUMN_GAP)
         sys.stdout.write(StatString(stat.ncall).rtrim(CALLCOUNT_LEN))
         sys.stdout.write(" " * COLUMN_GAP)
-        sys.stdout.write(StatString("%0.5f" % stat.tsub).rtrim(TIME_COLUMN_LEN))
+        sys.stdout.write(StatString("%0.6f" % stat.tsub).rtrim(TIME_COLUMN_LEN))
         sys.stdout.write(" " * COLUMN_GAP)
-        sys.stdout.write(StatString("%0.5f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
+        sys.stdout.write(StatString("%0.6f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
         sys.stdout.write(" " * COLUMN_GAP)
-        sys.stdout.write(StatString("%0.5f" % stat.tavg).rtrim(TIME_COLUMN_LEN))
+        sys.stdout.write(StatString("%0.6f" % stat.tavg).rtrim(TIME_COLUMN_LEN))
         sys.stdout.write("\r\n")
     
     if thread_stats_on:
         sys.stdout.write("\r\n")
-        sys.stdout.write("name           tid           fname                                scnt\r\n") 
+        sys.stdout.write("name           tid           fname                                ttot      scnt\r\n") 
         for stat in stats.thread_stats: 
             sys.stdout.write(StatString(stat.name).ltrim(THREAD_NAME_LEN))
             sys.stdout.write(" " * COLUMN_GAP)
             sys.stdout.write(StatString(stat.id).rtrim(THREAD_ID_LEN))
             sys.stdout.write(" " * COLUMN_GAP)
             sys.stdout.write(StatString(stat.last_func).ltrim(FUNC_NAME_LEN))
+            sys.stdout.write(" " * COLUMN_GAP)
+            sys.stdout.write(StatString("%0.6f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
             sys.stdout.write(" " * COLUMN_GAP)
             sys.stdout.write(StatString(stat.sched_count).rtrim(THREAD_SCHED_CNT_LEN))
             sys.stdout.write(" " * COLUMN_GAP)

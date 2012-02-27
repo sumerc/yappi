@@ -705,7 +705,8 @@ _ctxenumstat(_hitem *item, void *arg)
         tcname = "N/A";
     efn = (PyObject *)arg;
     
-    PyObject_CallFunction(efn, "((sksk))", tcname, ctx->id, fname_s.c_str, ctx->sched_cnt);
+    PyObject_CallFunction(efn, "((sksfk))", tcname, ctx->id, fname_s.c_str, 
+        tickcount() * tickfactor(), ctx->sched_cnt);
     
     if (ctx->last_pit) {
         if (PyCode_Check(ctx->last_pit->co)) {

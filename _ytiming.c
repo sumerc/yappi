@@ -29,8 +29,6 @@ tickfactor(void)
     // TODO:
 #else /* *nix */
 
-#define _GNU_SOURCE
-
 #include <time.h>
 #include <unistd.h>
 #include <sys/time.h>
@@ -58,18 +56,17 @@ tickfactor(void)
 long long
 tickcount(void)
 {
-    struct timeval tv;
-    struct timespec tp;
     long long rc;
-    struct rusage usage;
-
 #if defined(USE_CLOCK_GETTIME)
-    printf("Using clock_gettime()...\r\n");
+    struct timespec tp;
+    
     clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tp);
     rc = tp.tv_sec;
     rc = rc * 1000000000 + (tp.tv_nsec);
 #elif defined(USE_RUSAGE)
-    printf("Using getrusage()...\r\n");    
+    struct timeval tv;
+    struct rusage usage;
+    
     getrusage(RUSAGE_WHO, &usage);
     rc = (usage.ru_utime.tv_sec + usage.ru_stime.tv_sec);
     rc = (rc * 1000000) + (usage.ru_utime.tv_usec + usage.ru_stime.tv_usec);
@@ -80,7 +77,11 @@ tickcount(void)
 double
 tickfactor(void)
 {
+#if defined(USE_CLOCK_GETTIME)
+    return 0.000000001;
+#elif defined(USE_RUSAGE)
     return 0.000001;
+#endif
 }
 
 #endif /* *nix */

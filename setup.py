@@ -21,8 +21,7 @@ if sys.platform.startswith('linux'):
     
 #user_macros.append(('DEBUG_MEM', '1')),
 #user_macros.append(('DEBUG_CALL', '1'))
-#user_macros.append(('YDEBUG', '1')), 
-print user_libraries
+#user_macros.append(('YDEBUG', '1')),
 setup(name=NAME, 
     version=VERSION,    
     author="Sumer Cip",
