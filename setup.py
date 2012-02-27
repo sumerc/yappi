@@ -8,7 +8,7 @@ long_description = f.read()
 
 HOMEPAGE = "http://yappi.googlecode.com/"
 NAME = "yappi"
-VERSION = "0.55"
+VERSION = "0.62"
 
 user_macros = []
 user_libraries = []
