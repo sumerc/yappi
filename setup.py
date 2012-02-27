@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import sys
+import os
 from distutils.core import setup, Extension
 from distutils.ccompiler import new_compiler
 
@@ -13,7 +13,7 @@ VERSION = "0.55"
 user_macros = []
 user_libraries = []
 
-if sys.platform.startswith('linux'): 
+if os.name == 'posix': 
     compiler = new_compiler()
     if compiler.has_function('timer_create', libraries=('rt',)):
         user_macros.append(('LIB_RT_AVAILABLE','1'))
