@@ -10,7 +10,6 @@ tickcount(void)
     LARGE_INTEGER li;
     FILETIME ftCreate, ftExit, ftKernel, ftUser;
     
-    // resolution = 100ns intervals
     GetThreadTimes(GetCurrentThread(), &ftCreate, &ftExit, &ftKernel, &ftUser);
     
     li.LowPart = ftKernel.dwLowDateTime+ftUser.dwLowDateTime;
