@@ -3,7 +3,7 @@
  yappi.py
  Yet Another Python Profiler
 
- Sumer Cip 2011
+ Sumer Cip 2012
 
 '''
 import sys
