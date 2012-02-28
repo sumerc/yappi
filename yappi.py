@@ -10,7 +10,8 @@ import sys
 import threading
 import _yappi
 
-__all__ = ['start', 'stop', 'enum_stats', 'print_stats', 'clear_stats', 'is_running', 'get_stats']
+__all__ = ['start', 'stop', 'enum_stats', 'enum_thread_stats', 'print_stats', 'clear_stats', 
+           'is_running', 'get_stats']
 
 SORTTYPE_NAME = 0
 SORTTYPE_NCALL = 1

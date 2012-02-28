@@ -10,6 +10,8 @@
 #define USE_CLOCK_TYPE_GETTHREADTIMES
 
 #elif defined(_MACH)
+
+#include <mach/mach.h>
 #include <mach/thread_info.h>
 
 #define USE_CLOCK_TYPE_THREADINFO
