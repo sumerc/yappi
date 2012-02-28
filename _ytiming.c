@@ -14,6 +14,7 @@ tickcount(void)
     li.HighPart = ftKernel.dwHighDateTime+ftUser.dwHighDateTime;
     
     return li.QuadPart; 
+    
 }
 
 double

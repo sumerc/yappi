@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+import sys
 from distutils.core import setup, Extension
 from distutils.ccompiler import new_compiler
 
@@ -13,7 +14,7 @@ VERSION = "0.62"
 user_macros = []
 user_libraries = []
 
-if os.name == 'posix': 
+if os.name == 'posix' and sys.platform != 'darwin': 
     compiler = new_compiler()
     if compiler.has_function('timer_create', libraries=('rt',)):
         user_macros.append(('LIB_RT_AVAILABLE','1'))
