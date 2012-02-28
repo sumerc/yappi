@@ -1,7 +1,5 @@
 #include "_ytiming.h"
 
-extern int deneme;
-
 #if defined(_WINDOWS)
 
 long long
