@@ -11,8 +11,10 @@ import threading
 import _yappi
 
 __all__ = ['start', 'stop', 'enum_stats', 'enum_thread_stats', 'print_stats', 'clear_stats', 
-           'is_running', 'get_stats']
+           'is_running', 'get_stats', 'clock_type']
 
+CRLF = '\n'
+           
 SORTTYPE_NAME = 0
 SORTTYPE_NCALL = 1
 SORTTYPE_TTOTAL = 2
@@ -20,7 +22,7 @@ SORTTYPE_TSUB = 3
 SORTTYPE_TAVG = 4
 SORTORDER_ASCENDING = 0
 SORTORDER_DESCENDING = 1
-SHOW_ALL = 0
+SHOW_ALL = 0    
 
 class StatString:
     
@@ -124,7 +126,7 @@ def enum_stats(fenum):
 def enum_thread_stats(fenum):
     _yappi.enum_thread_stats(fenum)
 
-def print_stats(sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESCENDING, limit=SHOW_ALL, 
+def print_stats(out=sys.stdout, sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESCENDING, limit=SHOW_ALL, 
         thread_stats_on=True):
     stats = get_stats(sort_type, sort_order, limit, thread_stats_on)
     
@@ -137,34 +139,36 @@ def print_stats(sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESCENDING, limit
     THREAD_ID_LEN = 12
     THREAD_SCHED_CNT_LEN = 12
     
-    sys.stdout.write("\r\n")
-    sys.stdout.write("name                                 #n            tsub      ttot      tavg\r\n")
+    out.write(CRLF)
+    out.write("name                                 #n            tsub      ttot      tavg")
+    out.write(CRLF)
     for stat in stats.func_stats: 
-        sys.stdout.write(StatString(stat.name).ltrim(FUNC_NAME_LEN))
-        sys.stdout.write(" " * COLUMN_GAP)
-        sys.stdout.write(StatString(stat.ncall).rtrim(CALLCOUNT_LEN))
-        sys.stdout.write(" " * COLUMN_GAP)
-        sys.stdout.write(StatString("%0.6f" % stat.tsub).rtrim(TIME_COLUMN_LEN))
-        sys.stdout.write(" " * COLUMN_GAP)
-        sys.stdout.write(StatString("%0.6f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
-        sys.stdout.write(" " * COLUMN_GAP)
-        sys.stdout.write(StatString("%0.6f" % stat.tavg).rtrim(TIME_COLUMN_LEN))
-        sys.stdout.write("\r\n")
+        out.write(StatString(stat.name).ltrim(FUNC_NAME_LEN))
+        out.write(" " * COLUMN_GAP)
+        out.write(StatString(stat.ncall).rtrim(CALLCOUNT_LEN))
+        out.write(" " * COLUMN_GAP)
+        out.write(StatString("%0.6f" % stat.tsub).rtrim(TIME_COLUMN_LEN))
+        out.write(" " * COLUMN_GAP)
+        out.write(StatString("%0.6f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
+        out.write(" " * COLUMN_GAP)
+        out.write(StatString("%0.6f" % stat.tavg).rtrim(TIME_COLUMN_LEN))
+        out.write(CRLF)
     
     if thread_stats_on:
-        sys.stdout.write("\r\n")
-        sys.stdout.write("name           tid           fname                      ttot      scnt\r\n") 
+        out.write(CRLF)
+        out.write("name           tid           fname                      ttot      scnt")
+        out.write(CRLF)        
         for stat in stats.thread_stats: 
-            sys.stdout.write(StatString(stat.name).ltrim(THREAD_NAME_LEN))
-            sys.stdout.write(" " * COLUMN_GAP)
-            sys.stdout.write(StatString(stat.id).rtrim(THREAD_ID_LEN))
-            sys.stdout.write(" " * COLUMN_GAP)
-            sys.stdout.write(StatString(stat.last_func).ltrim(THREAD_FUNC_NAME_LEN))
-            sys.stdout.write(" " * COLUMN_GAP)
-            sys.stdout.write(StatString("%0.6f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
-            sys.stdout.write(" " * COLUMN_GAP)
-            sys.stdout.write(StatString(stat.sched_count).rtrim(THREAD_SCHED_CNT_LEN))
-            sys.stdout.write("\r\n")
+            out.write(StatString(stat.name).ltrim(THREAD_NAME_LEN))
+            out.write(" " * COLUMN_GAP)
+            out.write(StatString(stat.id).rtrim(THREAD_ID_LEN))
+            out.write(" " * COLUMN_GAP)
+            out.write(StatString(stat.last_func).ltrim(THREAD_FUNC_NAME_LEN))
+            out.write(" " * COLUMN_GAP)
+            out.write(StatString("%0.6f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
+            out.write(" " * COLUMN_GAP)
+            out.write(StatString(stat.sched_count).rtrim(THREAD_SCHED_CNT_LEN))
+            out.write(CRLF)
         
 def clear_stats():
     _yappi.clear_stats()
