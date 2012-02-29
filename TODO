@@ -1,2 +1,0 @@
-- print_stats() may accept a file instead of stdout.
-- make thread total not persist across start/stop.

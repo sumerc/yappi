@@ -43,6 +43,7 @@ typedef struct {
     _pit *last_pit;
     unsigned long sched_cnt;
     char *class_name;
+    long long t0; // profiling start CPU time
 } _ctx; // context
 
 typedef struct {
@@ -107,6 +108,7 @@ _create_ctx(void)
     ctx->sched_cnt = 0;
     ctx->id = 0;
     ctx->class_name = NULL;
+    ctx->t0 = tickcount();
     return ctx;
 }
 
@@ -696,6 +698,7 @@ _ctxenumstat(_hitem *item, void *arg)
     char *tcname;
     _mstr fname_s;
     _ctx * ctx;
+    long long cumdiff;
 
     ctx = (_ctx *)item->val;
 
@@ -705,8 +708,10 @@ _ctxenumstat(_hitem *item, void *arg)
         tcname = "N/A";
     efn = (PyObject *)arg;
     
+    cumdiff = _calc_cumdiff(tickcount(), ctx->t0); 
+    
     PyObject_CallFunction(efn, "((sksfk))", tcname, ctx->id, fname_s.c_str, 
-        tickcount() * tickfactor(), ctx->sched_cnt);
+        cumdiff * tickfactor(), ctx->sched_cnt);
     
     if (ctx->last_pit) {
         if (PyCode_Check(ctx->last_pit->co)) {
