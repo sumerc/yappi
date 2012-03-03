@@ -1,0 +1,1 @@
+import yappiyappi.start()def foo():    import time    time.sleep(2.0)    for i in range(10000000):        passfoo()yappi.print_stats()
