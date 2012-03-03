@@ -136,8 +136,8 @@ def print_stats(out=sys.stdout, sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_D
     TIME_COLUMN_LEN = 8 # 0.000000, 12345.98, precision is microsecs
     COLUMN_GAP = 2
     THREAD_NAME_LEN = 13
-    THREAD_ID_LEN = 12
-    THREAD_SCHED_CNT_LEN = 12
+    THREAD_ID_LEN = 15
+    THREAD_SCHED_CNT_LEN = 10
     
     out.write(CRLF)
     out.write("name                                 #n            tsub      ttot      tavg")
@@ -156,7 +156,7 @@ def print_stats(out=sys.stdout, sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_D
     
     if thread_stats_on:
         out.write(CRLF)
-        out.write("name           tid           fname                      ttot      scnt")
+        out.write("name           tid              fname                      ttot      scnt")
         out.write(CRLF)        
         for stat in stats.thread_stats: 
             out.write(StatString(stat.name).ltrim(THREAD_NAME_LEN))
