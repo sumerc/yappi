@@ -41,7 +41,7 @@ class StatString:
         
     def rtrim(self, length):
         if len(self._s) > length:
-            self._s = self._s[length:]
+            self._s = self._s[:length]
             return self._s[:-len(self._TRAIL_DOT)] + self._TRAIL_DOT
         else:
             return self._s + (" " * (length - len(self._s)))
