@@ -89,7 +89,7 @@ htdestroy(_htab *ht)
 
 
 int
-hadd(_htab *ht, int key, uintptr_t val)
+hadd(_htab *ht, uintptr_t key, uintptr_t val)
 {
     unsigned int h;
     _hitem *new, *p;
@@ -130,7 +130,7 @@ hadd(_htab *ht, int key, uintptr_t val)
 }
 
 _hitem *
-hfind(_htab *ht, int key)
+hfind(_htab *ht, uintptr_t key)
 {
     _hitem *p;
 

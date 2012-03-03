@@ -91,7 +91,7 @@ def is_running():
     return bool(_yappi.is_running())
 
 
-def start(builtins = False):
+def start(builtins=False):
     '''
     Args:
     builtins: If set true, then builtin functions are profiled too.
