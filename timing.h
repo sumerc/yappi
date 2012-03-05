@@ -1,5 +1,5 @@
 
-#include "_ystatic.h"
+#include "config.h"
 
 #ifndef YTIMING_H
 #define YTIMING_H

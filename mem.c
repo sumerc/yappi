@@ -1,4 +1,4 @@
-#include "_ymem.h"
+#include "mem.h"
 
 static unsigned long memused=0;
 

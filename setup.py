@@ -29,7 +29,7 @@ setup(name=NAME,
     author_email="sumerc@gmail.com",
     ext_modules = [Extension(
         "_yappi",
-        sources = ["_yappi.c", "_ycallstack.c", "_yhashtab.c", "_ymem.c", "_yfreelist.c", "_ytiming.c"],
+        sources = ["_yappi.c", "callstack.c", "hashtab.c", "mem.c", "freelist.c", "timing.c"],
         define_macros = user_macros,
         libraries = user_libraries,
         )],

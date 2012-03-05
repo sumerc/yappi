@@ -1,10 +1,10 @@
 /*
 *    Hash Table
-*    Sumer Cip 2010
+*    Sumer Cip 2012
 */
 
-#include "_yhashtab.h"
-#include "_ymem.h"
+#include "hashtab.h"
+#include "mem.h"
 
 static int
 _hgrow(_htab *ht)

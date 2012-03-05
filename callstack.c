@@ -1,8 +1,8 @@
-#include "_ycallstack.h"
-#include "_ydebug.h"
-#include "_ymem.h"
-#include "_ytiming.h"
-#include "_ystatic.h"
+#include "callstack.h"
+#include "debug.h"
+#include "mem.h"
+#include "timing.h"
+#include "config.h"
 
 int
 slen(_cstack *cs)

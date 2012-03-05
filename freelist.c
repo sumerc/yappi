@@ -1,5 +1,5 @@
-#include "_yfreelist.h"
-#include "_ymem.h"
+#include "freelist.h"
+#include "mem.h"
 
 static int
 _flgrow(_freelist *flp)

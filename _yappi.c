@@ -7,7 +7,7 @@
 
 */
 
-#include "_ystatic.h"
+#include "config.h"
 
 #if !defined(HAVE_LONG_LONG)
 #error "Yappi requires long longs!"
@@ -17,12 +17,12 @@
 #include "bytesobject.h"
 #endif
 #include "frameobject.h"
-#include "_ycallstack.h"
-#include "_yhashtab.h"
-#include "_ydebug.h"
-#include "_ytiming.h"
-#include "_yfreelist.h"
-#include "_ymem.h"
+#include "callstack.h"
+#include "hashtab.h"
+#include "debug.h"
+#include "timing.h"
+#include "freelist.h"
+#include "mem.h"
 
 #ifdef IS_PY3K
 PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");

@@ -1,8 +1,8 @@
 #ifndef YMEM_H
 #define YMEM_H
 
-#include "_ystatic.h"
-#include "_ydebug.h"
+#include "config.h"
+#include "debug.h"
 
 struct dnode {
     void *ptr;

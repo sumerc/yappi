@@ -1,12 +1,12 @@
 /*
 *    An Adaptive Hash Table
-*    Sumer Cip 2010
+*    Sumer Cip 2012
 */
-
-#include "_ystatic.h"
 
 #ifndef YHASHTAB_H
 #define YHASHTAB_H
+
+#include "config.h"
 
 #define HSIZE(n) (1<<n)
 #define HMASK(n) (HSIZE(n)-1)

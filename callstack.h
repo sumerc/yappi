@@ -1,7 +1,7 @@
 #ifndef YCALLSTACK_H
 #define YCALLSTACK_H
 
-#include "_yhashtab.h"
+#include "hashtab.h"
 
 typedef struct {
     long long t0;

@@ -1,4 +1,4 @@
-#include "_ytiming.h"
+#include "timing.h"
 
 #if defined(_WINDOWS)
 
@@ -30,20 +30,19 @@ tickcount(void)
 {
 	long long rc;
 	kern_return_t kr;
-    thread_basic_info_t tinfo_basic;
-	thread_info_data_t tinfo_data;
-	mach_msg_type_number_t tinfo_count;
+    thread_basic_info_t tinfo_b;
+	thread_info_data_t tinfo_d;
+	mach_msg_type_number_t tinfo_cnt;
 	
-	tinfo_count = THREAD_INFO_MAX;
-	kr = thread_info(mach_thread_self(), THREAD_BASIC_INFO,
-		(thread_info_t)tinfo_data, &tinfo_count);
-	tinfo_basic = (thread_basic_info_t)tinfo_data;
+	tinfo_cnt = THREAD_INFO_MAX;
+	kr = thread_info(mach_thread_self(), THREAD_BASIC_INFO, (thread_info_t)tinfo_d, &tinfo_cnt);
+	tinfo_b = (thread_basic_info_t)tinfo_d;
     
     rc = 0;
-    if (!(tinfo_basic->flags & TH_FLAGS_IDLE))
+    if (!(tinfo_b->flags & TH_FLAGS_IDLE))
     {
-        rc = (tinfo_basic->user_time.seconds + tinfo_basic->system_time.seconds);
-        rc = (rc * 1000000) + (tinfo_basic->user_time.microseconds + tinfo_basic->system_time.microseconds);
+        rc = (tinfo_b->user_time.seconds + tinfo_b->system_time.seconds);
+        rc = (rc * 1000000) + (tinfo_b->user_time.microseconds + tinfo_b->system_time.microseconds);
     }
     return rc;
 }

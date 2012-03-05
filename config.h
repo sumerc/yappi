@@ -1,5 +1,5 @@
-#ifndef YSTATIC_H
-#define YSTATIC_H
+#ifndef YCONFIG_H
+#define YCONFIG_H
 
 #include "Python.h"
 
