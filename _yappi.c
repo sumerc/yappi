@@ -663,8 +663,8 @@ static PyObject*
 clear_stats(PyObject *self, PyObject *args)
 {
     if (yapprunning) {
-        Py_INCREF(Py_None);
-        return Py_None;
+        PyErr_SetString(YappiProfileError, "clear_stats cannot be called while profiler is running.");
+        return NULL;
     }
 
     henum(pits, _pitenumdel, NULL);
