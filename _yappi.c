@@ -593,8 +593,8 @@ static PyObject*
 start(PyObject *self, PyObject *args)
 {
     if (yapprunning) {
-        PyErr_SetString(YappiProfileError, "profiler is already started. yappi is a per-interpreter resource.");
-        return NULL;
+        Py_INCREF(Py_None);
+        return Py_None;
     }
 
     if (!PyArg_ParseTuple(args, "i", &flags.builtins))
@@ -646,8 +646,8 @@ static PyObject*
 stop(PyObject *self, PyObject *args)
 {
     if (!yapprunning) {
-        PyErr_SetString(YappiProfileError, "profiler is not started yet.");
-        return NULL;
+        Py_INCREF(Py_None);
+        return Py_None;
     }
 
     _enum_threads(&_unprofile_thread);
@@ -663,9 +663,8 @@ static PyObject*
 clear_stats(PyObject *self, PyObject *args)
 {
     if (yapprunning) {
-        PyErr_SetString(YappiProfileError,
-                        "profiler is running. Stop profiler before clearing stats.");
-        return NULL;
+        Py_INCREF(Py_None);
+        return Py_None;
     }
 
     henum(pits, _pitenumdel, NULL);
@@ -730,7 +729,7 @@ enum_thread_stats(PyObject *self, PyObject *args)
     PyObject *enumfn;
 
     if (!yapphavestats) {
-        PyErr_SetString(YappiProfileError, "profiler do not have any statistics. not started?");
+        PyErr_SetString(YappiProfileError, "profiler not started?");
         return NULL;
     }
 
@@ -793,7 +792,7 @@ enum_stats(PyObject *self, PyObject *args)
     PyObject *enumfn;
 
     if (!yapphavestats) {
-        PyErr_SetString(YappiProfileError, "profiler do not have any statistics. not started?");
+        PyErr_SetString(YappiProfileError, "profiler not started?");
         return NULL;
     }
 
