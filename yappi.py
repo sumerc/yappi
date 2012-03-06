@@ -17,11 +17,11 @@ CRLF = '\n'
            
 SORTTYPE_NAME = 0
 SORTTYPE_NCALL = 1
-SORTTYPE_TTOTAL = 2
+SORTTYPE_TTOT = 2
 SORTTYPE_TSUB = 3
 SORTTYPE_TAVG = 4
-SORTORDER_ASCENDING = 0
-SORTORDER_DESCENDING = 1
+SORTORDER_ASC = 0
+SORTORDER_DESC = 1
 SHOW_ALL = 0    
 
 class StatString:
@@ -63,7 +63,7 @@ class YStats:
     
     def sort(self, sort_type, sort_order):
         self.func_stats.sort(key=lambda stat: stat[sort_type], 
-            reverse=(sort_order==SORTORDER_DESCENDING))
+            reverse=(sort_order==SORTORDER_DESC))
     
     def limit(self, limit):
         if limit != SHOW_ALL:
@@ -105,7 +105,7 @@ def start(builtins=False):
     _yappi.start(builtins)
     
     
-def get_stats(sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESCENDING, limit=SHOW_ALL, 
+def get_stats(sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESC, limit=SHOW_ALL, 
         thread_stats_on=True):
     stats = YStats()
     enum_stats(stats.func_enumerator)
@@ -128,7 +128,7 @@ def enum_stats(fenum):
 def enum_thread_stats(fenum):
     _yappi.enum_thread_stats(fenum)
 
-def print_stats(out=sys.stdout, sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESCENDING, limit=SHOW_ALL, 
+def print_stats(out=sys.stdout, sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESC, limit=SHOW_ALL, 
         thread_stats_on=True):
     stats = get_stats(sort_type, sort_order, limit, thread_stats_on)
     
