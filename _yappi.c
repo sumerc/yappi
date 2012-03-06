@@ -192,7 +192,7 @@ _thread2ctx(PyThreadState *ts)
 {
     _hitem *it;
 
-    it = hfind(contexts, (uintptr_t)ts);
+    it = hfind(contexts, (uintptr_t)ts->thread_id);
     if (!it) {        
         // callback functions in some circumtances, can be called before the context entry is not
         // created. (See issue 21). To prevent this problem we need to ensure the context entry for
@@ -478,16 +478,12 @@ _profile_thread(PyThreadState *ts)
         return NULL;
     }
     
-    // If a ThreadState object is destroyed, currently yappi does not
-    // delete the associated resources. Instead, we rely on the fact that
-    // the ThreadState objects are actually recycled. We are using pointer
-    // to map to the internal contexts table, and Python VM will try to use
-    // the destructed thread's pointer when a new thread is created. They are
-    // pooled inside the VM. So this means we wii use the same pointer for our
-    // hash table like lazy deletion. This is a hecky solution, but there is no
-    // efficient and easy way to somehow know that a Python Thread is about
-    // to be destructed.
-    if (!hadd(contexts, (uintptr_t)ts, (uintptr_t)ctx)) {
+    // Use thread_id instead of ts pointer, because when we create/delete many threads, some
+    // of them do not show up in the thread_stats, because ts pointers are recycled in the VM.
+    // Also, we do not want to delete thread stats unless clear_stats() is called explicitly.
+    // We rely on the OS to give us unique thread ids, this time.
+    // thread_id -> long
+    if (!hadd(contexts, (uintptr_t)ts->thread_id, (uintptr_t)ctx)) {
         _del_ctx(ctx);
         if (!flput(flctx, ctx)) {
             yerr("Context cannot be recycled. Possible memory leak.");
