@@ -699,6 +699,7 @@ _ctxenumstat(_hitem *item, void *arg)
     _mstr fname_s;
     _ctx * ctx;
     long long cumdiff;
+    PyObject *exc;
 
     ctx = (_ctx *)item->val;
 
@@ -708,10 +709,14 @@ _ctxenumstat(_hitem *item, void *arg)
         tcname = "N/A";
     efn = (PyObject *)arg;
     
-    cumdiff = _calc_cumdiff(tickcount(), ctx->t0); 
+    cumdiff = _calc_cumdiff(tickcount(), ctx->t0);
     
-    PyObject_CallFunction(efn, "((sksfk))", tcname, ctx->id, fname_s.c_str, 
+    exc = PyObject_CallFunction(efn, "((sksfk))", tcname, ctx->id, fname_s.c_str, 
         cumdiff * tickfactor(), ctx->sched_cnt);
+    if (!exc) {
+        PyErr_Print();
+        return 1; // abort enumeration
+    }
     
     if (ctx->last_pit) {
         if (PyCode_Check(ctx->last_pit->co)) {
@@ -757,19 +762,26 @@ _pitenumstat(_hitem *item, void * arg)
     PyObject *efn;
     _mstr fname_s;
     _pit *pt;
+    PyObject *exc;
 
     pt = (_pit *)item->val;
     // do not show builtin pits if specified
-    if  ((!flags.builtins) && (pt->builtin))
+    if  ((!flags.builtins) && (pt->builtin)) {
         return 0;
+    }
     
     cumdiff = _calc_cumdiff(pt->ttotal, pt->tsubtotal);
     efn = (PyObject *)arg;
 
     fname_s = _item2fname(pt);
     
-    PyObject_CallFunction(efn, "((skff))", fname_s.c_str, pt->callcount, pt->ttotal * tickfactor(),
+    exc = PyObject_CallFunction(efn, "((skff))", fname_s.c_str, pt->callcount, pt->ttotal * tickfactor(),
                           cumdiff * tickfactor());
+    if (!exc) {
+        PyErr_Print();
+        return 1; // abort enumeration
+    }
+   
     if (pt) {
         if (PyCode_Check(pt->co)) {
             Py_DECREF(fname_s.py_str);

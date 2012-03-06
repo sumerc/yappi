@@ -78,6 +78,9 @@ class YStats:
         tstat = YStatDict(('name', 'id', 'last_func', 'ttot', 'sched_count'), stat_entry)
         self.thread_stats.append(tstat)
         
+    def __repr__(self):
+        return str(self.__dict__)
+        
 '''
  __callback will only be called once per-thread. _yappi will detect
  the new thread and changes the profilefunc param of the ThreadState
@@ -89,7 +92,6 @@ def __callback(frame, event, arg):
     
 def is_running():
     return bool(_yappi.is_running())
-
 
 def start(builtins=False):
     '''
