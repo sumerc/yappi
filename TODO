@@ -1,0 +1,3 @@
+[-] TEST: MACOSx and 64 bit needed as we cast long to uintptr_t
+[-] Any way to get CPU time with the long known mt problem, where run() is not exiting and ttot stays
+    0.000000.
