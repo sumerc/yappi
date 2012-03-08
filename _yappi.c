@@ -819,6 +819,12 @@ is_running(PyObject *self, PyObject *args)
 }
 
 static PyObject *
+thread_times(PyObject *self, PyObject *args)
+{
+    return Py_BuildValue("f", tickcount() * tickfactor());
+}
+
+static PyObject *
 clock_type(PyObject *self, PyObject *args)
 {
     PyObject *type,*result,*resolution;
@@ -853,6 +859,7 @@ static PyMethodDef yappi_methods[] = {
     {"clear_stats", clear_stats, METH_VARARGS, NULL},
     {"is_running", is_running, METH_VARARGS, NULL},
     {"clock_type", clock_type, METH_VARARGS, NULL},
+    {"thread_times", thread_times, METH_VARARGS, NULL},
     {"profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage. do not call this.
     {NULL, NULL}      /* sentinel */
 };

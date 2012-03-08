@@ -181,6 +181,12 @@ def clock_type():
     its resolution.
     """
     return _yappi.clock_type()
+    
+def thread_times():
+    """
+    Returns the total CPU time of the calling thread as a float.(in secs)
+    """
+    return _yappi.thread_times()
 
 def main():
     import os, sys
