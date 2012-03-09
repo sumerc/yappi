@@ -96,7 +96,13 @@ class YStats:
     def __iter__(self):
         for stat in self._stats:
             yield stat
-
+            
+    def __getitem__(self, item):
+        return self._stats[item]
+    
+    def __repr__(self):
+        return str(self._stats)
+    
 class YFuncStats(YStats):
     def enumerator(self, stat_entry):
         tavg = stat_entry[2]/stat_entry[1]

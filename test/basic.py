@@ -96,6 +96,17 @@ fsz = func_stat_from_name(stats, '.z:')
 
 yappi.clear_stats()
 test_passed("chained-recursive function #2")
+
+def bar():
+    for i in range(1000000):pass
+stats = run_with_yappi('bar()', sort_type=yappi.SORTTYPE_TTOT) 
+prev_stat = stats[0]
+for stat in stats:
+    assert stat.ttot <= prev_stat.ttot
+    prev_stat = stat
+    
+test_passed("basic stat filtering")
+
 """
 class MyThread(threading.Thread):
     
@@ -124,4 +135,4 @@ import yappi
 yappi.print_stats()
 test_passed("trivial multithread function")
 """
-test_passed("General tests passed.:)")
+test_passed("general tests passed.:)")

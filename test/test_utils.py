@@ -12,7 +12,7 @@ def _run(func):
         eval(func, globals, locals)
         
 def func_stat_from_name(stats, fname):
-    for stat in stats.func_stats:
+    for stat in stats:
         if fname in stat.name:
             return stat
     return None
@@ -24,9 +24,9 @@ def assert_raises_exception(func):
     except:
         pass
 
-def run_with_yappi(func):
+def run_with_yappi(func, **kwargs):
     import yappi
     yappi.start()
     _run(func)
     yappi.stop()
-    return yappi.get_stats()
+    return yappi.get_func_stats(**kwargs)
