@@ -787,7 +787,7 @@ _pitenumstat(_hitem *item, void * arg)
 }
 
 static PyObject*
-enum_stats(PyObject *self, PyObject *args)
+enum_func_stats(PyObject *self, PyObject *args)
 {
     PyObject *enumfn;
 
@@ -797,7 +797,7 @@ enum_stats(PyObject *self, PyObject *args)
     }
 
     if (!PyArg_ParseTuple(args, "O", &enumfn)) {
-        PyErr_SetString(YappiProfileError, "invalid param to enum_stats");
+        PyErr_SetString(YappiProfileError, "invalid param to enum_func_stats");
         return NULL;
     }
 
@@ -854,7 +854,7 @@ clock_type(PyObject *self, PyObject *args)
 static PyMethodDef yappi_methods[] = {
     {"start", start, METH_VARARGS, NULL},
     {"stop", stop, METH_VARARGS, NULL},
-    {"enum_stats", enum_stats, METH_VARARGS, NULL},
+    {"enum_func_stats", enum_func_stats, METH_VARARGS, NULL},
     {"enum_thread_stats", enum_thread_stats, METH_VARARGS, NULL},
     {"clear_stats", clear_stats, METH_VARARGS, NULL},
     {"is_running", is_running, METH_VARARGS, NULL},
