@@ -10,7 +10,7 @@ import _yappi
 
 __all__ = ['start', 'stop', 'enum_func_stats', 'enum_thread_stats', 'print_func_stats', 
            'print_thread_stats', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running', 
-           'clock_type']
+           'clock_type', 'mem_usage']
 
 CRLF = '\n'
 COLUMN_GAP = 2
@@ -232,9 +232,15 @@ def clock_type():
     
 def thread_times():
     """
-    Returns the total CPU time of the calling thread as a float.(in secs)
+    Returns the total CPU time of the calling thread as a float.(in secs) Precision is OS dependent.
     """
     return _yappi.thread_times()
+    
+def mem_usage():
+    """
+    Returns the memory usage of the profiler itself.
+    """
+    return _yappi.mem_usage()
 
 def main():
     import os, sys
