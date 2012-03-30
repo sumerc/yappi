@@ -20,18 +20,14 @@ Requirements:
 ===================
 - Profiler should be started/stopped at any time from any thread in the application.
 - Profile statistics should be obtained from any thread at any time.
-- Profile events themselves should work theoretically in O(1) time and O(n+m) space(where m is 
-  recursion count) per any profile event. This means: application behavior/details/size should not
-  affect the profiler run-time.
-- "Profiler pollution"(effect on the application run-time) should be very minimal and observable 
-  via statistics to see how much load the profiler is putting on the application. Best way to 
-  compute this pollution is to compute the percentage of total run time spent in profiler to the 
-  total application run-time.(these statistics shall also include space requirements per 
-  application)
-- Profiler shall handle the error/exception situations internally. For example running out of 
-  memory should be handled by the profiler itself. No OS/Python VM exception that occurred inside 
-  profiler shall not affect the profiled application. 
-
+- Profile statistics will be calculated from per-thread CPU time.(new in v0.62)
+- Profile events themselves should work theoretically in O(1) time and O(n+m) space
+  (where m is recursion count) per any profile event. This means: application 
+  behavior/details/size should not affect the profiler run-time.
+- Profiler pollution(effect on the application run-time) should be very minimal.
+- Profiler shall handle the error/exception situations internally. For example 
+  running out of memory should be handled by the profiler itself. No OS/Python VM 
+  exception that occurred inside profiler shall not affect the profiled application.
 
 
 
