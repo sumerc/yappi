@@ -35,6 +35,9 @@ typedef struct {
     long long tsubtotal;
     long long ttotal;
     int builtin;
+    unsigned int index;
+    _pit *parents;
+    _pit *children;
 } _pit; // profile_item
 
 typedef struct {
@@ -64,6 +67,7 @@ static _flag flags;
 static _freelist *flpit;
 static _freelist *flctx;
 static int yappinitialized;
+static unsigned int ycurfuncindex; // used for providing unique index for functions
 static int yapphavestats;	// start() called at least once or stats cleared?
 static int yapprunning;
 static time_t yappstarttime;
@@ -89,6 +93,7 @@ _create_pit(void)
     pit->tsubtotal = 0;
     pit->co = NULL;
     pit->builtin = 0;
+    pit->index = ycurfuncindex++;
 
     return pit;
 }
@@ -550,6 +555,7 @@ _init_profiler(void)
         yappinitialized = 1;
         current_ctx = NULL;
         prev_ctx = NULL;
+        ycurfuncindex = 0; 
     }
     return 1;
 }
@@ -770,8 +776,8 @@ _pitenumstat(_hitem *item, void * arg)
 
     fname_s = _item2fname(pt);
     
-    exc = PyObject_CallFunction(efn, "((skff))", fname_s.c_str, pt->callcount, pt->ttotal * tickfactor(),
-                          cumdiff * tickfactor());
+    exc = PyObject_CallFunction(efn, "((skffk))", fname_s.c_str, pt->callcount, pt->ttotal * tickfactor(),
+                          cumdiff * tickfactor(), pt->index);
     if (!exc) {
         PyErr_Print();
         return 1; // abort enumeration

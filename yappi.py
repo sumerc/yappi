@@ -106,9 +106,9 @@ class YStats:
 class YFuncStats(YStats):
     def enumerator(self, stat_entry):
         tavg = stat_entry[2]/stat_entry[1]
-        fstat = YStatDict(('name', 'ncall', 'ttot', 'tsub', 'tavg'), stat_entry+(tavg,))
+        fstat = YStatDict(('name', 'ncall', 'ttot', 'tsub', 'index', 'tavg'), stat_entry+(tavg,))
         self._stats.append(fstat)
-
+        
 class YThreadStats(YStats):       
     def enumerator(self, stat_entry):
         tstat = YStatDict(('name', 'id', 'last_func', 'ttot', 'sched_count'), stat_entry)
@@ -179,7 +179,7 @@ def print_func_stats(out=sys.stdout, sort_type=SORTTYPE_NCALL, sort_order=SORTOR
     out.write(CRLF)
     out.write("name                                 #n            tsub      ttot      tavg")
     out.write(CRLF)
-    for stat in stats: 
+    for stat in stats:
         out.write(StatString(stat.name).ltrim(FUNC_NAME_LEN))
         out.write(" " * COLUMN_GAP)
         out.write(StatString(stat.ncall).rtrim(CALLCOUNT_LEN))
