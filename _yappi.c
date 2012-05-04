@@ -28,6 +28,12 @@
 PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
 #endif
 
+// linked list for holding callee/caller info in the pit
+typedef struct {
+    unsigned int index;
+    struct _pit_children_info *next;
+} _pit_children_info;
+
 // module definitions
 typedef struct {
     PyObject *co; // CodeObject or MethodDef descriptive string.
@@ -36,8 +42,7 @@ typedef struct {
     long long ttotal;
     int builtin;
     unsigned int index;
-    //_pit *parents; TODO:
-    //_pit *children; TODO: Maybe hold indexes in the arrays
+    _pit_children_info *children;
 } _pit; // profile_item
 
 typedef struct {
@@ -94,6 +99,7 @@ _create_pit(void)
     pit->co = NULL;
     pit->builtin = 0;
     pit->index = ycurfuncindex++;
+    pit->children = NULL;
 
     return pit;
 }
@@ -212,9 +218,19 @@ _thread2ctx(PyThreadState *ts)
 static void
 _del_pit(_pit *pit)
 {
+    _pit_children_info *it,*next;
+    
     // if it is a regular C string all DECREF will do is to decrement the first
     // character's value.
     Py_DECREF(pit->co);
+    
+    it = pit->children;
+    while(it) {
+        next = (_pit_children_info *)it->next;
+        yfree(it);
+        it = next;
+    }
+    pit->children = NULL;
 }
 
 static _pit *
@@ -386,6 +402,7 @@ static void
 _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 {
     _pit *cp, *pp;
+    _pit_children_info *pci,*ppci,*newpci;
     _cstackitem *ci,*pi;
     long long elapsed;
     
@@ -416,6 +433,27 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     // update parent's sub total if recursive above code will extract the subtotal and
     // below code will have no effect.
     pp->tsubtotal += elapsed;
+    
+    // update children of the parent function
+    ppci = pci = pp->children;
+    while(pci) {
+        if (pci->index == cp->index) {
+            break;
+        }
+        ppci = pci;
+        pci = (_pit_children_info *)pci->next;
+    }
+    if (!pci) { // cur func not in the children list
+        newpci = ymalloc(sizeof(_pit_children_info));
+        newpci->index = cp->index;
+        newpci->next = NULL;
+        if (!ppci) {
+            pp->children = newpci;
+        } else {
+            ppci->next = (struct _pit_children_info *)newpci;
+        }
+    }
+    
 }
 
 // context will be cleared by the free list. we do not free it here.
