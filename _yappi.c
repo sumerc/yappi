@@ -36,8 +36,8 @@ typedef struct {
     long long ttotal;
     int builtin;
     unsigned int index;
-    _pit *parents;
-    _pit *children;
+    //_pit *parents; TODO:
+    //_pit *children; TODO: Maybe hold indexes in the arrays
 } _pit; // profile_item
 
 typedef struct {
