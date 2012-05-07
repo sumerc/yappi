@@ -261,13 +261,20 @@ def main():
 
     if (len(sys.argv) > 0):
         sys.path.insert(0, os.path.dirname(sys.argv[0]))
-        start(options.profile_builtins, options.timing_sample)
-        execfile(sys.argv[0])
+        start(options.profile_builtins)
+        
+        if sys.version_info >= (3, 0):
+            exec(compile(open(sys.argv[0]).read(), sys.argv[0], 'exec'),    
+               sys._getframe(1).f_globals, sys._getframe(1).f_locals)
+        else:
+            execfile(sys.argv[0])
         stop()
-        print_stats() # we will currently use default params for this.
+        # we will currently use default params for these
+        print_func_stats() 
+        print_thread_stats()        
     else:
         parser.print_usage()
-    return parser
+    
     
 if __name__ == "__main__":
     main()

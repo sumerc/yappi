@@ -1,7 +1,15 @@
 #!/usr/bin/env python
 import os
 import sys
-from distutils.core import setup, Extension
+if sys.version_info >= (3, 0):
+    from distribute_setup import use_setuptools
+else:
+    from ez_setup import use_setuptools
+
+use_setuptools()
+
+from setuptools import setup
+from distutils.core import Extension
 from distutils.ccompiler import new_compiler
 
 f = open('README')
@@ -55,6 +63,11 @@ setup(name=NAME,
         libraries = user_libraries,
         )],
     py_modules =  ["yappi"],
+    entry_points = {
+    'console_scripts': [
+        'yappi = yappi:main',
+        ],
+    },
     description="Yet Another Python Profiler",
     long_description = long_description,
     keywords = "python multithread profile",
