@@ -825,6 +825,8 @@ _pitenumstat(_hitem *item, void * arg)
     
     exc = PyObject_CallFunction(efn, "((skffkO))", fname_s.c_str, pt->callcount, pt->ttotal * tickfactor(),
                           cumdiff * tickfactor(), pt->index, children);
+                          
+    // TODO: ref leak on children???
     if (!exc) {
         PyErr_Print();
         return 1; // abort enumeration
