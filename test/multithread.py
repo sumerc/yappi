@@ -35,7 +35,7 @@ c.start()
 
 time.sleep(1.0)
 
-yappi.print_stats()
+yappi.print_func_stats()
 
 """
 f = open("den.txt", "w")

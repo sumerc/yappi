@@ -452,8 +452,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         } else {
             ppci->next = (struct _pit_children_info *)newpci;
         }
-    }
-    
+    }    
 }
 
 // context will be cleared by the free list. we do not free it here.
@@ -802,7 +801,9 @@ _pitenumstat(_hitem *item, void * arg)
     _mstr fname_s;
     _pit *pt;
     PyObject *exc;
-
+    PyObject *children;
+    _pit_children_info *pci;
+    
     pt = (_pit *)item->val;
     // do not show builtin pits if specified
     if  ((!flags.builtins) && (pt->builtin)) {
@@ -814,8 +815,16 @@ _pitenumstat(_hitem *item, void * arg)
 
     fname_s = _item2fname(pt);
     
-    exc = PyObject_CallFunction(efn, "((skffk))", fname_s.c_str, pt->callcount, pt->ttotal * tickfactor(),
-                          cumdiff * tickfactor(), pt->index);
+    // convert children function index list to PyList
+    children = PyList_New(0);
+    pci = pt->children;
+    while(pci) {
+        PyList_Append(children, Py_BuildValue("k", pci->index));
+        pci = (_pit_children_info *)pci->next;
+    }
+    
+    exc = PyObject_CallFunction(efn, "((skffkO))", fname_s.c_str, pt->callcount, pt->ttotal * tickfactor(),
+                          cumdiff * tickfactor(), pt->index, children);
     if (!exc) {
         PyErr_Print();
         return 1; // abort enumeration

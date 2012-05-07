@@ -106,8 +106,9 @@ class YStats:
 class YFuncStats(YStats):
     def enumerator(self, stat_entry):
         tavg = stat_entry[2]/stat_entry[1]
-        fstat = YStatDict(('name', 'ncall', 'ttot', 'tsub', 'index', 'tavg'), stat_entry+(tavg,))
+        fstat = YStatDict(('name', 'ncall', 'ttot', 'tsub', 'index', 'children', 'tavg'), stat_entry+(tavg,))
         self._stats.append(fstat)
+        #print(fstat)
         
 class YThreadStats(YStats):       
     def enumerator(self, stat_entry):
