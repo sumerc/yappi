@@ -1,0 +1,4 @@
+[*] TEST: MACOSx and 64 bit needed as we cast long to uintptr_t
+[+] TEST: llvm-gcc with WShorten64to32.
+[*] Any way to get CPU time with the long known mt problem, where run() is not exiting and ttot stays
+    0.000000. -- No way

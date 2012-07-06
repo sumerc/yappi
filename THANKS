@@ -1,0 +1,15 @@
+Thanks all the great community of Python, especially the 
+http://groups.google.com/group/comp.lang.python group for answering my 
+silly questions.
+
+Thanks to...
+
+- Dave Peticolas for his statistics formatting patch code/suggestions.
+- tooker for Py3k support patch.
+- mjanos5 - for helping to debug few memory corruption bugs.
+- Mark Stuart - fix for bad fnames when Py_DEBUG is on.
+
+Special thanks to the authors of cProfile module Brett Rosen and Ted Czotter. 
+Some parts/ideas of yappi are taken from the source code of cProfile.
+
+
