@@ -36,6 +36,7 @@ c.start()
 time.sleep(1.0)
 
 yappi.print_func_stats()
+yappi.print_thread_stats()
 
 """
 f = open("den.txt", "w")

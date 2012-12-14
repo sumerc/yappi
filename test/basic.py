@@ -1,7 +1,7 @@
 import time
 import yappi
 import threading
-from test_utils import func_stat_from_name, assert_raises_exception, run_with_yappi, test_passed
+from test_utils import func_stat_from_name, assert_raises_exception, run_and_get_func_stats, test_passed, run_and_get_thread_stats
 
 """
 NOTE: Please note that below tests are only for development, on some _slow_ hardware they may fail.
@@ -22,7 +22,7 @@ def foo():
     import time
     time.sleep(1.0)
     
-stats = run_with_yappi('foo()')
+stats = run_and_get_func_stats('foo()')
 fs = func_stat_from_name(stats, 'foo')
 assert fs != None
 assert fs.ttot < 1.0
@@ -30,11 +30,10 @@ assert fs.tsub < 1.0
 assert fs.ncall == 1
 
 test_passed("trivial timing function")
-    
+
 # try get_stats after clear_stats
 yappi.clear_stats()
 assert_raises_exception('yappi.get_stats()')
-
 # try profiling a simple recursive function
 def fib(n):
    if n > 1:
@@ -42,7 +41,7 @@ def fib(n):
    else:
        return n
 
-stats = run_with_yappi('fib(22)')
+stats = run_and_get_func_stats('fib(22)')
 fs = func_stat_from_name(stats, 'fib')
 assert fs.ncall == 57313
 assert fs.ttot == fs.tsub
@@ -67,9 +66,9 @@ def b():
     a()
     time.sleep(1.0)
     
-stats = run_with_yappi('a()')  
-fsa = func_stat_from_name(stats, '.a:')
-fsb = func_stat_from_name(stats, '.b:')
+stats = run_and_get_func_stats('a()')  
+fsa = func_stat_from_name(stats, 'a')
+fsb = func_stat_from_name(stats, 'b')
 assert fsa.ncall == 4
 assert fsa.tsub < fsa.ttot
 assert fsa.ttot >= fsb.ttot
@@ -89,23 +88,27 @@ def y(n):
     
 def z(n):
     x(n-1)
-stats = run_with_yappi('x(2)')  
-fsx = func_stat_from_name(stats, '.x:')
-fsy = func_stat_from_name(stats, '.y:')
-fsz = func_stat_from_name(stats, '.z:')
+stats = run_and_get_func_stats('x(2)')  
+fsx = func_stat_from_name(stats, 'x')
+fsy = func_stat_from_name(stats, 'y')
+fsz = func_stat_from_name(stats, 'z')
 
 yappi.clear_stats()
 test_passed("chained-recursive function #2")
 
 def bar():
     for i in range(1000000):pass
-stats = run_with_yappi('bar()', sort_type=yappi.SORTTYPE_TTOT) 
-prev_stat = stats[0]
+stats = run_and_get_func_stats('bar()', sort_type=yappi.SORTTYPE_TTOT) 
+prev_stat = stats[0] # sorted asceinding TTOT
 for stat in stats:
     assert stat.ttot <= prev_stat.ttot
-    prev_stat = stat
-    
+    prev_stat = stat    
 test_passed("basic stat filtering")
+    
+stats = run_and_get_thread_stats('bar()')
+assert stats[0].sched_count != 0
+assert stats[0].ttot >= 0.0
+test_passed("basic thread stat functionality")
 
 """
 class MyThread(threading.Thread):

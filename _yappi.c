@@ -28,15 +28,25 @@
 PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
 #endif
 
+#ifdef IS_PY3K
+#  define PyStr_AS_CSTRING(s) PyBytes_AS_STRING(PyUnicode_AsUTF8String(s))
+#else
+#  define PyStr_AS_CSTRING(s) PyString_AS_STRING(s)
+#endif
+
 // linked list for holding callee/caller info in the pit
 typedef struct {
     unsigned int index;
+    unsigned long callcount;
+    long long ttotal;
     struct _pit_children_info *next;
 } _pit_children_info;
 
 // module definitions
 typedef struct {
-    PyObject *co; // CodeObject or MethodDef descriptive string.
+    PyObject *name;
+    char *modname;
+    unsigned long lineno;
     unsigned long callcount;
     long long tsubtotal;
     long long ttotal;
@@ -57,12 +67,6 @@ typedef struct {
 typedef struct {
     int builtins;
 } _flag; // flags passed from yappi.start()
-
-// Issue #25: Python debug build reference count fix.
-typedef struct {
-    char *c_str;
-    PyObject *py_str;
-} _mstr;
 
 // profiler global vars
 static PyObject *YappiProfileError;
@@ -96,7 +100,9 @@ _create_pit(void)
     pit->callcount = 0;
     pit->ttotal = 0;
     pit->tsubtotal = 0;
-    pit->co = NULL;
+    pit->name = NULL;
+    pit->modname = NULL;
+    pit->lineno = 0;
     pit->builtin = 0;
     pit->index = ycurfuncindex++;
     pit->children = NULL;
@@ -123,47 +129,6 @@ _create_ctx(void)
     return ctx;
 }
 
-// extracts the function name from a given pit. Note that pit->co may be
-// either a PyCodeObject or a descriptive string.
-static _mstr
-_item2fname(_pit *pt)
-{
-    _mstr result;
-
-    result.c_str = "N/A";
-    result.py_str = NULL;
-    
-    if (!pt) {
-        return result;
-    }
-
-    if (PyCode_Check(pt->co)) {
-#ifdef IS_PY3K
-    result.py_str =  PyUnicode_FromFormat( "%U.%U:%d",
-    								(((PyCodeObject *)pt->co)->co_filename),
-    								(((PyCodeObject *)pt->co)->co_name),
-                                    ((PyCodeObject *)pt->co)->co_firstlineno );
-#else
-    result.py_str =  PyString_FromFormat( "%s.%s:%d",
-                                    PyString_AS_STRING(((PyCodeObject *)pt->co)->co_filename),
-                                    PyString_AS_STRING(((PyCodeObject *)pt->co)->co_name),
-                                    ((PyCodeObject *)pt->co)->co_firstlineno );
-#endif
-    } else {
-        result.py_str = pt->co;
-    }
-    
-#ifdef IS_PY3K    
-    result.c_str = PyBytes_AS_STRING(PyUnicode_AsUTF8String(result.py_str));
-#else
-    result.c_str = PyString_AS_STRING(result.py_str); 
-#endif    
-    if (!result.c_str) {
-        result.c_str = "N/A";
-    }
-    return result;
-}
-
 char *
 _get_current_thread_class_name(void)
 {
@@ -183,12 +148,8 @@ _get_current_thread_class_name(void)
     tattr2 = PyObject_GetAttrString(tattr1, "__name__");
     if (!tattr2)
         goto err;
-        
-#ifdef IS_PY3K
-    return PyBytes_AS_STRING(PyUnicode_AsUTF8String(tattr2));
-#else
-    return PyString_AS_STRING(tattr2);
-#endif
+
+    return PyStr_AS_CSTRING(tattr2);
 
 err:
     Py_XDECREF(mthr);
@@ -204,11 +165,11 @@ _thread2ctx(PyThreadState *ts)
     _hitem *it;
 
     it = hfind(contexts, (uintptr_t)ts->thread_id);
-    if (!it) {        
+    if (!it) {
         // callback functions in some circumtances, can be called before the context entry is not
         // created. (See issue 21). To prevent this problem we need to ensure the context entry for
-        // the thread is always available here. 
-        return _profile_thread(ts);        
+        // the thread is always available here.
+        return _profile_thread(ts);
     }
     return (_ctx *)it->val;
 }
@@ -219,11 +180,7 @@ static void
 _del_pit(_pit *pit)
 {
     _pit_children_info *it,*next;
-    
-    // if it is a regular C string all DECREF will do is to decrement the first
-    // character's value.
-    Py_DECREF(pit->co);
-    
+
     it = pit->children;
     while(it) {
         next = (_pit_children_info *)it->next;
@@ -238,6 +195,9 @@ _ccode2pit(void *cco)
 {
     PyCFunctionObject *cfn;
     _hitem *it;
+    PyObject *mod;
+    char *modname;
+    PyObject *name;
 
     cfn = cco;
     // Issue #15:
@@ -252,80 +212,52 @@ _ccode2pit(void *cco)
         if (!hadd(pits, (uintptr_t)cfn->m_ml, (uintptr_t)pit))
             return NULL;
 
-        pit->builtin = 1; // set the bultin here
+        pit->builtin = 1;
 
-        // built-in function?
-        if (cfn->m_self == NULL) {
-
-            PyObject *mod = cfn->m_module;
-            const char *modname;
-
-
+        // get module name
+        mod = cfn->m_module;
 #ifdef IS_PY3K
-            if (mod && PyUnicode_Check(mod)) {
-                modname = PyBytes_AS_STRING(PyUnicode_AsUTF8String(mod));
+        if (mod && PyUnicode_Check(mod)) {      
 #else
-            if (mod && PyString_Check(mod)) {
-                modname = PyString_AS_STRING(mod);
+        if (mod && PyString_Check(mod)) {
 #endif
-            } else if (mod && PyModule_Check(mod)) {
-                modname = PyModule_GetName(mod);
-                if (modname == NULL) {
-                    PyErr_Clear();
-                    modname = "__builtin__";
-                }
-            } else {
+            modname = PyStr_AS_CSTRING(mod);
+        } else if (mod && PyModule_Check(mod)) {
+            modname = (char *)PyModule_GetName(mod);
+            if (modname == NULL) {
+                PyErr_Clear();
                 modname = "__builtin__";
             }
-            if (strcmp(modname, "__builtin__") != 0) {
-#ifdef IS_PY3K
-                pit->co = PyUnicode_FromFormat("<%s.%s>",
-                                               modname,
-                                               cfn->m_ml->ml_name);
-#else
-                pit->co = PyString_FromFormat("<%s.%s>",
-                                              modname,
-                                              cfn->m_ml->ml_name);
-#endif                                              
-            } else {
-#ifdef IS_PY3K
-                pit->co = PyUnicode_FromFormat("<%s>",
-                                               cfn->m_ml->ml_name);
-#else
-                pit->co = PyString_FromFormat("<%s>",
-                                              cfn->m_ml->ml_name);
-#endif
-            }
+        } else {
+            modname = "__builtin__";
+        }
+        pit->modname = modname;
+        pit->lineno = 0;
 
-        } else { // built-in method?
-            PyObject *self = cfn->m_self;
+        // built-in method?
+        if (cfn->m_self != NULL) {
 #ifdef IS_PY3K
-            PyObject *name = PyUnicode_FromString(cfn->m_ml->ml_name);
+            name = PyUnicode_FromString(cfn->m_ml->ml_name);
 #else
-            PyObject *name = PyString_FromString(cfn->m_ml->ml_name);
+            name = PyString_FromString(cfn->m_ml->ml_name);
 #endif
             if (name != NULL) {
-                PyObject *mo = _PyType_Lookup((PyTypeObject *)PyObject_Type(self), name);
+                PyObject *mo = _PyType_Lookup((PyTypeObject *)PyObject_Type(cfn->m_self), name);
                 Py_XINCREF(mo);
                 Py_DECREF(name);
                 if (mo != NULL) {
-                    PyObject *res = PyObject_Repr(mo);
+                    pit->name = PyObject_Repr(mo);
                     Py_DECREF(mo);
-                    if (res != NULL) {
-                        pit->co = res;
-                        return pit;
-                    }
+                    return pit;
                 }
             }
             PyErr_Clear();
-#ifdef IS_PY3K
-            pit->co = PyUnicode_FromFormat("<built-in method %s>",
-                                           cfn->m_ml->ml_name);
-#else
-            pit->co = PyString_FromFormat("<built-in method %s>",
-                                          cfn->m_ml->ml_name);
-#endif
         }
+#ifdef IS_PY3K
+        pit->name = PyUnicode_FromFormat("%s", cfn->m_ml->ml_name);
+#else
+        pit->name = PyString_FromFormat("%s", cfn->m_ml->ml_name);
+#endif
         return pit;
     }
     return ((_pit *)it->val);
@@ -333,22 +265,61 @@ _ccode2pit(void *cco)
 
 // maps the PyCodeObject to our internal pit item via hash table.
 static _pit *
-_code2pit(void *co)
+_code2pit(PyFrameObject *fobj)
 {
     _hitem *it;
+    PyCodeObject *cobj;
+    _pit *pit;
 
-    it = hfind(pits, (uintptr_t)co);
-    if (!it) {
-        _pit *pit = _create_pit();
-        if (!pit)
-            return NULL;
-        if (!hadd(pits, (uintptr_t)co, (uintptr_t)pit))
-            return NULL;
-        Py_INCREF((PyObject *)co);
-        pit->co = co; //dummy
-        return pit;
+    cobj = fobj->f_code;
+    it = hfind(pits, (uintptr_t)cobj);
+    if (it) {
+        return ((_pit *)it->val);
     }
-    return ((_pit *)it->val);
+
+    pit = _create_pit();
+    if (!pit)
+        return NULL;
+    if (!hadd(pits, (uintptr_t)cobj, (uintptr_t)pit))
+        return NULL;
+
+    pit->name = NULL;
+    pit->modname = PyStr_AS_CSTRING(cobj->co_filename);
+    pit->lineno = cobj->co_firstlineno;
+
+    PyFrame_FastToLocals(fobj);
+    if (cobj->co_argcount) {
+        const char *firstarg = PyStr_AS_CSTRING(PyTuple_GET_ITEM(cobj->co_varnames, 0));
+
+        if (!strcmp(firstarg, "self")) {
+            PyObject* locals = fobj->f_locals;
+            if (locals) {
+                PyObject* self = PyDict_GetItemString(locals, "self");
+                if (self) {
+                    PyObject *as = PyObject_GetAttrString(self, "__class__");
+                    as = PyObject_GetAttrString(as, "__name__");
+#ifdef IS_PY3K
+                    pit->name = PyUnicode_FromFormat("%U.%U", as, cobj->co_name);
+#else
+                    pit->name = PyString_FromFormat("%s.%s",
+                                                    PyString_AS_STRING(as),
+                                                    PyString_AS_STRING(cobj->co_name));
+#endif
+                }
+            }
+        }
+    }
+    if (!pit->name) {
+#ifdef IS_PY3K
+        pit->name = PyUnicode_FromFormat("%U", cobj->co_name);
+#else
+        pit->name = PyString_FromFormat("%s", PyString_AS_STRING(cobj->co_name));
+#endif
+    }
+
+    PyFrame_LocalsToFast(fobj,0);
+
+    return pit;
 }
 
 static void
@@ -357,15 +328,15 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     _pit *cp;
     PyObject *last_type, *last_value, *last_tb;
     _cstackitem *hci;
-    
+
     PyErr_Fetch(&last_type, &last_value, &last_tb);
 
     if (ccall) {
         cp = _ccode2pit((PyCFunctionObject *)arg);
     } else {
-        cp = _code2pit(frame->f_code);
+        cp = _code2pit(frame);
     }
-    
+
     // something went wrong. No mem, or another error. we cannot find
     // a corresponding pit. just run away:)
     if (!cp) {
@@ -405,15 +376,15 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     _pit_children_info *pci,*ppci,*newpci;
     _cstackitem *ci,*pi;
     long long elapsed;
-    
+
     ci = spop(current_ctx->cs);
-    if (!ci) {   
+    if (!ci) {
         return; // leaving a frame while callstack is empty
     }
     cp = ci->ckey;
 
     elapsed = tickcount() - ci->t0;
-    
+
     // get the parent function in the callstack
     pi = shead(current_ctx->cs);
     if (!pi) { // no head this is the first function in the callstack?
@@ -421,7 +392,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         return;
     }
     pp = pi->ckey;
-    
+
     // are we leaving a recursive function that is already in the callstack?
     // then extract the elapsed from subtotal of the the current pit(profile item).
     if (scount(current_ctx->cs, cp) > 0) {
@@ -433,7 +404,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     // update parent's sub total if recursive above code will extract the subtotal and
     // below code will have no effect.
     pp->tsubtotal += elapsed;
-    
+
     // update children of the parent function
     ppci = pci = pp->children;
     while(pci) {
@@ -446,13 +417,20 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     if (!pci) { // cur func not in the children list
         newpci = ymalloc(sizeof(_pit_children_info));
         newpci->index = cp->index;
+        newpci->callcount = 0;
+        newpci->ttotal = 0;
         newpci->next = NULL;
         if (!ppci) {
             pp->children = newpci;
         } else {
             ppci->next = (struct _pit_children_info *)newpci;
         }
-    }    
+        pci = newpci;
+    }
+    pci->callcount++;
+    // FIXME: this is not necessarily correct
+    //        need to check what happens with recursive functions
+    pci->ttotal += elapsed;
 }
 
 // context will be cleared by the free list. we do not free it here.
@@ -473,7 +451,7 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         yerr("no context found or can be created.");
         return 0;
     }
-    
+
     switch (what) {
     case PyTrace_CALL:
         _call_enter(self, frame, arg, 0);
@@ -482,7 +460,7 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         _call_leave(self, frame, arg, 0);
         break;
 
-#ifdef PyTrace_C_CALL	// not defined in Python <= 2.3 
+#ifdef PyTrace_C_CALL	// not defined in Python <= 2.3
     case PyTrace_C_CALL:
         if (PyCFunction_Check(arg))
             _call_enter(self, frame, arg, 1); // set ccall to true
@@ -519,7 +497,7 @@ _profile_thread(PyThreadState *ts)
     if (!ctx) {
         return NULL;
     }
-    
+
     // Use thread_id instead of ts pointer, because when we create/delete many threads, some
     // of them do not show up in the thread_stats, because ts pointers are recycled in the VM.
     // Also, we do not want to delete thread stats unless clear_stats() is called explicitly.
@@ -592,7 +570,7 @@ _init_profiler(void)
         yappinitialized = 1;
         current_ctx = NULL;
         prev_ctx = NULL;
-        ycurfuncindex = 0; 
+        ycurfuncindex = 0;
     }
     return 1;
 }
@@ -611,11 +589,7 @@ profile_event(PyObject *self, PyObject *args)
 
     _ensure_thread_profiled(PyThreadState_GET());
     
-#ifdef IS_PY3K
-    ev = PyBytes_AS_STRING(PyUnicode_AsUTF8String(event));
-#else
-    ev = PyString_AS_STRING(event);
-#endif
+    ev = PyStr_AS_CSTRING(event);
 
     if (strcmp("call", ev)==0)
         _yapp_callback(self, frame, PyTrace_CALL, arg);
@@ -734,36 +708,41 @@ _ctxenumstat(_hitem *item, void *arg)
 {
     PyObject *efn;
     char *tcname;
-    _mstr fname_s;
-    _ctx * ctx;
+    _ctx *ctx;
     long long cumdiff;
     PyObject *exc;
+    PyObject *last_func_name;
+    char *last_mod_name;
+    unsigned long last_line_no;
 
     ctx = (_ctx *)item->val;
 
-    fname_s = _item2fname(ctx->last_pit);
+    if(ctx->last_pit) {
+        last_func_name = ctx->last_pit->name;
+        last_mod_name = ctx->last_pit->modname;
+        last_line_no = ctx->last_pit->lineno;
+    } else {
+        last_func_name = NULL;
+        last_mod_name = "";
+        last_line_no = 0;
+    }
+
     tcname = ctx->class_name;
     if (tcname == NULL)
         tcname = "N/A";
     efn = (PyObject *)arg;
-    
+
     cumdiff = _calc_cumdiff(tickcount(), ctx->t0);
     
-    exc = PyObject_CallFunction(efn, "((sksfk))", tcname, ctx->id, fname_s.c_str, 
-        cumdiff * tickfactor(), ctx->sched_cnt);
+    exc = PyObject_CallFunction(efn, "((skOskfk))", tcname, ctx->id, last_func_name,
+        last_mod_name, last_line_no, cumdiff * tickfactor(), ctx->sched_cnt);
     if (!exc) {
         PyErr_Print();
         return 1; // abort enumeration
     }
-    
-    if (ctx->last_pit) {
-        if (PyCode_Check(ctx->last_pit->co)) {
-            Py_DECREF(fname_s.py_str);
-        }
-    }
-    
+
     return 0;
-           
+
 }
 
 static PyObject*
@@ -785,7 +764,7 @@ enum_thread_stats(PyObject *self, PyObject *args)
         PyErr_SetString(YappiProfileError, "enum function must be callable");
         return NULL;
     }
-    
+
     henum(contexts, _ctxenumstat, enumfn);
 
     Py_INCREF(Py_None);
@@ -798,46 +777,35 @@ _pitenumstat(_hitem *item, void * arg)
 {
     long long cumdiff;
     PyObject *efn;
-    _mstr fname_s;
     _pit *pt;
     PyObject *exc;
     PyObject *children;
     _pit_children_info *pci;
-    
+
     pt = (_pit *)item->val;
     // do not show builtin pits if specified
     if  ((!flags.builtins) && (pt->builtin)) {
         return 0;
     }
-    
+
     cumdiff = _calc_cumdiff(pt->ttotal, pt->tsubtotal);
     efn = (PyObject *)arg;
 
-    fname_s = _item2fname(pt);
-    
     // convert children function index list to PyList
     children = PyList_New(0);
     pci = pt->children;
     while(pci) {
-        PyList_Append(children, Py_BuildValue("k", pci->index));
+        PyList_Append(children, Py_BuildValue("Ikf", pci->index, pci->callcount,
+                                              pci->ttotal * tickfactor()));
         pci = (_pit_children_info *)pci->next;
     }
-    
-    exc = PyObject_CallFunction(efn, "((skffkO))", fname_s.c_str, pt->callcount, pt->ttotal * tickfactor(),
+    exc = PyObject_CallFunction(efn, "((OskkffIO))", pt->name, pt->modname, pt->lineno, pt->callcount, pt->ttotal * tickfactor(),
                           cumdiff * tickfactor(), pt->index, children);
-                          
     // TODO: ref leak on children???
     if (!exc) {
         PyErr_Print();
         return 1; // abort enumeration
     }
-   
-    if (pt) {
-        if (PyCode_Check(pt->co)) {
-            Py_DECREF(fname_s.py_str);
-        }
-    }
-    
     return 0;
 }
 
@@ -890,9 +858,9 @@ static PyObject *
 clock_type(PyObject *self, PyObject *args)
 {
     PyObject *type,*result,*resolution;
-    
+
     result = PyDict_New();
-    
+
 #if defined(USE_CLOCK_TYPE_GETTHREADTIMES)
     type = Py_BuildValue("s", "getthreadtimes");
     resolution = Py_BuildValue("s", "100ns");
@@ -909,7 +877,7 @@ clock_type(PyObject *self, PyObject *args)
 
     PyDict_SetItemString(result, "clock_type", type);
     PyDict_SetItemString(result, "resolution", resolution);
-    
+
     return result;
 }
 
@@ -958,7 +926,7 @@ init_yappi(void)
     m = Py_InitModule("_yappi",  yappi_methods);
     if (m == NULL)
         return;
-#endif        
+#endif
 
     d = PyModule_GetDict(m);
     YappiProfileError = PyErr_NewException("_yappi.error", NULL, NULL);
@@ -977,7 +945,7 @@ init_yappi(void)
         return;
 #endif
     }
-    
+
 #ifdef IS_PY3K
     return m;
 #endif
