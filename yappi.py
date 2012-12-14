@@ -182,6 +182,8 @@ def print_func_stats(out=sys.stdout, sort_type=SORTTYPE_NCALL, sort_order=SORTOR
     out.write("name                                    #n            tsub      ttot      tavg")
     out.write(CRLF)
     for stat in stats:
+        if os.path.basename(stat.module) == "%s.py" % __name__: # do not show profile stats of yappi itself.
+            continue
         out.write(StatString(stat.full_name).ltrim(FUNC_NAME_LEN))
         out.write(" " * COLUMN_GAP)
         out.write(StatString(stat.ncall).rtrim(CALLCOUNT_LEN))
