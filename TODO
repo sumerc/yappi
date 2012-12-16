@@ -2,5 +2,6 @@
 [+] TEST: llvm-gcc with WShorten64to32.
 [*] Any way to get CPU time with the long known mt problem, where run() is not exiting and ttot stays
     0.000000. -- No way
+[+] we have some problems on fnames when yappi test/simple.py is run. string formatting issues again...
 [-] Test debug build after merging the wackou branch.
-[-] we have some problems on fnames when yappi test/simple.py is run. string formatting issues again...
+[-] We need to have to revisit string formatting functions again. There are a lot of repetitive code.

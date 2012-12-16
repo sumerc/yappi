@@ -29,9 +29,9 @@ PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
 #endif
 
 #ifdef IS_PY3K
-#  define PyStr_AS_CSTRING(s) PyBytes_AS_STRING(PyUnicode_AsUTF8String(s))
+#define PyStr_AS_CSTRING(s) PyBytes_AS_STRING(PyUnicode_AsUTF8String(s))
 #else
-#  define PyStr_AS_CSTRING(s) PyString_AS_STRING(s)
+#define PyStr_AS_CSTRING(s) PyString_AS_STRING(s)
 #endif
 
 // linked list for holding callee/caller info in the pit
@@ -45,7 +45,7 @@ typedef struct {
 // module definitions
 typedef struct {
     PyObject *name;
-    char *modname;
+    PyObject *modname;
     unsigned long lineno;
     unsigned long callcount;
     long long tsubtotal;
@@ -215,6 +215,7 @@ _ccode2pit(void *cco)
         pit->builtin = 1;
 
         // get module name
+        modname = NULL;
         mod = cfn->m_module;
 #ifdef IS_PY3K
         if (mod && PyUnicode_Check(mod)) {      
@@ -224,16 +225,20 @@ _ccode2pit(void *cco)
             modname = PyStr_AS_CSTRING(mod);
         } else if (mod && PyModule_Check(mod)) {
             modname = (char *)PyModule_GetName(mod);
-            if (modname == NULL) {
-                PyErr_Clear();
-                modname = "__builtin__";
-            }
-        } else {
+        } 
+        
+        if (modname == NULL) {
+            PyErr_Clear();
             modname = "__builtin__";
         }
-        pit->modname = modname;
+        
+#ifdef IS_PY3K
+        pit->modname = PyUnicode_FromFormat("%s", modname);
+#else
+        pit->modname = PyString_FromFormat("%s", modname);
+#endif
         pit->lineno = 0;
-
+        
         // built-in method?
         if (cfn->m_self != NULL) {
 #ifdef IS_PY3K
@@ -284,7 +289,12 @@ _code2pit(PyFrameObject *fobj)
         return NULL;
 
     pit->name = NULL;
-    pit->modname = PyStr_AS_CSTRING(cobj->co_filename);
+#ifdef IS_PY3K
+    pit->modname = PyUnicode_FromFormat("%U", cobj->co_filename);
+#else
+    pit->modname = PyString_FromFormat("%s", PyString_AS_STRING(cobj->co_filename));
+#endif
+    
     pit->lineno = cobj->co_firstlineno;
 
     PyFrame_FastToLocals(fobj);
@@ -712,7 +722,7 @@ _ctxenumstat(_hitem *item, void *arg)
     long long cumdiff;
     PyObject *exc;
     PyObject *last_func_name;
-    char *last_mod_name;
+    PyObject *last_mod_name;
     unsigned long last_line_no;
 
     ctx = (_ctx *)item->val;
@@ -723,7 +733,7 @@ _ctxenumstat(_hitem *item, void *arg)
         last_line_no = ctx->last_pit->lineno;
     } else {
         last_func_name = NULL;
-        last_mod_name = "";
+        last_mod_name = NULL;
         last_line_no = 0;
     }
 
@@ -734,7 +744,7 @@ _ctxenumstat(_hitem *item, void *arg)
 
     cumdiff = _calc_cumdiff(tickcount(), ctx->t0);
     
-    exc = PyObject_CallFunction(efn, "((skOskfk))", tcname, ctx->id, last_func_name,
+    exc = PyObject_CallFunction(efn, "((skOOkfk))", tcname, ctx->id, last_func_name,
         last_mod_name, last_line_no, cumdiff * tickfactor(), ctx->sched_cnt);
     if (!exc) {
         PyErr_Print();
@@ -799,7 +809,7 @@ _pitenumstat(_hitem *item, void * arg)
                                               pci->ttotal * tickfactor()));
         pci = (_pit_children_info *)pci->next;
     }
-    exc = PyObject_CallFunction(efn, "((OskkffIO))", pt->name, pt->modname, pt->lineno, pt->callcount, pt->ttotal * tickfactor(),
+    exc = PyObject_CallFunction(efn, "((OOkkffIO))", pt->name, pt->modname, pt->lineno, pt->callcount, pt->ttotal * tickfactor(),
                           cumdiff * tickfactor(), pt->index, children);
     // TODO: ref leak on children???
     if (!exc) {
