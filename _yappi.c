@@ -29,6 +29,7 @@ PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
 #endif
 
 // linked list for holding callee/caller info in the pit
+// we need to record the timing data on the pairs (parent, child) only index is not enough
 typedef struct {
     unsigned int index;
     unsigned long callcount;

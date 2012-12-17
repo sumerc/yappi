@@ -64,12 +64,13 @@ class YStat(dict):
     """
     _KEYS = () 
     
-    def __init__(self, values):
+    def __init__(self, values=None):
         super(YStat, self).__init__()
-        assert len(self._KEYS) == len(values)
-        for i in range(len(self._KEYS)):
-            setattr(self, self._KEYS[i], values[i])
-            self[i] = values[i]
+        if values:
+            assert len(self._KEYS) == len(values)
+            for i in range(len(self._KEYS)):
+                setattr(self, self._KEYS[i], values[i])
+                self[i] = values[i]
 
 class YFuncStat(YStat):
     _KEYS = ('name', 'module', 'lineno', 'ncall', 'ttot', 'tsub', 'index', 'children', 'tavg', 'full_name')
@@ -129,17 +130,19 @@ class YFuncStats(YStats):
         saved_stats = pickle.load(of)
         of.close()
         for sstat in saved_stats:
-            found_in_current_stats = False
-            for cstat in self._stats:
-                if sstat == cstat:
-                    found_in_current_stats = True
-                    # merge fields
-                    cstat.ncall += sstat.ncall
-                    cstat.ttot += sstat.ttot
-                    cstat.tsub += sstat.tsub
-                    cstat.tavg += sstat.tavg
-                    # TODO: child handling index.
-            if not found_in_current_stats:
+            # TODO: normalize childs
+            #for child_idx in sstat.children:
+            #    pass
+                
+            if sstat in self._stats:
+                idx = self._stats.index(sstat)
+                cstat = self._stats[idx]
+                cstat.ncall += sstat.ncall
+                cstat.ttot += sstat.ttot
+                cstat.tsub += sstat.tsub
+                cstat.tavg += sstat.tavg
+                cstat.children = list(set(cstat.children + sstat.children))
+            else:
                 self._stats.append(sstat)
                     
     def save(self, path):
@@ -300,13 +303,13 @@ events: Ticks
         func_stats += [ '%s %s' % (funcstat.lineno, int(funcstat.tsub * 1e6)) ]
 
         # children functions stats
-        for idx, callcount, tsub in funcstat.children:
+        for idx, callcount, ttot in funcstat.children:
             if idx not in idxmap:
                 continue
             func_stats += [ 'cfl=(%d)' % idxmap[idx],
                             'cfn=(%d)' % idxmap[idx],
                             'calls=%d 0' % callcount,
-                            '0 %d' % int(tsub * 1e6)
+                            '0 %d' % int(ttot * 1e6)
                             ]
 
         lines += func_stats
