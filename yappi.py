@@ -64,13 +64,13 @@ class YStat(dict):
     """
     _KEYS = () 
     
-    def __init__(self, values=None):
+    def __init__(self, values):
         super(YStat, self).__init__()
-        if values:
-            assert len(self._KEYS) == len(values)
-            for i in range(len(self._KEYS)):
-                setattr(self, self._KEYS[i], values[i])
-                self[i] = values[i]
+        
+        assert len(self._KEYS) == len(values)
+        for i in range(len(self._KEYS)):
+            setattr(self, self._KEYS[i], values[i])
+            self[i] = values[i]
 
 class YFuncStat(YStat):
     _KEYS = ('name', 'module', 'lineno', 'ncall', 'ttot', 'tsub', 'index', 'children', 'tavg', 'full_name')
