@@ -28,12 +28,6 @@
 PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
 #endif
 
-#ifdef IS_PY3K
-#define PyStr_AS_CSTRING(s) PyBytes_AS_STRING(PyUnicode_AsUTF8String(s))
-#else
-#define PyStr_AS_CSTRING(s) PyString_AS_STRING(s)
-#endif
-
 // linked list for holding callee/caller info in the pit
 typedef struct {
     unsigned int index;
@@ -87,6 +81,45 @@ static _ctx *current_ctx;
 
 // forward
 static _ctx * _profile_thread(PyThreadState *ts);
+
+
+// string formatting helper functions compatible with with both 2.x and 3.x
+
+#ifdef IS_PY3K
+#define PyStr_AS_CSTRING(s) PyBytes_AS_STRING(PyUnicode_AsUTF8String(s))
+#else
+#define PyStr_AS_CSTRING(s) PyString_AS_STRING(s)
+#endif
+
+static PyObject * 
+PyStr_FromFormat(const char *fmt, ...)
+{
+    PyObject* ret;
+    va_list vargs;
+    
+    va_start(vargs, fmt);
+#ifdef IS_PY3K
+    ret = PyUnicode_FromFormatV(fmt, vargs);
+#else
+    ret = PyString_FromFormatV(fmt, vargs);
+#endif
+    return ret;
+}
+
+static PyObject * 
+PyStr_FromString(const char *s)
+{
+    PyObject* ret;
+    
+#ifdef IS_PY3K
+    ret = PyUnicode_FromString(s);
+#else
+    ret = PyString_FromString(s);
+#endif
+    return ret;
+}
+
+
 
 // module functions
 static _pit *
@@ -232,20 +265,12 @@ _ccode2pit(void *cco)
             modname = "__builtin__";
         }
         
-#ifdef IS_PY3K
-        pit->modname = PyUnicode_FromFormat("%s", modname);
-#else
-        pit->modname = PyString_FromFormat("%s", modname);
-#endif
+        pit->modname = PyStr_FromString(modname);
         pit->lineno = 0;
         
         // built-in method?
         if (cfn->m_self != NULL) {
-#ifdef IS_PY3K
-            name = PyUnicode_FromString(cfn->m_ml->ml_name);
-#else
-            name = PyString_FromString(cfn->m_ml->ml_name);
-#endif
+            name = PyStr_FromString(cfn->m_ml->ml_name);
             if (name != NULL) {
                 PyObject *mo = _PyType_Lookup((PyTypeObject *)PyObject_Type(cfn->m_self), name);
                 Py_XINCREF(mo);
@@ -258,11 +283,7 @@ _ccode2pit(void *cco)
             }
             PyErr_Clear();
         }
-#ifdef IS_PY3K
-        pit->name = PyUnicode_FromFormat("%s", cfn->m_ml->ml_name);
-#else
-        pit->name = PyString_FromFormat("%s", cfn->m_ml->ml_name);
-#endif
+        pit->name = PyStr_FromString(cfn->m_ml->ml_name);
         return pit;
     }
     return ((_pit *)it->val);
@@ -289,12 +310,7 @@ _code2pit(PyFrameObject *fobj)
         return NULL;
 
     pit->name = NULL;
-#ifdef IS_PY3K
-    pit->modname = PyUnicode_FromFormat("%U", cobj->co_filename);
-#else
-    pit->modname = PyString_FromFormat("%s", PyString_AS_STRING(cobj->co_filename));
-#endif
-    
+    pit->modname = PyStr_FromString(PyStr_AS_CSTRING(cobj->co_filename));    
     pit->lineno = cobj->co_firstlineno;
 
     PyFrame_FastToLocals(fobj);
@@ -307,24 +323,14 @@ _code2pit(PyFrameObject *fobj)
                 PyObject* self = PyDict_GetItemString(locals, "self");
                 if (self) {
                     PyObject *as = PyObject_GetAttrString(self, "__class__");
-                    as = PyObject_GetAttrString(as, "__name__");
-#ifdef IS_PY3K
-                    pit->name = PyUnicode_FromFormat("%U.%U", as, cobj->co_name);
-#else
-                    pit->name = PyString_FromFormat("%s.%s",
-                                                    PyString_AS_STRING(as),
-                                                    PyString_AS_STRING(cobj->co_name));
-#endif
+                    as = PyObject_GetAttrString(as, "__name__");                    
+                    pit->name = PyStr_FromFormat("%s.%s", PyStr_AS_CSTRING(as), PyStr_AS_CSTRING(cobj->co_name));
                 }
             }
         }
     }
     if (!pit->name) {
-#ifdef IS_PY3K
-        pit->name = PyUnicode_FromFormat("%U", cobj->co_name);
-#else
-        pit->name = PyString_FromFormat("%s", PyString_AS_STRING(cobj->co_name));
-#endif
+        pit->name = PyStr_FromString(PyStr_AS_CSTRING(cobj->co_name));
     }
 
     PyFrame_LocalsToFast(fobj,0);
