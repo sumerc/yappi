@@ -57,31 +57,38 @@ class StatString:
         else:
             return self._s + (" " * (length - len(self._s)))
 
-class YStatDict(dict):
+class YStat(dict):
     """
     Class to hold a profile result line in a dict object, which all items can also be accessed as
     instance attributes where their attribute name is the given key. Mimicked NamedTuples.
     """
-    def __init__(self, keys, values):
-        super(YStatDict, self).__init__()
-        assert len(keys) == len(values)
-        for i in range(len(keys)):
-            setattr(self, keys[i], values[i])
+    _KEYS = () 
+    
+    def __init__(self, values):
+        super(YStat, self).__init__()
+        assert len(self._KEYS) == len(values)
+        for i in range(len(self._KEYS)):
+            setattr(self, self._KEYS[i], values[i])
             self[i] = values[i]
 
-    def __repr__(self):
-        return str(self.__dict__)
-
+class YFuncStat(YStat):
+    _KEYS = ('name', 'module', 'lineno', 'ncall', 'ttot', 'tsub', 'index', 'children', 'tavg', 'full_name')
+    
+    def __eq__(self, other):
+        return self.full_name == other.full_name
+         
+class YThreadStat(YStat):
+    _KEYS = ('name', 'id', 'last_func_name', 'last_func_mod', 'last_line_no', 'ttot', 'sched_count', 'last_func_full_name')
+            
 class YStats:
     """
     Main Stats class where we collect the information from _yappi and apply the user filters.
     """
-    def __init__(self, sort_type, sort_order, limit, enum_func):
+    def __init__(self, enum_func=None):
         self._stats = []
-        enum_func(self.enumerator)
-        self.sort(sort_type, sort_order)
-        self.limit(limit)
-
+        if enum_func:
+            enum_func(self.enumerator)
+        
     def sort(self, sort_type, sort_order):
         self._stats.sort(key=lambda stat: stat[sort_type],
             reverse=(sort_order==SORTORDER_DESC))
@@ -102,18 +109,49 @@ class YStats:
 
     def __repr__(self):
         return str(self._stats)
-
+        
+    def __len__(self):
+        return len(self._stats)
+        
+    
 class YFuncStats(YStats):
     def enumerator(self, stat_entry):
         tavg = stat_entry[4]/stat_entry[3]
-        fstat = YStatDict(('name', 'module', 'lineno', 'ncall', 'ttot', 'tsub', 'index', 'children', 'tavg'), stat_entry+(tavg,))
-        fstat.full_name = "%s:%s:%d" % (fstat.module, fstat.name, fstat.lineno)
-        self._stats.append(fstat)
-
+        full_name = "%s:%s:%d" % (stat_entry[1], stat_entry[0], stat_entry[2])
+        fstat = YFuncStat(stat_entry + (tavg,full_name))
+        
+        if os.path.basename(fstat.module) != "%s.py" % __name__: # do not show profile stats of yappi itself.
+            self._stats.append(fstat)
+    
+    def add(self, path):
+        of = open(path, "rb")
+        import pickle
+        saved_stats = pickle.load(of)
+        of.close()
+        for sstat in saved_stats:
+            found_in_current_stats = False
+            for cstat in self._stats:
+                if sstat == cstat:
+                    found_in_current_stats = True
+                    # merge fields
+                    cstat.ncall += sstat.ncall
+                    cstat.ttot += sstat.ttot
+                    cstat.tsub += sstat.tsub
+                    cstat.tavg += sstat.tavg
+                    # TODO: child handling index.
+            if not found_in_current_stats:
+                self._stats.append(sstat)
+                    
+    def save(self, path):
+        of = open(path, "wb")
+        import pickle
+        pickle.dump(self._stats, of)
+        of.close()
+              
 class YThreadStats(YStats):
     def enumerator(self, stat_entry):
-        tstat = YStatDict(('name', 'id', 'last_func_name', 'last_func_mod', 'last_line_no', 'ttot', 'sched_count'), stat_entry)
-        tstat.last_func_full_name = "%s:%s:%d" % (tstat.last_func_mod, tstat.last_func_name, tstat.last_line_no)
+        last_func_full_name = "%s:%s:%d" % (stat_entry[3], stat_entry[2], stat_entry[4])
+        tstat = YThreadStat(stat_entry + (last_func_full_name, ))
         self._stats.append(tstat)
 
 '''
@@ -140,14 +178,18 @@ def get_func_stats(sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESC, limit=SH
     """
     Gets the function profiler results with given filters and returns an iterable.
     """
-    stats = YFuncStats(sort_type, sort_order, limit, enum_func_stats)
+    stats = YFuncStats(enum_func=enum_func_stats)
+    stats.sort(sort_type, sort_order)
+    stats.limit(limit)
     return stats
 
 def get_thread_stats(sort_type=SORTTYPE_THREAD_NAME, sort_order=SORTORDER_DESC, limit=SHOW_ALL):
     """
     Gets the thread profiler results with given filters and returns an iterable.
     """
-    stats = YThreadStats(sort_type, sort_order, limit, enum_thread_stats)
+    stats = YThreadStats(enum_func=enum_thread_stats)
+    stats.sort(sort_type, sort_order)
+    stats.limit(limit)
     return stats
 
 def stop():
@@ -169,21 +211,20 @@ def enum_thread_stats(tenum):
     """
     _yappi.enum_thread_stats(tenum)
 
-def print_func_stats(out=sys.stdout, sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESC, limit=SHOW_ALL):
+def print_func_stats(out=sys.stdout, stats=None, sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESC, limit=SHOW_ALL):
     """
     Prints all of the function profiler results to a given file. (stdout by default)
     """
-    stats = get_func_stats(sort_type, sort_order, limit)
+    if stats is None:
+        stats = get_func_stats(sort_type, sort_order, limit)
 
     FUNC_NAME_LEN = 38
     CALLCOUNT_LEN = 9
-
+    
     out.write(CRLF)
     out.write("name                                    #n            tsub      ttot      tavg")
     out.write(CRLF)
     for stat in stats:
-        if os.path.basename(stat.module) == "%s.py" % __name__: # do not show profile stats of yappi itself.
-            continue
         out.write(StatString(stat.full_name).ltrim(FUNC_NAME_LEN))
         out.write(" " * COLUMN_GAP)
         out.write(StatString(stat.ncall).rtrim(CALLCOUNT_LEN))
@@ -194,6 +235,7 @@ def print_func_stats(out=sys.stdout, sort_type=SORTTYPE_NCALL, sort_order=SORTOR
         out.write(" " * COLUMN_GAP)
         out.write(StatString("%0.6f" % stat.tavg).rtrim(TIME_COLUMN_LEN))
         out.write(CRLF)
+     
 
 def print_thread_stats(out=sys.stdout, sort_type=SORTTYPE_NAME, sort_order=SORTORDER_DESC, limit=SHOW_ALL):
     """

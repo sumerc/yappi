@@ -221,6 +221,8 @@ _del_pit(_pit *pit)
         it = next;
     }
     pit->children = NULL;
+    Py_XDECREF(pit->name);
+    Py_XDECREF(pit->modname);
 }
 
 static _pit *
