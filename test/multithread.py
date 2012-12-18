@@ -35,7 +35,7 @@ c.start()
 
 time.sleep(1.0)
 
-yappi.print_func_stats()
+yappi.print_func_stats(sort_type=yappi.SORTTYPE_TTOT)
 yappi.print_thread_stats()
 
 """

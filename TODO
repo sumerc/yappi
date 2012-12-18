@@ -6,3 +6,5 @@
 [+] We need to have to revisit string formatting functions again. There are a lot of repetitive code.
 [-] Test debug build after merging the wackou branch.
 [-] add stats to basic tests and re-TEST again.
+[-] invalid sort_type for threads.. revisit sort and limit params.
+[-] stats.py can generate the sort error write a TC for that.
