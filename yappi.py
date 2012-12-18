@@ -115,7 +115,7 @@ class YStats:
     
 class YFuncStats(YStats):
 
-    _idxmap = {}
+    _idx_max = 0
     
     def enumerator(self, stat_entry):
         tavg = stat_entry[4]/stat_entry[3]
@@ -124,38 +124,63 @@ class YFuncStats(YStats):
         
         if os.path.basename(fstat.module) != "%s.py" % __name__: # do not show profile stats of yappi itself.
             self._stats.append(fstat)
-            self._idxmap[fstat.index] = fstat
-            self._idxmap[fstat.full_name] = fstat
+            # hold the max idx number for merging new entries
+            if self._idx_max < fstat.index:
+                self._idx_max = fstat.index
             
     def add(self, path):
+        def get_stat_by_full_name(stats, full_name):
+            for stat in stats:
+                if stat.full_name == full_name:
+                    return stat
+            return None
+            
+        def get_stat_by_index(stats, index):
+            for stat in stats:
+                if stat.index == index:
+                    return stat
+            return None
+        
         of = open(path, "rb")
-        saved_stats, saved_idxmap = pickle.load(of)
-        of.close()
-        for sstat in saved_stats:
-            
-            #if saved_child_stat in sstat.children:
-            #    saved_idxmap[saved_child_stat
-            
-            # TODO: sync. childs                
-            if sstat in self._stats:
-                idx = self._stats.index(sstat)
-                cstat = self._stats[idx]
-                cstat.ncall += sstat.ncall
-                cstat.ttot += sstat.ttot
-                cstat.tsub += sstat.tsub
-                cstat.tavg += sstat.tavg
-                
-            else:
-                self._stats.append(sstat)
-                    
-    def save(self, path):
-        of = open(path, "wb")
-        pickle.dump((self._stats, self._idxmap), of)
+        saved_stats = pickle.load(of)
         of.close()
         
-    def __getitem__(self, item):
-        return self._idxmap[item]
-              
+        # add 'not present' previous entries
+        for saved_stat in saved_stats:
+            if saved_stat not in self._stats:
+                self._idx_max += 1
+                saved_stat.index = self._idx_max
+                self._stats.append(saved_stat)
+            else:
+                cur_stat = get_stat_by_full_name(self._stats, saved_stat.full_name)
+                cur_stat.ncall += saved_stat.ncall
+                cur_stat.ttot += saved_stat.ttot
+                cur_stat.tsub += saved_stat.tsub
+                cur_stat.tavg += saved_stat.tavg
+                
+        # fix the children indexes
+        for saved_stat in saved_stats:
+            for i in range(len(saved_stat.children)):
+                child_stat = get_stat_by_index(saved_stats, saved_stat.children[i][0])
+                if child_stat:
+                    # we have merged the results in the loop above, so if a saved stat exists it shall
+                    # also exist in the current stats
+                    child_stat_in_current = get_stat_by_full_name(self._stats, child_stat.full_name)
+                    saved_stat.children[i] = (child_stat_in_current.index, saved_stat.children[i][1],
+                                                saved_stat.children[i][2])
+                    saved_stat_in_current = get_stat_by_full_name(self._stats, saved_stat.full_name)    
+                    cur_child_indexes = [x[0] for x in saved_stat_in_current.children]
+                    # TODO: update children
+                else:
+                    # sometimes even the profile results does not contain the result because of filtering 
+                    # or timing(call_leave called but call_enter is not)
+                    del saved_stat.children[i]
+            
+    def save(self, path):
+        of = open(path, "wb")
+        pickle.dump(self._stats, of)
+        of.close()
+       
 class YThreadStats(YStats):
     def enumerator(self, stat_entry):
         last_func_full_name = "%s:%s:%d" % (stat_entry[3], stat_entry[2], stat_entry[4])
@@ -225,6 +250,9 @@ def print_func_stats(out=sys.stdout, stats=None, sort_type=SORTTYPE_NCALL, sort_
     """
     if stats is None:
         stats = get_func_stats(sort_type, sort_order, limit)
+    else:
+        stats.sort(sort_type, sort_order)
+        stats.limit(limit)
 
     FUNC_NAME_LEN = 38
     CALLCOUNT_LEN = 9
@@ -287,7 +315,7 @@ part: 1
 events: Ticks
 """ % ('yappi', os.getpid(), ' '.join(sys.argv))
 
-    lines = [ header ]
+    lines = [header]
 
     # add function definitions
     file_ids = ['']
