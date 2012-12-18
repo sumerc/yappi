@@ -8,6 +8,7 @@ import os
 import sys
 import threading
 import _yappi
+import pickle
 
 __all__ = ['start', 'stop', 'enum_func_stats', 'enum_thread_stats', 'print_func_stats',
            'print_thread_stats', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
@@ -105,9 +106,6 @@ class YStats:
         for stat in self._stats:
             yield stat
 
-    def __getitem__(self, item):
-        return self._stats[item]
-
     def __repr__(self):
         return str(self._stats)
         
@@ -116,6 +114,9 @@ class YStats:
         
     
 class YFuncStats(YStats):
+
+    _idxmap = {}
+    
     def enumerator(self, stat_entry):
         tavg = stat_entry[4]/stat_entry[3]
         full_name = "%s:%s:%d" % (stat_entry[1], stat_entry[0], stat_entry[2])
@@ -123,17 +124,19 @@ class YFuncStats(YStats):
         
         if os.path.basename(fstat.module) != "%s.py" % __name__: # do not show profile stats of yappi itself.
             self._stats.append(fstat)
-    
+            self._idxmap[fstat.index] = fstat
+            self._idxmap[fstat.full_name] = fstat
+            
     def add(self, path):
         of = open(path, "rb")
-        import pickle
-        saved_stats = pickle.load(of)
+        saved_stats, saved_idxmap = pickle.load(of)
         of.close()
         for sstat in saved_stats:
-            # TODO: normalize childs
-            #for child_idx in sstat.children:
-            #    pass
-                
+            
+            #if saved_child_stat in sstat.children:
+            #    saved_idxmap[saved_child_stat
+            
+            # TODO: sync. childs                
             if sstat in self._stats:
                 idx = self._stats.index(sstat)
                 cstat = self._stats[idx]
@@ -141,15 +144,17 @@ class YFuncStats(YStats):
                 cstat.ttot += sstat.ttot
                 cstat.tsub += sstat.tsub
                 cstat.tavg += sstat.tavg
-                cstat.children = list(set(cstat.children + sstat.children))
+                
             else:
                 self._stats.append(sstat)
                     
     def save(self, path):
         of = open(path, "wb")
-        import pickle
-        pickle.dump(self._stats, of)
+        pickle.dump((self._stats, self._idxmap), of)
         of.close()
+        
+    def __getitem__(self, item):
+        return self._idxmap[item]
               
 class YThreadStats(YStats):
     def enumerator(self, stat_entry):
@@ -285,29 +290,25 @@ events: Ticks
     lines = [ header ]
 
     # add function definitions
-    idxmap = {}
     file_ids = ['']
     func_ids = ['']
-    for idx, funcstat in enumerate(stats):
-        idxmap[funcstat.index] = idx
-        file_ids += [ 'fl=(%d) %s' % (idx, funcstat.module) ]
-        func_ids += [ 'fn=(%d) %s' % (idx, funcstat.name) ]
+    for func_stat in stats:
+        file_ids += [ 'fl=(%d) %s' % (func_stat.index, func_stat.module) ]
+        func_ids += [ 'fn=(%d) %s' % (func_stat.index, func_stat.name) ]
 
     lines += file_ids + func_ids
 
     # add stats for each function we have a record of
-    for idx, funcstat in enumerate(stats):
+    for func_stat in stats:
         func_stats = [ '',
-                       'fl=(%d)' % idx,
-                       'fn=(%d)' % idx ]
-        func_stats += [ '%s %s' % (funcstat.lineno, int(funcstat.tsub * 1e6)) ]
+                       'fl=(%d)' % func_stat.index,
+                       'fn=(%d)' % func_stat.index ]
+        func_stats += [ '%s %s' % (func_stat.lineno, int(func_stat.tsub * 1e6)) ]
 
         # children functions stats
-        for idx, callcount, ttot in funcstat.children:
-            if idx not in idxmap:
-                continue
-            func_stats += [ 'cfl=(%d)' % idxmap[idx],
-                            'cfn=(%d)' % idxmap[idx],
+        for idx, callcount, ttot in func_stat.children:
+            func_stats += [ 'cfl=(%d)' % idx,
+                            'cfn=(%d)' % idx,
                             'calls=%d 0' % callcount,
                             '0 %d' % int(ttot * 1e6)
                             ]
