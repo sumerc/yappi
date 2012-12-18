@@ -10,6 +10,8 @@ import threading
 import _yappi
 import pickle
 
+class YappiError(Exception): pass
+
 __all__ = ['start', 'stop', 'enum_func_stats', 'enum_thread_stats', 'print_func_stats',
            'print_thread_stats', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
            'clock_type', 'mem_usage']
@@ -32,6 +34,18 @@ SORTORDER_ASC = 0
 SORTORDER_DESC = 1
 
 SHOW_ALL = 0
+
+def validate_func_sorttype(sort_type):
+    if sort_type not in [SORTTYPE_NAME, SORTTYPE_NCALL, SORTTYPE_TTOT, SORTTYPE_TSUB, SORTTYPE_TAVG]:
+        raise YappiError("Invalid SortType parameter.[%d]" % (sort_type))
+
+def validate_thread_sorttype(sort_type):
+    if sort_type not in [SORTTYPE_THREAD_NAME, SORTTYPE_THREAD_ID, SORTTYPE_THREAD_TTOT, SORTTYPE_THREAD_SCHEDCNT]:
+        raise YappiError("Invalid SortType parameter.[%d]" % (sort_type))
+        
+def validate_sortorder(sort_order):
+    if sort_order not in [SORTORDER_ASC, SORTORDER_DESC]:
+        raise YappiError("Invalid SortOrder parameter.[%d]" % (sort_order))
 
 class StatString:
     """
@@ -77,6 +91,8 @@ class YFuncStat(YStat):
     _KEYS = ('name', 'module', 'lineno', 'ncall', 'ttot', 'tsub', 'index', 'children', 'tavg', 'full_name')
     
     def __eq__(self, other):
+        if other is None:
+            return False
         return self.full_name == other.full_name
          
 class YThreadStat(YStat):
@@ -110,6 +126,9 @@ class YStats:
         
     def __len__(self):
         return len(self._stats)
+        
+    def __getitem__(self, item):
+        return self._stats[item]
         
     
 class YFuncStats(YStats):
@@ -210,6 +229,9 @@ def get_func_stats(sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESC, limit=SH
     """
     Gets the function profiler results with given filters and returns an iterable.
     """
+    validate_func_sorttype(sort_type)
+    validate_sortorder(sort_order)
+    
     stats = YFuncStats(enum_func=enum_func_stats)
     stats.sort(sort_type, sort_order)
     stats.limit(limit)
@@ -219,6 +241,9 @@ def get_thread_stats(sort_type=SORTTYPE_THREAD_NAME, sort_order=SORTORDER_DESC, 
     """
     Gets the thread profiler results with given filters and returns an iterable.
     """
+    validate_thread_sorttype(sort_type)
+    validate_sortorder(sort_order)
+    
     stats = YThreadStats(enum_func=enum_thread_stats)
     stats.sort(sort_type, sort_order)
     stats.limit(limit)
@@ -247,9 +272,12 @@ def print_func_stats(out=sys.stdout, stats=None, sort_type=SORTTYPE_NCALL, sort_
     """
     Prints all of the function profiler results to a given file. (stdout by default)
     """
+    
     if stats is None:
         stats = get_func_stats(sort_type, sort_order, limit)
     else:
+        validate_func_sorttype(sort_type)
+        validate_sortorder(sort_order)
         stats.sort(sort_type, sort_order)
         stats.limit(limit)
 

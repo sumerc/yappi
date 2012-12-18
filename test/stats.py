@@ -8,6 +8,8 @@ def bar():
     for i in range(1000000): pass
 def bar2():
     for i in range(1000000): pass
+def foo3():
+    for i in range(1000000): pass
     
 yappi.start()
 foo()
@@ -35,6 +37,11 @@ bar()
 foo()
 foo()
 bar2()
+bar()
+bar2()
+foo2()
+foo3()
 yappi.stop()
 fstats = yappi.print_func_stats(sort_type=yappi.SORTTYPE_TTOT)
+fstats = yappi.print_thread_stats()
 yappi.clear_stats()
