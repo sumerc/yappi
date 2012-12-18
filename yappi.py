@@ -92,9 +92,8 @@ class YStats:
             enum_func(self.enumerator)
         
     def sort(self, sort_type, sort_order):
-        self._stats.sort(key=lambda stat: stat[sort_type],
-            reverse=(sort_order==SORTORDER_DESC))
-
+        self._stats.sort(key=lambda stat: stat[sort_type], reverse=(sort_order==SORTORDER_DESC))
+        
     def limit(self, limit):
         if limit != SHOW_ALL:
             self._stats = self._stats[:limit]
@@ -258,7 +257,7 @@ def print_func_stats(out=sys.stdout, stats=None, sort_type=SORTTYPE_NCALL, sort_
     CALLCOUNT_LEN = 9
     
     out.write(CRLF)
-    out.write("name                                    #n            tsub      ttot      tavg")
+    out.write("name                                    #n         tsub      ttot      tavg")
     out.write(CRLF)
     for stat in stats:
         out.write(StatString(stat.full_name).ltrim(FUNC_NAME_LEN))
