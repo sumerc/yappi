@@ -47,7 +47,7 @@ def validate_sortorder(sort_order):
     if sort_order not in [SORTORDER_ASC, SORTORDER_DESC]:
         raise YappiError("Invalid SortOrder parameter.[%d]" % (sort_order))
 
-class StatString:
+class StatString(object):
     """
     Class to prettify/trim a profile result column.
     """
@@ -94,11 +94,38 @@ class YFuncStat(YStat):
         if other is None:
             return False
         return self.full_name == other.full_name
-         
+        
+    def __add__(self, other):
+        self.ncall += other.ncall
+        self.ttot += other.ttot
+        self.tsub += other.tsub
+        self.tavg += other.tavg
+        for other_child_stat in other.children:
+            cur_child_stat = self.find_child_by_full_name(other_child_stat.full_name)
+            if cur_child_stat is None:
+                self.children.append(other_child_stat)
+            else:
+                cur_child_stat.ncall += other_child_stat.ncall
+                cur_child_stat.ttot += other_child_stat.ttot
+        
+    def find_child_by_full_name(self, full_name):
+        for child in self.children:
+            if child.full_name == full_name:
+                return child
+        return None
+        
+class YChildFuncStat(YStat):
+    _KEYS = ('index', 'ncall', 'ttot', 'full_name')
+    
+    def __eq__(self, other):
+        if other is None:
+            return False
+        return self.full_name == other.full_name
+             
 class YThreadStat(YStat):
     _KEYS = ('name', 'id', 'last_func_name', 'last_func_mod', 'last_line_no', 'ttot', 'sched_count', 'last_func_full_name')
             
-class YStats:
+class YStats(object):
     """
     Main Stats class where we collect the information from _yappi and apply the user filters.
     """
@@ -135,65 +162,78 @@ class YFuncStats(YStats):
 
     _idx_max = 0
     
+    def __init__(self, enum_func=None):
+        super(YFuncStats, self).__init__(enum_func)
+        
+        # convert the children info from tuple to YChildFuncStat
+        for stat in self._stats:
+            _childs = []
+            for child_tpl in stat.children:
+                rstat = self.find_by_index(child_tpl[0])
+                
+                # sometimes even the profile results does not contain the result because of filtering 
+                # or timing(call_leave called but call_enter is not), with this we ensure that the children
+                # index always point to a valid stat.
+                if rstat is None:
+                    continue 
+                    
+                cfstat = YChildFuncStat(child_tpl+(rstat.full_name,))
+                _childs.append(cfstat)
+            stat.children = _childs
+    
     def enumerator(self, stat_entry):
         tavg = stat_entry[4]/stat_entry[3]
         full_name = "%s:%s:%d" % (stat_entry[1], stat_entry[0], stat_entry[2])
         fstat = YFuncStat(stat_entry + (tavg,full_name))
         
-        if os.path.basename(fstat.module) != "%s.py" % __name__: # do not show profile stats of yappi itself.
-            self._stats.append(fstat)
-            # hold the max idx number for merging new entries
-            if self._idx_max < fstat.index:
-                self._idx_max = fstat.index
+        # do not show profile stats of yappi itself. 
+        # TODO: ignore _yappi, too.
+        if os.path.basename(fstat.module) == ("%s.py" % __name__): 
+            return
             
-    def add(self, path):
-        def get_stat_by_full_name(stats, full_name):
-            for stat in stats:
-                if stat.full_name == full_name:
-                    return stat
-            return None
-            
-        def get_stat_by_index(stats, index):
-            for stat in stats:
-                if stat.index == index:
-                    return stat
-            return None
+        self._stats.append(fstat)
+        # hold the max idx number for merging new entries
+        if self._idx_max < fstat.index:
+            self._idx_max = fstat.index
+                
+    def find_by_index(self, index):
+        for stat in self._stats:
+            if stat.index == index:
+                return stat
+        return None
         
+    def find_by_full_name(self, full_name):
+        for stat in self._stats:
+            if stat.full_name == full_name:
+                return stat
+        return None
+      
+    def add(self, path):
+    
         of = open(path, "rb")
         saved_stats = pickle.load(of)
         of.close()
         
-        # add 'not present' previous entries
+        # add 'not present' previous entries with unique indexes
         for saved_stat in saved_stats:
             if saved_stat not in self._stats:
                 self._idx_max += 1
                 saved_stat.index = self._idx_max
                 self._stats.append(saved_stat)
-            else:
-                cur_stat = get_stat_by_full_name(self._stats, saved_stat.full_name)
-                cur_stat.ncall += saved_stat.ncall
-                cur_stat.ttot += saved_stat.ttot
-                cur_stat.tsub += saved_stat.tsub
-                cur_stat.tavg += saved_stat.tavg
                 
-        # fix the children indexes
+        # fix children's index values
         for saved_stat in saved_stats:
-            for i in range(len(saved_stat.children)):
-                child_stat = get_stat_by_index(saved_stats, saved_stat.children[i][0])
-                if child_stat:
-                    # we have merged the results in the loop above, so if a saved stat exists it shall
-                    # also exist in the current stats
-                    child_stat_in_current = get_stat_by_full_name(self._stats, child_stat.full_name)
-                    saved_stat.children[i] = (child_stat_in_current.index, saved_stat.children[i][1],
-                                                saved_stat.children[i][2])
-                    saved_stat_in_current = get_stat_by_full_name(self._stats, saved_stat.full_name)    
-                    cur_child_indexes = [x[0] for x in saved_stat_in_current.children]
-                    # TODO: update children
-                else:
-                    # sometimes even the profile results does not contain the result because of filtering 
-                    # or timing(call_leave called but call_enter is not)
-                    del saved_stat.children[i]
-            
+            for saved_child_stat in saved_stat.children:
+                # we know for sure child's index is pointing to a valid stat in saved_stats
+                # so as saved_stat is already in sync. (in above loop), we can safely assume
+                # that we shall point to a valid stat in current_stats with the child's full_name                
+                saved_child_stat.index = self.find_by_full_name(saved_child_stat.full_name).index
+                
+        # merge stats
+        for saved_stat in saved_stats:
+            saved_stat_in_curr = self.find_by_full_name(saved_stat.full_name)
+            saved_stat_in_curr += saved_stat
+          
     def save(self, path):
         of = open(path, "wb")
         pickle.dump(self._stats, of)
@@ -326,12 +366,13 @@ def print_thread_stats(out=sys.stdout, sort_type=SORTTYPE_NAME, sort_order=SORTO
         out.write(StatString(stat.sched_count).rtrim(THREAD_SCHED_CNT_LEN))
         out.write(CRLF)
 
-def write_callgrind_stats(out=sys.stdout):
+def write_callgrind_stats(out=sys.stdout, stats=None):
     """
     Writes all the function stats in a callgrind-style format to the given
     file. (stdout by default)
     """
-    stats = get_func_stats()
+    if stats is None:
+        stats = get_func_stats()
 
     header = """version: 1
 creator: %s
@@ -361,11 +402,11 @@ events: Ticks
         func_stats += [ '%s %s' % (func_stat.lineno, int(func_stat.tsub * 1e6)) ]
 
         # children functions stats
-        for idx, callcount, ttot in func_stat.children:
-            func_stats += [ 'cfl=(%d)' % idx,
-                            'cfn=(%d)' % idx,
-                            'calls=%d 0' % callcount,
-                            '0 %d' % int(ttot * 1e6)
+        for child in func_stat.children:
+            func_stats += [ 'cfl=(%d)' % child.index,
+                            'cfn=(%d)' % child.index,
+                            'calls=%d 0' % child.ncall,
+                            '0 %d' % int(child.ttot * 1e6)
                             ]
 
         lines += func_stats
