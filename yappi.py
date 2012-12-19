@@ -241,10 +241,10 @@ class YFuncStats(YStats):
             saved_stat_in_curr = self.find_by_full_name(saved_stat.full_name)
             saved_stat_in_curr += saved_stat
     
-    def _save_as_YSTAT(self, out)
+    def _save_as_YSTAT(self, out):
         pickle.dump(self._stats, out)
         
-    def _save_as_CALLGRIND(self, out)
+    def _save_as_CALLGRIND(self, out):
         """
         Writes all the function stats in a callgrind-style format to the given
         file. (stdout by default)
@@ -291,7 +291,7 @@ class YFuncStats(YStats):
     def save(self, path, type="ystat"):
         of = open(path, "wb")
         try:
-            save_func = getattr(self, "_save_as_%s" % (save_type.upper()))
+            save_func = getattr(self, "_save_as_%s" % (type.upper()))
             save_func(out=of)
         finally:
             of.close()
