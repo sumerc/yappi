@@ -85,18 +85,12 @@ class YStat(dict):
         assert len(self._KEYS) == len(values)
         for i in range(len(self._KEYS)):
             setattr(self, self._KEYS[i], values[i])
-            self[i] = values[i]
+            
+    def __setattr__(self, name, value):
+        if name in self._KEYS:
+            self[self._KEYS.index(name)] = value
+        super(YStat, self).__setattr__(name, value)
     
-    # TODO: shall sync key/attribute pairs.
-    """      
-    def __getattribute__(self, name):
-        if name=="_KEYS":
-            return super(YStat, self).__getattribute__(name)
-        else:
-            if name in self._KEYS:
-                return self[self._KEYS.index(name)]
-        return super(YStat, self).__getattribute__(name)
-    """
 class YFuncStat(YStat):
     _KEYS = ('name', 'module', 'lineno', 'ncall', 'ttot', 'tsub', 'index', 'children', 'tavg', 'full_name')
     
@@ -133,7 +127,7 @@ class YChildFuncStat(YStat):
         
     def __add__(self, other):
         if other is None:
-            return False
+            return self
         self.ncall += other.ncall
         self.ttot += other.ttot
              
@@ -150,14 +144,7 @@ class YStats(object):
             enum_func(self.enumerator)
         
     def sort(self, sort_type, sort_order):
-        def hooh(s, p):
-            print(">>>>>>>>")
-            print(s)
-            print(s[p])  
-            print(s.ttot)
-            print(">>>>>>>>")
-            return s[p]
-        self._stats.sort(key=lambda stat: hooh(stat, sort_type), reverse=(sort_order==SORTORDER_DESC))
+        self._stats.sort(key=lambda stat: stat[sort_type], reverse=(sort_order==SORTORDER_DESC))
         
     def limit(self, limit):
         if limit != SHOW_ALL:
@@ -208,8 +195,7 @@ class YFuncStats(YStats):
         fstat = YFuncStat(stat_entry + (tavg,full_name))
         
         # do not show profile stats of yappi itself. 
-        # TODO: ignore _yappi, too.
-        if os.path.basename(fstat.module) == ("%s.py" % __name__): 
+        if os.path.basename(fstat.module) == ("%s.py" % __name__) or fstat.module == "_yappi": 
             return
             
         self._stats.append(fstat)
@@ -229,7 +215,7 @@ class YFuncStats(YStats):
                 return stat
         return None
       
-    def add(self, path):
+    def add(self, path):    
     
         of = open(path, "rb")
         saved_stats = pickle.load(of)
@@ -254,12 +240,64 @@ class YFuncStats(YStats):
         for saved_stat in saved_stats:
             saved_stat_in_curr = self.find_by_full_name(saved_stat.full_name)
             saved_stat_in_curr += saved_stat
-          
-    def save(self, path):
-        of = open(path, "wb")
-        pickle.dump(self._stats, of)
-        of.close()
+    
+    def _save_as_YSTAT(self, out)
+        pickle.dump(self._stats, out)
+        
+    def _save_as_CALLGRIND(self, out)
+        """
+        Writes all the function stats in a callgrind-style format to the given
+        file. (stdout by default)
+        """
+        
+        header = """version: 1
+            creator: %s
+            pid: %d
+            cmd:  %s
+            part: 1
+
+            events: Ticks
+            """ % ('yappi', os.getpid(), ' '.join(sys.argv))
+
+        lines = [header]
+
+        # add function definitions
+        file_ids = ['']
+        func_ids = ['']
+        for func_stat in self._stats:
+            file_ids += [ 'fl=(%d) %s' % (func_stat.index, func_stat.module) ]
+            func_ids += [ 'fn=(%d) %s' % (func_stat.index, func_stat.name) ]
+
+        lines += file_ids + func_ids
+
+        # add stats for each function we have a record of
+        for func_stat in self._stats:
+            func_stats = [ '',
+                           'fl=(%d)' % func_stat.index,
+                           'fn=(%d)' % func_stat.index ]
+            func_stats += [ '%s %s' % (func_stat.lineno, int(func_stat.tsub * 1e6)) ]
+
+            # children functions stats
+            for child in func_stat.children:
+                func_stats += [ 'cfl=(%d)' % child.index,
+                                'cfn=(%d)' % child.index,
+                                'calls=%d 0' % child.ncall,
+                                '0 %d' % int(child.ttot * 1e6)
+                                ]
+
+            lines += func_stats
+        out.write('\n'.join(lines))
        
+    def save(self, path, type="ystat"):
+        of = open(path, "wb")
+        try:
+            save_func = getattr(self, "_save_as_%s" % (save_type.upper()))
+            save_func(out=of)
+        finally:
+            of.close()
+            
+    # TODO: move also the print functionality here.
+        
 class YThreadStats(YStats):
     def enumerator(self, stat_entry):
         last_func_full_name = "%s:%s:%d" % (stat_entry[3], stat_entry[2], stat_entry[4])
@@ -384,54 +422,6 @@ def print_thread_stats(out=sys.stdout, sort_type=SORTTYPE_NAME, sort_order=SORTO
         out.write(" " * COLUMN_GAP)
         out.write(StatString(stat.sched_count).rtrim(THREAD_SCHED_CNT_LEN))
         out.write(CRLF)
-
-def write_callgrind_stats(out=sys.stdout, stats=None):
-    """
-    Writes all the function stats in a callgrind-style format to the given
-    file. (stdout by default)
-    """
-    if stats is None:
-        stats = get_func_stats()
-
-    header = """version: 1
-creator: %s
-pid: %d
-cmd:  %s
-part: 1
-
-events: Ticks
-""" % ('yappi', os.getpid(), ' '.join(sys.argv))
-
-    lines = [header]
-
-    # add function definitions
-    file_ids = ['']
-    func_ids = ['']
-    for func_stat in stats:
-        file_ids += [ 'fl=(%d) %s' % (func_stat.index, func_stat.module) ]
-        func_ids += [ 'fn=(%d) %s' % (func_stat.index, func_stat.name) ]
-
-    lines += file_ids + func_ids
-
-    # add stats for each function we have a record of
-    for func_stat in stats:
-        func_stats = [ '',
-                       'fl=(%d)' % func_stat.index,
-                       'fn=(%d)' % func_stat.index ]
-        func_stats += [ '%s %s' % (func_stat.lineno, int(func_stat.tsub * 1e6)) ]
-
-        # children functions stats
-        for child in func_stat.children:
-            func_stats += [ 'cfl=(%d)' % child.index,
-                            'cfn=(%d)' % child.index,
-                            'calls=%d 0' % child.ncall,
-                            '0 %d' % int(child.ttot * 1e6)
-                            ]
-
-        lines += func_stats
-
-    out.write('\n'.join(lines))
-
 
 def clear_stats():
     """
