@@ -86,7 +86,17 @@ class YStat(dict):
         for i in range(len(self._KEYS)):
             setattr(self, self._KEYS[i], values[i])
             self[i] = values[i]
-
+    
+    # TODO: shall sync key/attribute pairs.
+    """      
+    def __getattribute__(self, name):
+        if name=="_KEYS":
+            return super(YStat, self).__getattribute__(name)
+        else:
+            if name in self._KEYS:
+                return self[self._KEYS.index(name)]
+        return super(YStat, self).__getattribute__(name)
+    """
 class YFuncStat(YStat):
     _KEYS = ('name', 'module', 'lineno', 'ncall', 'ttot', 'tsub', 'index', 'children', 'tavg', 'full_name')
     
@@ -105,8 +115,7 @@ class YFuncStat(YStat):
             if cur_child_stat is None:
                 self.children.append(other_child_stat)
             else:
-                cur_child_stat.ncall += other_child_stat.ncall
-                cur_child_stat.ttot += other_child_stat.ttot
+                cur_child_stat += other_child_stat
         
     def find_child_by_full_name(self, full_name):
         for child in self.children:
@@ -121,6 +130,12 @@ class YChildFuncStat(YStat):
         if other is None:
             return False
         return self.full_name == other.full_name
+        
+    def __add__(self, other):
+        if other is None:
+            return False
+        self.ncall += other.ncall
+        self.ttot += other.ttot
              
 class YThreadStat(YStat):
     _KEYS = ('name', 'id', 'last_func_name', 'last_func_mod', 'last_line_no', 'ttot', 'sched_count', 'last_func_full_name')
@@ -135,7 +150,14 @@ class YStats(object):
             enum_func(self.enumerator)
         
     def sort(self, sort_type, sort_order):
-        self._stats.sort(key=lambda stat: stat[sort_type], reverse=(sort_order==SORTORDER_DESC))
+        def hooh(s, p):
+            print(">>>>>>>>")
+            print(s)
+            print(s[p])  
+            print(s.ttot)
+            print(">>>>>>>>")
+            return s[p]
+        self._stats.sort(key=lambda stat: hooh(stat, sort_type), reverse=(sort_order==SORTORDER_DESC))
         
     def limit(self, limit):
         if limit != SHOW_ALL:
@@ -156,7 +178,6 @@ class YStats(object):
         
     def __getitem__(self, item):
         return self._stats[item]
-        
     
 class YFuncStats(YStats):
 
@@ -312,7 +333,6 @@ def print_func_stats(out=sys.stdout, stats=None, sort_type=SORTTYPE_NCALL, sort_
     """
     Prints all of the function profiler results to a given file. (stdout by default)
     """
-    
     if stats is None:
         stats = get_func_stats(sort_type, sort_order, limit)
     else:
@@ -338,7 +358,6 @@ def print_func_stats(out=sys.stdout, stats=None, sort_type=SORTTYPE_NCALL, sort_
         out.write(" " * COLUMN_GAP)
         out.write(StatString("%0.6f" % stat.tavg).rtrim(TIME_COLUMN_LEN))
         out.write(CRLF)
-     
 
 def print_thread_stats(out=sys.stdout, sort_type=SORTTYPE_NAME, sort_order=SORTORDER_DESC, limit=SHOW_ALL):
     """

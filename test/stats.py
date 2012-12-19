@@ -28,7 +28,7 @@ def test1():
     foo()
     foo_child1()
     foo_child2()
-
+"""
 yappi.start()
 foo()
 foo2()
@@ -44,7 +44,7 @@ yappi.stop()
 fstats = yappi.get_func_stats()
 fstats.save("foobar1")
 yappi.clear_stats()
-
+"""
 yfs = yappi.YFuncStats()
 yfs.add("foo1")
 yfs.add("foobar1")
