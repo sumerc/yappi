@@ -223,6 +223,12 @@ class YFuncStats(YStats):
             if stat.full_name == full_name:
                 return stat
         return None
+        
+    def find_by_name(self, name):
+        for stat in self._stats:
+            if stat.name == name:
+                return stat
+        return None
       
     def add(self, path):    
     

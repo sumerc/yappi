@@ -1,5 +1,5 @@
 import yappi
-from test_utils import func_stat_from_name, assert_raises_exception, test_passed
+from test_utils import assert_raises_exception, test_passed
 
 def foo():
     for i in range(1000000): pass
@@ -50,3 +50,5 @@ yfs.add("foo1")
 yfs.add("foobar1")
 yappi.print_func_stats(stats=yfs, sort_type=yappi.SORTTYPE_TTOT)
 yfs.save('callgrind.out', 'callgrind')
+foobar_stat = yfs.find_by_name('test1')
+

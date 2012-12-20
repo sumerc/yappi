@@ -1,7 +1,7 @@
 import time
 import yappi
 import threading
-from test_utils import func_stat_from_name, assert_raises_exception, run_and_get_func_stats, test_passed, run_and_get_thread_stats
+from test_utils import assert_raises_exception, run_and_get_func_stats, test_passed, run_and_get_thread_stats
 
 """
 NOTE: Please note that below tests are only for development, on some _slow_ hardware they may fail.
@@ -23,7 +23,7 @@ def foo():
     time.sleep(1.0)
     
 stats = run_and_get_func_stats('foo()')
-fs = func_stat_from_name(stats, 'foo')
+fs = stats.find_by_name('foo')
 assert fs != None
 assert fs.ttot < 1.0
 assert fs.tsub < 1.0
@@ -42,7 +42,7 @@ def fib(n):
        return n
 
 stats = run_and_get_func_stats('fib(22)')
-fs = func_stat_from_name(stats, 'fib')
+fs = stats.find_by_name('fib')
 assert fs.ncall == 57313
 assert fs.ttot == fs.tsub
 yappi.clear_stats()
@@ -67,8 +67,8 @@ def b():
     time.sleep(1.0)
     
 stats = run_and_get_func_stats('a()')  
-fsa = func_stat_from_name(stats, 'a')
-fsb = func_stat_from_name(stats, 'b')
+fsa = stats.find_by_name('a')
+fsb = stats.find_by_name('b')
 assert fsa.ncall == 4
 assert fsa.tsub < fsa.ttot
 assert fsa.ttot >= fsb.ttot
@@ -89,9 +89,9 @@ def y(n):
 def z(n):
     x(n-1)
 stats = run_and_get_func_stats('x(2)')  
-fsx = func_stat_from_name(stats, 'x')
-fsy = func_stat_from_name(stats, 'y')
-fsz = func_stat_from_name(stats, 'z')
+fsx = stats.find_by_name('x')
+fsy = stats.find_by_name('y')
+fsz = stats.find_by_name('z')
 
 yappi.clear_stats()
 test_passed("chained-recursive function #2")
@@ -132,7 +132,7 @@ def bar():
         #c.join()
     time.sleep(1.0)
 stats = run_with_yappi('bar()')
-fsa = func_stat_from_name(stats, '.run:')
+fsa = stats.find_by_name('run')
 print(fsa.ttot)
 import yappi
 yappi.print_stats()

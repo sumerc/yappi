@@ -15,12 +15,6 @@ def _run(func):
     else:   
         eval(func, globals, locals)
         
-def func_stat_from_name(stats, fname):
-    for stat in stats:
-        if fname == stat.name:
-            return stat
-    return None
-    
 def assert_raises_exception(func):
     try:
         _run(func)
