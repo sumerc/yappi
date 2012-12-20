@@ -92,6 +92,9 @@ class YStat(dict):
         super(YStat, self).__setattr__(name, value)
     
 class YFuncStat(YStat):
+    """
+    Class holding information for function stats.
+    """
     _KEYS = ('name', 'module', 'lineno', 'ncall', 'ttot', 'tsub', 'index', 'children', 'tavg', 'full_name')
     
     def __eq__(self, other):
@@ -118,6 +121,9 @@ class YFuncStat(YStat):
         return None
         
 class YChildFuncStat(YStat):
+    """
+    Class holding information for children function stats.
+    """
     _KEYS = ('index', 'ncall', 'ttot', 'full_name')
     
     def __eq__(self, other):
@@ -132,6 +138,9 @@ class YChildFuncStat(YStat):
         self.ttot += other.ttot
              
 class YThreadStat(YStat):
+    """
+    Class holding information for thread stats.
+    """
     _KEYS = ('name', 'id', 'last_func_name', 'last_func_mod', 'last_line_no', 'ttot', 'sched_count', 'last_func_full_name')
             
 class YStats(object):
