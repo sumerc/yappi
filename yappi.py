@@ -12,9 +12,8 @@ import pickle
 
 class YappiError(Exception): pass
 
-__all__ = ['start', 'stop', 'enum_func_stats', 'enum_thread_stats', 'print_func_stats',
-           'print_thread_stats', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
-           'clock_type', 'mem_usage']
+__all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
+           'clock_type', 'mem_usage', 'thread_times']
 
 CRLF = '\n'
 COLUMN_GAP = 2
