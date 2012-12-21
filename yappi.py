@@ -266,39 +266,31 @@ class YFuncStats(YStats):
         file. (stdout by default)
         """
         
-        header = """version: 1
-            creator: %s
-            pid: %d
-            cmd:  %s
-            part: 1
-
-            events: Ticks
-            """ % ('yappi', os.getpid(), ' '.join(sys.argv))
+        header = """version: 1\ncreator: %s\npid: %d\ncmd:  %s\npart: 1\n\nevents: Ticks""" % \
+            ('yappi', os.getpid(), ' '.join(sys.argv))
 
         lines = [header]
 
         # add function definitions
-        idxmap = {}
         file_ids = ['']
         func_ids = ['']
-        for idx, func_stat in enumerate(self):
-            idxmap[func_stat.index] = idx
-            file_ids += [ 'fl=(%d) %s' % (idx, func_stat.module) ]
-            func_ids += [ 'fn=(%d) %s' % (idx, func_stat.name) ]
+        for func_stat in self:
+            file_ids += [ 'fl=(%d) %s' % (func_stat.index, func_stat.module) ]
+            func_ids += [ 'fn=(%d) %s' % (func_stat.index, func_stat.name) ]
 
         lines += file_ids + func_ids
 
         # add stats for each function we have a record of
-        for idx, func_stat in enumerate(self):
+        for func_stat in self:
             func_stats = [ '',
-                           'fl=(%d)' % idx,
-                           'fn=(%d)' % idx]
+                           'fl=(%d)' % func_stat.index,
+                           'fn=(%d)' % func_stat.index]
             func_stats += [ '%s %s' % (func_stat.lineno, int(func_stat.tsub * 1e6)) ]
 
             # children functions stats
             for child in func_stat.children:
-                func_stats += [ 'cfl=(%d)' % idxmap[child.index],
-                                'cfn=(%d)' % idxmap[child.index],
+                func_stats += [ 'cfl=(%d)' % child.index,
+                                'cfn=(%d)' % child.index,
                                 'calls=%d 0' % child.ncall,
                                 '0 %d' % int(child.ttot * 1e6)
                                 ]
@@ -345,7 +337,7 @@ class YFuncStats(YStats):
         if type not in self._SUPPORTED_SAVE_FORMATS:
             raise NotImplementedError('Saving in (%s) format is not possible currently.')
     
-        f = open(path, "w")
+        f = open(path, "wb")
         try:
             save_func = getattr(self, "_save_as_%s" % (type))
             save_func(file=f)

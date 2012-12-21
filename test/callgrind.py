@@ -36,6 +36,9 @@ class A:
     def b(self):
         f1()
 
+def foo():
+    pass
+        
 def main():
     f2()
     f3()
@@ -49,9 +52,9 @@ def main():
 if __name__ == '__main__':
     yappi.start()
     main()
+    foo()
     yappi.stop()
     
     filename = 'callgrind.out'
-    #yappi.get_func_stats().save(filename, type='callgrind')
-    write_callgrind_stats(open(filename, "w"))
+    yappi.get_func_stats().save(filename, type='callgrind')
     test_print('\nWritten callgrind file to %s\n' % filename)
