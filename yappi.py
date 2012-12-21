@@ -35,23 +35,32 @@ SORTORDER_DESC = 1
 
 SHOW_ALL = 0
 
-def validate_func_sorttype(sort_type):
+def _validate_func_sorttype(sort_type):
     if sort_type not in [SORTTYPE_NAME, SORTTYPE_NCALL, SORTTYPE_TTOT, SORTTYPE_TSUB, SORTTYPE_TAVG]:
         raise YappiError("Invalid SortType parameter.[%d]" % (sort_type))
 
-def validate_thread_sorttype(sort_type):
+def _validate_thread_sorttype(sort_type):
     if sort_type not in [SORTTYPE_THREAD_NAME, SORTTYPE_THREAD_ID, SORTTYPE_THREAD_TTOT, SORTTYPE_THREAD_SCHEDCNT]:
         raise YappiError("Invalid SortType parameter.[%d]" % (sort_type))
         
-def validate_sortorder(sort_order):
+def _validate_sortorder(sort_order):
     if sort_order not in [SORTORDER_ASC, SORTORDER_DESC]:
         raise YappiError("Invalid SortOrder parameter.[%d]" % (sort_order))
-
+        
+'''
+ _callback will only be called once per-thread. _yappi will detect
+ the new thread and changes the profilefunc param of the ThreadState
+ structure. This is an internal function please don't mess with it.
+'''
+def _callback(frame, event, arg):
+    _yappi.profile_event(frame, event, arg)
+    return _callback
+    
 class StatString(object):
     """
     Class to prettify/trim a profile result column.
     """
-
+    
     _s = ""
     _TRAIL_DOT = ".."
 
@@ -103,11 +112,17 @@ class YFuncStat(YStat):
         return self.full_name == other.full_name
         
     def __add__(self, other):
+    
+        # do not merge if merging the same instance
+        if self is other:
+            return self
+        
         self.ncall += other.ncall
         self.ttot += other.ttot
         self.tsub += other.tsub
         self.tavg += other.tavg
         for other_child_stat in other.children:
+            # all children point to a valid entry, and we shall have merged previous entries by here.
             cur_child_stat = self.find_child_by_full_name(other_child_stat.full_name)
             if cur_child_stat is None:
                 self.children.append(other_child_stat)
@@ -133,7 +148,7 @@ class YChildFuncStat(YStat):
         
     def __add__(self, other):
         if other is None:
-            return self
+            return self       
         self.ncall += other.ncall
         self.ttot += other.ttot
              
@@ -147,21 +162,24 @@ class YStats(object):
     """
     Main Stats class where we collect the information from _yappi and apply the user filters.
     """
-    def __init__(self, enum_func=None):
+    def __init__(self):
         self._stats = []
-        if enum_func:
-            enum_func(self.enumerator)
+        
+    def get(self):
+        return self
         
     def sort(self, sort_type, sort_order):
         self._stats.sort(key=lambda stat: stat[sort_type], reverse=(sort_order==SORTORDER_DESC))
+        return self
         
     def limit(self, limit):
         if limit != SHOW_ALL:
             self._stats = self._stats[:limit]
-
-    def enumerator(self, stat_entry):
-        pass
-
+        return self
+        
+    def clear(self):
+        self._stats.clear()
+    
     def __iter__(self):
         for stat in self._stats:
             yield stat
@@ -178,9 +196,11 @@ class YStats(object):
 class YFuncStats(YStats):
 
     _idx_max = 0
-    
-    def __init__(self, enum_func=None):
-        super(YFuncStats, self).__init__(enum_func)
+    _SUPPORTED_LOAD_FORMATS = ['YSTAT']
+    _SUPPORTED_SAVE_FORMATS = ['YSTAT', 'CALLGRIND']
+        
+    def get(self):
+        _yappi.enum_func_stats(self._enumerator)
         
         # convert the children info from tuple to YChildFuncStat
         for stat in self._stats:
@@ -197,8 +217,10 @@ class YFuncStats(YStats):
                 cfstat = YChildFuncStat(child_tpl+(rstat.full_name,))
                 _childs.append(cfstat)
             stat.children = _childs
+        
+        return super(YFuncStats, self).get()
     
-    def enumerator(self, stat_entry):
+    def _enumerator(self, stat_entry):
         tavg = stat_entry[4]/stat_entry[3]
         full_name = "%s:%s:%d" % (stat_entry[1], stat_entry[0], stat_entry[2])
         fstat = YFuncStat(stat_entry + (tavg,full_name))
@@ -211,6 +233,78 @@ class YFuncStats(YStats):
         # hold the max idx number for merging new entries
         if self._idx_max < fstat.index:
             self._idx_max = fstat.index
+        
+    def _add_from_YSTAT(self, file):
+        saved_stats = pickle.load(file)
+        
+        # add 'not present' previous entries with unique indexes
+        for saved_stat in saved_stats:
+            if saved_stat not in self._stats:
+                self._idx_max += 1
+                saved_stat.index = self._idx_max
+                self._stats.append(saved_stat)                
+                
+        # fix children's index values
+        for saved_stat in saved_stats:
+            for saved_child_stat in saved_stat.children:
+                # we know for sure child's index is pointing to a valid stat in saved_stats
+                # so as saved_stat is already in sync. (in above loop), we can safely assume
+                # that we shall point to a valid stat in current_stats with the child's full_name                
+                saved_child_stat.index = self.find_by_full_name(saved_child_stat.full_name).index
+                                
+        # merge stats
+        for saved_stat in saved_stats:
+            saved_stat_in_curr = self.find_by_full_name(saved_stat.full_name)
+            saved_stat_in_curr += saved_stat
+    
+    def _save_as_YSTAT(self, file):
+        pickle.dump(self._stats, file)
+        
+    def _save_as_CALLGRIND(self, file):
+        """
+        Writes all the function stats in a callgrind-style format to the given
+        file. (stdout by default)
+        """
+        
+        header = """version: 1
+            creator: %s
+            pid: %d
+            cmd:  %s
+            part: 1
+
+            events: Ticks
+            """ % ('yappi', os.getpid(), ' '.join(sys.argv))
+
+        lines = [header]
+
+        # add function definitions
+        idxmap = {}
+        file_ids = ['']
+        func_ids = ['']
+        for idx, func_stat in enumerate(self):
+            idxmap[func_stat.index] = idx
+            file_ids += [ 'fl=(%d) %s' % (idx, func_stat.module) ]
+            func_ids += [ 'fn=(%d) %s' % (idx, func_stat.name) ]
+
+        lines += file_ids + func_ids
+
+        # add stats for each function we have a record of
+        for idx, func_stat in enumerate(self):
+            func_stats = [ '',
+                           'fl=(%d)' % idx,
+                           'fn=(%d)' % idx]
+            func_stats += [ '%s %s' % (func_stat.lineno, int(func_stat.tsub * 1e6)) ]
+
+            # children functions stats
+            for child in func_stat.children:
+                func_stats += [ 'cfl=(%d)' % idxmap[child.index],
+                                'cfn=(%d)' % idxmap[child.index],
+                                'calls=%d 0' % child.ncall,
+                                '0 %d' % int(child.ttot * 1e6)
+                                ]
+
+            lines += func_stats
+        file.write('\n'.join(lines))        
                 
     def find_by_index(self, index):
         for stat in self._stats:
@@ -230,137 +324,129 @@ class YFuncStats(YStats):
                 return stat
         return None
       
-    def add(self, path):    
+    def add(self, path, type="ystat"):
     
-        of = open(path, "rb")
-        saved_stats = pickle.load(of)
-        of.close()
+        type = type.upper()
+        if type not in self._SUPPORTED_LOAD_FORMATS:
+            raise NotImplementedError('Loading from (%s) format is not possible currently.')
         
-        # add 'not present' previous entries with unique indexes
-        for saved_stat in saved_stats:
-            if saved_stat not in self._stats:
-                self._idx_max += 1
-                saved_stat.index = self._idx_max
-                self._stats.append(saved_stat)
-                
-        # fix children's index values
-        for saved_stat in saved_stats:
-            for saved_child_stat in saved_stat.children:
-                # we know for sure child's index is pointing to a valid stat in saved_stats
-                # so as saved_stat is already in sync. (in above loop), we can safely assume
-                # that we shall point to a valid stat in current_stats with the child's full_name                
-                saved_child_stat.index = self.find_by_full_name(saved_child_stat.full_name).index
-                
-        # merge stats
-        for saved_stat in saved_stats:
-            saved_stat_in_curr = self.find_by_full_name(saved_stat.full_name)
-            saved_stat_in_curr += saved_stat
-    
-    def _save_as_YSTAT(self, out):
-        pickle.dump(self._stats, out)
-        
-    def _save_as_CALLGRIND(self, out):
-        """
-        Writes all the function stats in a callgrind-style format to the given
-        file. (stdout by default)
-        """
-        
-        header = """version: 1
-            creator: %s
-            pid: %d
-            cmd:  %s
-            part: 1
-
-            events: Ticks
-            """ % ('yappi', os.getpid(), ' '.join(sys.argv))
-
-        lines = [header]
-
-        # add function definitions
-        file_ids = ['']
-        func_ids = ['']
-        for func_stat in self._stats:
-            file_ids += [ 'fl=(%d) %s' % (func_stat.index, func_stat.module) ]
-            func_ids += [ 'fn=(%d) %s' % (func_stat.index, func_stat.name) ]
-
-        lines += file_ids + func_ids
-
-        # add stats for each function we have a record of
-        for func_stat in self._stats:
-            func_stats = [ '',
-                           'fl=(%d)' % func_stat.index,
-                           'fn=(%d)' % func_stat.index ]
-            func_stats += [ '%s %s' % (func_stat.lineno, int(func_stat.tsub * 1e6)) ]
-
-            # children functions stats
-            for child in func_stat.children:
-                func_stats += [ 'cfl=(%d)' % child.index,
-                                'cfn=(%d)' % child.index,
-                                'calls=%d 0' % child.ncall,
-                                '0 %d' % int(child.ttot * 1e6)
-                                ]
-
-            lines += func_stats
-        out.write('\n'.join(lines))
-       
-    def save(self, path, type="ystat"):
-        of = open(path, "wb")
+        f = open(path, "rb")
         try:
-            save_func = getattr(self, "_save_as_%s" % (type.upper()))
-            save_func(out=of)
+            add_func = getattr(self, "_add_from_%s" % (type))
+            add_func(file=f)
         finally:
-            of.close()
+            f.close()
             
-    # TODO: move also the print functionality here.
+        return self
+        
+    def save(self, path, type="ystat"):
+        
+        type = type.upper()
+        if type not in self._SUPPORTED_SAVE_FORMATS:
+            raise NotImplementedError('Saving in (%s) format is not possible currently.')
+    
+        f = open(path, "w")
+        try:
+            save_func = getattr(self, "_save_as_%s" % (type))
+            save_func(file=f)
+        finally:
+            f.close()
+            
+    def print_all(self, out=sys.stdout):
+        """
+        Prints all of the function profiler results to a given file. (stdout by default)
+        """
+        FUNC_NAME_LEN = 38
+        CALLCOUNT_LEN = 9
+        
+        out.write(CRLF)
+        out.write("name                                    #n         tsub      ttot      tavg")
+        out.write(CRLF)
+        for stat in self:
+            out.write(StatString(stat.full_name).ltrim(FUNC_NAME_LEN))
+            out.write(" " * COLUMN_GAP)
+            out.write(StatString(stat.ncall).rtrim(CALLCOUNT_LEN))
+            out.write(" " * COLUMN_GAP)
+            out.write(StatString("%0.6f" % stat.tsub).rtrim(TIME_COLUMN_LEN))
+            out.write(" " * COLUMN_GAP)
+            out.write(StatString("%0.6f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
+            out.write(" " * COLUMN_GAP)
+            out.write(StatString("%0.6f" % stat.tavg).rtrim(TIME_COLUMN_LEN))
+            out.write(CRLF)
+            
+    def sort(self, sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESC):
+        _validate_func_sorttype(sort_type)
+        _validate_sortorder(sort_order)
+
+        return super(YFuncStats, self).sort(sort_type, sort_order)
         
 class YThreadStats(YStats):
-    def enumerator(self, stat_entry):
+        
+    def get(self):
+        _yappi.enum_thread_stats(self._enumerator)
+        
+        return super(YThreadStats, self).get()
+        
+    def _enumerator(self, stat_entry):
         last_func_full_name = "%s:%s:%d" % (stat_entry[3], stat_entry[2], stat_entry[4])
         tstat = YThreadStat(stat_entry + (last_func_full_name, ))
         self._stats.append(tstat)
+        
+    def sort(self, sort_type=SORTTYPE_THREAD_NAME, sort_order=SORTORDER_DESC):
+        _validate_thread_sorttype(sort_type)
+        _validate_sortorder(sort_order)
 
-'''
- __callback will only be called once per-thread. _yappi will detect
- the new thread and changes the profilefunc param of the ThreadState
- structure. This is an internal function please don't mess with it.
-'''
-def __callback(frame, event, arg):
-    _yappi.profile_event(frame, event, arg)
-    return __callback
+        return super(YThreadStats, self).sort(sort_type, sort_order)
+        
+    def print_all(self, out=sys.stdout):
+        """
+        Prints all of the thread profiler results to a given file. (stdout by default)
+        """
+        THREAD_FUNC_NAME_LEN = 25
+        THREAD_NAME_LEN = 13
+        THREAD_ID_LEN = 15
+        THREAD_SCHED_CNT_LEN = 10
+
+        out.write(CRLF)
+        out.write("name           tid              fname                      ttot      scnt")
+        out.write(CRLF)
+        for stat in stats:
+            out.write(StatString(stat.name).ltrim(THREAD_NAME_LEN))
+            out.write(" " * COLUMN_GAP)
+            out.write(StatString(stat.id).rtrim(THREAD_ID_LEN))
+            out.write(" " * COLUMN_GAP)
+            out.write(StatString(stat.last_func_full_name).ltrim(THREAD_FUNC_NAME_LEN))
+            out.write(" " * COLUMN_GAP)
+            out.write(StatString("%0.6f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
+            out.write(" " * COLUMN_GAP)
+            out.write(StatString(stat.sched_count).rtrim(THREAD_SCHED_CNT_LEN))
+            out.write(CRLF)
 
 def is_running():
     return bool(_yappi.is_running())
 
-def start(builtins=False):
+def start(builtins=False, profile_threads=True):
     """
     Start profiler.
     """
-    threading.setprofile(__callback)
-    _yappi.start(builtins)
+    if profile_threads:
+        threading.setprofile(_callback)
+    _yappi.start(builtins, profile_threads)
 
-
-def get_func_stats(sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESC, limit=SHOW_ALL):
+def get_func_stats():
     """
     Gets the function profiler results with given filters and returns an iterable.
     """
-    validate_func_sorttype(sort_type)
-    validate_sortorder(sort_order)
     
-    stats = YFuncStats(enum_func=enum_func_stats)
-    stats.sort(sort_type, sort_order)
-    stats.limit(limit)
+    stats = YFuncStats().get()
     return stats
 
-def get_thread_stats(sort_type=SORTTYPE_THREAD_NAME, sort_order=SORTORDER_DESC, limit=SHOW_ALL):
+def get_thread_stats():
     """
     Gets the thread profiler results with given filters and returns an iterable.
     """
-    validate_thread_sorttype(sort_type)
-    validate_sortorder(sort_order)
     
-    stats = YThreadStats(enum_func=enum_thread_stats)
-    stats.sort(sort_type, sort_order)
-    stats.limit(limit)
+    stats = YThreadStats().get()
     return stats
 
 def stop():
@@ -369,74 +455,6 @@ def stop():
     """
     threading.setprofile(None)
     _yappi.stop()
-
-def enum_func_stats(fenum):
-    """
-    Enumerates function profiler results and calls fenum for each line.
-    """
-    _yappi.enum_func_stats(fenum)
-
-def enum_thread_stats(tenum):
-    """
-    Enumerates thread profiler results and calls fenum for each line.
-    """
-    _yappi.enum_thread_stats(tenum)
-
-def print_func_stats(out=sys.stdout, stats=None, sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESC, limit=SHOW_ALL):
-    """
-    Prints all of the function profiler results to a given file. (stdout by default)
-    """
-    if stats is None:
-        stats = get_func_stats(sort_type, sort_order, limit)
-    else:
-        validate_func_sorttype(sort_type)
-        validate_sortorder(sort_order)
-        stats.sort(sort_type, sort_order)
-        stats.limit(limit)
-
-    FUNC_NAME_LEN = 38
-    CALLCOUNT_LEN = 9
-    
-    out.write(CRLF)
-    out.write("name                                    #n         tsub      ttot      tavg")
-    out.write(CRLF)
-    for stat in stats:
-        out.write(StatString(stat.full_name).ltrim(FUNC_NAME_LEN))
-        out.write(" " * COLUMN_GAP)
-        out.write(StatString(stat.ncall).rtrim(CALLCOUNT_LEN))
-        out.write(" " * COLUMN_GAP)
-        out.write(StatString("%0.6f" % stat.tsub).rtrim(TIME_COLUMN_LEN))
-        out.write(" " * COLUMN_GAP)
-        out.write(StatString("%0.6f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
-        out.write(" " * COLUMN_GAP)
-        out.write(StatString("%0.6f" % stat.tavg).rtrim(TIME_COLUMN_LEN))
-        out.write(CRLF)
-
-def print_thread_stats(out=sys.stdout, sort_type=SORTTYPE_NAME, sort_order=SORTORDER_DESC, limit=SHOW_ALL):
-    """
-    Prints all of the thread profiler results to a given file. (stdout by default)
-    """
-    stats = get_thread_stats(sort_type, sort_order, limit)
-
-    THREAD_FUNC_NAME_LEN = 25
-    THREAD_NAME_LEN = 13
-    THREAD_ID_LEN = 15
-    THREAD_SCHED_CNT_LEN = 10
-
-    out.write(CRLF)
-    out.write("name           tid              fname                      ttot      scnt")
-    out.write(CRLF)
-    for stat in stats:
-        out.write(StatString(stat.name).ltrim(THREAD_NAME_LEN))
-        out.write(" " * COLUMN_GAP)
-        out.write(StatString(stat.id).rtrim(THREAD_ID_LEN))
-        out.write(" " * COLUMN_GAP)
-        out.write(StatString(stat.last_func_full_name).ltrim(THREAD_FUNC_NAME_LEN))
-        out.write(" " * COLUMN_GAP)
-        out.write(StatString("%0.6f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
-        out.write(" " * COLUMN_GAP)
-        out.write(StatString(stat.sched_count).rtrim(THREAD_SCHED_CNT_LEN))
-        out.write(CRLF)
 
 def clear_stats():
     """
@@ -462,7 +480,7 @@ def mem_usage():
     Returns the memory usage of the profiler itself.
     """
     return _yappi.mem_usage()
-
+ 
 def main():
     from optparse import OptionParser
     usage = "yappi.py [-b] [scriptfile] args ..."
@@ -471,6 +489,9 @@ def main():
     parser.add_option("-b", "--builtins",
                   action="store_true", dest="profile_builtins", default=False,
                   help="Profiles builtin functions when set. [default: False]")
+    parser.add_option("-m", "--profile_threads",
+                  action="store_true", dest="profile_threads", default=True,
+                  help="Profiles all of the threads. [default: True]")
     if not sys.argv[1:]:
         parser.print_usage()
         sys.exit(2)
@@ -480,7 +501,7 @@ def main():
 
     if (len(sys.argv) > 0):
         sys.path.insert(0, os.path.dirname(sys.argv[0]))
-        start(options.profile_builtins)
+        start(options.profile_builtins, options.profile_multithreaded)
         if sys.version_info >= (3, 0):
             exec(compile(open(sys.argv[0]).read(), sys.argv[0], 'exec'),
                sys._getframe(1).f_globals, sys._getframe(1).f_locals)
@@ -488,11 +509,10 @@ def main():
             execfile(sys.argv[0], sys._getframe(1).f_globals, sys._getframe(1).f_locals)
         stop()
         # we will currently use default params for these
-        print_func_stats()
-        print_thread_stats()
+        get_func_stats().print_all()
+        get_thread_stats().print_all()
     else:
         parser.print_usage()
-
 
 if __name__ == "__main__":
     main()

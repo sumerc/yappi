@@ -98,7 +98,8 @@ test_passed("chained-recursive function #2")
 
 def bar():
     for i in range(1000000):pass
-stats = run_and_get_func_stats('bar()', sort_type=yappi.SORTTYPE_TTOT) 
+stats = run_and_get_func_stats('bar()')
+stats.sort(sort_type=yappi.SORTTYPE_TTOT) 
 prev_stat = stats[0] # sorted asceinding TTOT
 for stat in stats:
     assert stat.ttot <= prev_stat.ttot

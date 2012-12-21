@@ -50,23 +50,8 @@ if __name__ == '__main__':
     yappi.start()
     main()
     yappi.stop()
-
-    try:
-        verbose = (sys.argv[1] == '-v')
-
-        if verbose:
-            test_print('\n\nSORTED BY SUB TIME')
-            yappi.print_func_stats(sort_type=yappi.SORTTYPE_TSUB,
-                                   limit=20)
-            test_print('\n\nSORTED BY TOTAL TIME')
-            yappi.print_func_stats(sort_type=yappi.SORTTYPE_TTOT,
-                                   limit=20)
-            test_print('\n\nTHREAD STATS')
-            yappi.print_thread_stats()
-
-    except IndexError:
-        pass
-
+    
     filename = 'callgrind.out'
-    yappi.write_callgrind_stats(open(filename, 'w'))
+    #yappi.get_func_stats().save(filename, type='callgrind')
+    write_callgrind_stats(open(filename, "w"))
     test_print('\nWritten callgrind file to %s\n' % filename)

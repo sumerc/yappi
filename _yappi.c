@@ -61,6 +61,7 @@ typedef struct {
 
 typedef struct {
     int builtins;
+    int multithreaded;
 } _flag; // flags passed from yappi.start()
 
 // profiler global vars
@@ -605,8 +606,10 @@ profile_event(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "OOO", &frame, &event, &arg)) {
         return NULL;
     }
-
-    _ensure_thread_profiled(PyThreadState_GET());
+    
+    if (flags.multithreaded) {
+        _ensure_thread_profiled(PyThreadState_GET());
+    }
     
     ev = PyStr_AS_CSTRING(event);
 
@@ -633,15 +636,19 @@ start(PyObject *self, PyObject *args)
         return Py_None;
     }
 
-    if (!PyArg_ParseTuple(args, "i", &flags.builtins))
+    if (!PyArg_ParseTuple(args, "ii", &flags.builtins, &flags.multithreaded))
         return NULL;
 
     if (!_init_profiler()) {
         PyErr_SetString(YappiProfileError, "profiler cannot be initialized.");
         return NULL;
     }
-
-    _enum_threads(&_profile_thread);
+    
+    if (flags.multithreaded) {
+        _enum_threads(&_profile_thread);
+    } else {
+        _ensure_thread_profiled(PyThreadState_GET());
+    }
 
     yapprunning = 1;
     yapphavestats = 1;
