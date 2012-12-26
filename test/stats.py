@@ -34,21 +34,26 @@ foo()
 foo2()
 foo_child1()
 yappi.stop()
-fstats = yappi.get_func_stats()
-fstats.print_all()
-fstats.save("foo1")
+fstats1 = yappi.get_func_stats()
+fstats1.print_all()
+fstats1.save("foo1")
 yappi.clear_stats()
 
 yappi.start(builtins=True, profile_threads=False)
 test1()
 yappi.stop()
-fstats = yappi.get_func_stats()
-fstats.save("foobar1")
+fstats2 = yappi.get_func_stats()
+fstats2.save("foobar1")
 yappi.clear_stats()
 
 yfs = yappi.YFuncStats()
 yfs.add("foo1").add('foobar1')
 yfs.sort(sort_type=yappi.SORTTYPE_TTOT).print_all() 
 yfs.save('callgrind.out', 'callgrind')
-foobar_stat = yfs.find_by_name('test1')
+#foobar_stat = yfs.find_by_name('test1')
+#yfs.debug_print()
+for stat in yfs:
+    fstatin1 = fstats1.find_by_full_name(stat.full_name)
+    if fstatin1:
+        
 

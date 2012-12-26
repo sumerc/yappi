@@ -256,15 +256,17 @@ class YFuncStats(YStats):
             saved_stat_in_curr = self.find_by_full_name(saved_stat.full_name)
             saved_stat_in_curr += saved_stat
     
-    def _save_as_YSTAT(self, file):
+    def _save_as_YSTAT(self, path):
+        file = open(path, "wb")        
         pickle.dump(self._stats, file)
         
-    def _save_as_CALLGRIND(self, file):
+    def _save_as_CALLGRIND(self, path):
         """
         Writes all the function stats in a callgrind-style format to the given
         file. (stdout by default)
         """
-        
+        file = open(path, "w")
+            
         header = """version: 1\ncreator: %s\npid: %d\ncmd:  %s\npart: 1\n\nevents: Ticks""" % \
             ('yappi', os.getpid(), ' '.join(sys.argv))
 
@@ -293,9 +295,8 @@ class YFuncStats(YStats):
                                 'calls=%d 0' % child.ncall,
                                 '0 %d' % int(child.ttot * 1e6)
                                 ]
-
             lines += func_stats
-        file.write('\n'.join(lines))        
+        file.write('\n'.join(lines))                
                 
     def find_by_index(self, index):
         for stat in self._stats:
@@ -334,15 +335,11 @@ class YFuncStats(YStats):
         
         type = type.upper()
         if type not in self._SUPPORTED_SAVE_FORMATS:
-            raise NotImplementedError('Saving in (%s) format is not possible currently.')
+            raise NotImplementedError('Saving in "%s" format is not possible currently.' % (type))
     
-        f = open(path, "wb")
-        try:
-            save_func = getattr(self, "_save_as_%s" % (type))
-            save_func(file=f)
-        finally:
-            f.close()
-            
+        save_func = getattr(self, "_save_as_%s" % (type))
+        save_func(path=path)
+        
     def print_all(self, out=sys.stdout):
         """
         Prints all of the function profiler results to a given file. (stdout by default)
@@ -370,6 +367,38 @@ class YFuncStats(YStats):
         _validate_sortorder(sort_order)
 
         return super(YFuncStats, self).sort(sort_type, sort_order)
+        
+    def debug_print(self):
+        console = sys.stdout
+        CHILD_STATS_LEFT_MARGIN = 5
+        for stat in self:
+            console.write("index: %d" % stat.index)
+            console.write(CRLF)
+            console.write("full_name: %s" % stat.full_name)
+            console.write(CRLF)
+            console.write("ncall: %d" % stat.ncall)
+            console.write(CRLF)
+            console.write("ttot: %0.6f" % stat.ttot)
+            console.write(CRLF)
+            console.write("tsub: %0.6f" % stat.tsub)
+            console.write(CRLF)
+            console.write("children: ")
+            console.write(CRLF)
+            for child_stat in stat.children:
+                console.write(CRLF)
+                console.write(" " * CHILD_STATS_LEFT_MARGIN)
+                console.write("index: %d" % child_stat.index)
+                console.write(CRLF)
+                console.write(" " * CHILD_STATS_LEFT_MARGIN)
+                console.write("full_name: %s" % child_stat.full_name)
+                console.write(CRLF)
+                console.write(" " * CHILD_STATS_LEFT_MARGIN)
+                console.write("ncall: %d" % child_stat.ncall)
+                console.write(CRLF)
+                console.write(" " * CHILD_STATS_LEFT_MARGIN)
+                console.write("ttot: %0.6f" % child_stat.ttot)
+                console.write(CRLF)                
+            console.write(CRLF)
         
 class YThreadStats(YStats):
         
@@ -444,8 +473,8 @@ def stop():
     """
     Stop profiler.
     """
-    threading.setprofile(None)
     _yappi.stop()
+    threading.setprofile(None)    
 
 def clear_stats():
     """

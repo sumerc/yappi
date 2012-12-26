@@ -28,7 +28,7 @@ def f3():
 def frecursive(n):
     if n == 0:
         return
-    f1()
+    #f1()
     frecursive(n-1)
 
 
@@ -48,11 +48,21 @@ def main():
     a = A()
     a.b()
 
+def f(n):
+    if n == 0 or n == 1:
+        return
+    f(0)
+    f(1)
+    if n == 2:
+        return
+    f(2)
 
 if __name__ == '__main__':
     yappi.start()
-    main()
-    foo()
+    #main()
+    #foo()
+    #f(5)
+    frecursive(5)
     yappi.stop()
     
     filename = 'callgrind.out'
