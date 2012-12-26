@@ -277,7 +277,7 @@ class YFuncStats(YStats):
         func_ids = ['']
         for func_stat in self:
             file_ids += [ 'fl=(%d) %s' % (func_stat.index, func_stat.module) ]
-            func_ids += [ 'fn=(%d) %s' % (func_stat.index, func_stat.name) ]
+            func_ids += [ 'fn=(%d) %s %s:%s' % (func_stat.index, func_stat.name, func_stat.module, func_stat.lineno) ]
 
         lines += file_ids + func_ids
 

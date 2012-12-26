@@ -59,12 +59,22 @@ def f(n):
 
 if __name__ == '__main__':
     yappi.start()
-    #main()
+    main()
     #foo()
     #f(5)
-    frecursive(5)
+    #frecursive(5)
     yappi.stop()
     
-    filename = 'callgrind.out'
+    filename = 'callgrind.yappi'
     yappi.get_func_stats().save(filename, type='callgrind')
     test_print('\nWritten callgrind file to %s\n' % filename)
+    yappi.get_func_stats().debug_print()
+    
+    if sys.hexversion < 0x03000000:
+        import cProfile
+        cProfile.run('main()', 'fooprof')
+        import pstats
+        p = pstats.Stats('fooprof')
+        #p.strip_dirs().sort_stats(-1).print_stats()
+        from pyprof2calltree import convert
+        convert('fooprof', 'callgrind.cprofile')

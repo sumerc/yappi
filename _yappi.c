@@ -337,7 +337,7 @@ _code2pit(PyFrameObject *fobj)
         pit->name = PyStr_FromString(PyStr_AS_CSTRING(cobj->co_name));
     }
 
-    PyFrame_LocalsToFast(fobj,0);
+    PyFrame_LocalsToFast(fobj, 0);
 
     return pit;
 }

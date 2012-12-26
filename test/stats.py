@@ -54,6 +54,7 @@ yfs.save('callgrind.out', 'callgrind')
 #yfs.debug_print()
 for stat in yfs:
     fstatin1 = fstats1.find_by_full_name(stat.full_name)
-    if fstatin1:
+    fstatin2 = fstats2.find_by_full_name(stat.full_name)
+    
         
 
