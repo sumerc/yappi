@@ -10,3 +10,4 @@
 [-] Test debug build after merging the wackou branch.
 [-] add saving as pstat format.
 [-] add stat tests and re-TEST again. add pstat tests.
+[-] make full_name like : module:lineno function, maybe use same syntax in callgrind output.
