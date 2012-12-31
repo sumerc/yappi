@@ -498,12 +498,6 @@ def clock_type():
     """
     return _yappi.get_clock_type()
 
-def thread_times():
-    """
-    Returns the total CPU time of the calling thread as a float.(in secs) Precision is OS dependent.
-    """
-    return _yappi.thread_times()
-
 def mem_usage():
     """
     Returns the memory usage of the profiler itself.

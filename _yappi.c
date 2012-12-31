@@ -876,7 +876,6 @@ mem_usage(PyObject *self, PyObject *args)
     return Py_BuildValue("l", ymemusage());
 }
 
-
 static PyObject *
 get_clock_info(PyObject *self, PyObject *args)
 {
