@@ -225,7 +225,7 @@ class YFuncStats(YStats):
     
     def _enumerator(self, stat_entry):
         tavg = stat_entry[4]/stat_entry[3]
-        full_name = "%s:%s:%d" % (stat_entry[1], stat_entry[0], stat_entry[2])
+        full_name = "%s:%d %s" % (stat_entry[1], stat_entry[2], stat_entry[0])
         fstat = YFuncStat(stat_entry + (tavg,full_name))
         
         # do not show profile stats of yappi itself. 
@@ -417,7 +417,7 @@ class YThreadStats(YStats):
         return super(YThreadStats, self).get()
         
     def _enumerator(self, stat_entry):
-        last_func_full_name = "%s:%s:%d" % (stat_entry[3], stat_entry[2], stat_entry[4])
+        last_func_full_name = "%s:%d %s" % (stat_entry[3], stat_entry[4], stat_entry[2])
         tstat = YThreadStat(stat_entry + (last_func_full_name, ))
         self._stats.append(tstat)
         

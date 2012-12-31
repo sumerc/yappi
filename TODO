@@ -6,8 +6,8 @@
 [+] We need to have to revisit string formatting functions again. There are a lot of repetitive code.
 [+] invalid sort_type for threads.. revisit sort and limit params.
 [+] stats.py can generate the sort error write a TC for that.
-[*] stat[4] = 2 will not set the relevant attr. stat.ttot calls the __setitem__ however, stat[4] = 2 does not update stat.ttot
+[+] make full_name like : module:lineno function, maybe use same syntax in callgrind output.
 [-] Test debug build after merging the wackou branch.
 [-] add saving as pstat format.
 [-] add stat tests and re-TEST again. add pstat tests.
-[-] make full_name like : module:lineno function, maybe use same syntax in callgrind output.
+[-] stat[4] = 2 will not set the relevant attr. stat.ttot calls the __setitem__ however, stat[4] = 2 does not update stat.ttot
