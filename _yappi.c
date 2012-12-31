@@ -871,12 +871,6 @@ is_running(PyObject *self, PyObject *args)
 }
 
 static PyObject *
-thread_times(PyObject *self, PyObject *args)
-{
-    return Py_BuildValue("f", tickcount() * tickfactor());
-}
-
-static PyObject *
 mem_usage(PyObject *self, PyObject *args)
 {
     return Py_BuildValue("l", ymemusage());
@@ -884,27 +878,34 @@ mem_usage(PyObject *self, PyObject *args)
 
 
 static PyObject *
-clock_type(PyObject *self, PyObject *args)
+get_clock_info(PyObject *self, PyObject *args)
 {
-    PyObject *type,*result,*resolution;
+    PyObject *api,*result,*resolution;
+    clock_type_t clk_type;
 
     result = PyDict_New();
-
+    
+    clk_type = get_timing_clock_type();
+    if (clk_type == WALL_CLOCK) {
+        // continue;
+    }  else {
 #if defined(USE_CLOCK_TYPE_GETTHREADTIMES)
-    type = Py_BuildValue("s", "getthreadtimes");
-    resolution = Py_BuildValue("s", "100ns");
+            api = Py_BuildValue("s", "getthreadtimes");
+            resolution = Py_BuildValue("s", "100ns");
 #elif defined(USE_CLOCK_TYPE_THREADINFO)
-    type = Py_BuildValue("s", "threadinfo");
-    resolution = Py_BuildValue("s", "1000ns");
+            api = Py_BuildValue("s", "threadinfo");
+            resolution = Py_BuildValue("s", "1000ns");
 #elif defined(USE_CLOCK_TYPE_CLOCKGETTIME)
-    type = Py_BuildValue("s", "clockgettime");
-    resolution = Py_BuildValue("s", "1ns");
+            api = Py_BuildValue("s", "clockgettime");
+            resolution = Py_BuildValue("s", "1ns");
 #elif defined(USE_CLOCK_TYPE_RUSAGE)
-    type = Py_BuildValue("s", "getrusage");
-    resolution = Py_BuildValue("s", "1000ns");
+            api = Py_BuildValue("s", "getrusage");
+            resolution = Py_BuildValue("s", "1000ns");
 #endif
-
-    PyDict_SetItemString(result, "clock_type", type);
+    }
+    
+    //PyDict_SetItemString(result, "type", type);
+    PyDict_SetItemString(result, "api", api);
     PyDict_SetItemString(result, "resolution", resolution);
 
     return result;
@@ -917,8 +918,7 @@ static PyMethodDef yappi_methods[] = {
     {"enum_thread_stats", enum_thread_stats, METH_VARARGS, NULL},
     {"clear_stats", clear_stats, METH_VARARGS, NULL},
     {"is_running", is_running, METH_VARARGS, NULL},
-    {"clock_type", clock_type, METH_VARARGS, NULL},
-    {"thread_times", thread_times, METH_VARARGS, NULL},
+    {"get_clock_info", get_clock_info, METH_VARARGS, NULL},
     {"mem_usage", mem_usage, METH_VARARGS, NULL},
     {"profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage. do not call this.
     {NULL, NULL}      /* sentinel */

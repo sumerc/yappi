@@ -13,7 +13,7 @@ import pickle
 class YappiError(Exception): pass
 
 __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
-           'clock_type', 'mem_usage', 'thread_times']
+           'get_clock_info', 'mem_usage']
 
 CRLF = '\n'
 COLUMN_GAP = 2
@@ -496,7 +496,7 @@ def clock_type():
     Returns the internal native(OS dependant) API used to retrieve per-thread cputime and
     its resolution.
     """
-    return _yappi.clock_type()
+    return _yappi.get_clock_type()
 
 def thread_times():
     """
