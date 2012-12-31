@@ -879,31 +879,39 @@ mem_usage(PyObject *self, PyObject *args)
 static PyObject *
 get_clock_info(PyObject *self, PyObject *args)
 {
-    PyObject *api,*result,*resolution;
+    PyObject *type,*api,*result,*resolution;
     clock_type_t clk_type;
 
     result = PyDict_New();
     
     clk_type = get_timing_clock_type();
     if (clk_type == WALL_CLOCK) {
-        // continue;
+        type = Py_BuildValue("s", "wall");
+#if defined(_WINDOWS)
+        api = Py_BuildValue("s", "queryperformancecounter");
+        resolution = Py_BuildValue("s", "100ns");    
+#else
+        api = Py_BuildValue("s", "gettimeofday");
+        resolution = Py_BuildValue("s", "100ns");
+#endif
     }  else {
+        type = Py_BuildValue("s", "cpu");
 #if defined(USE_CLOCK_TYPE_GETTHREADTIMES)
-            api = Py_BuildValue("s", "getthreadtimes");
-            resolution = Py_BuildValue("s", "100ns");
+        api = Py_BuildValue("s", "getthreadtimes");
+        resolution = Py_BuildValue("s", "100ns");
 #elif defined(USE_CLOCK_TYPE_THREADINFO)
-            api = Py_BuildValue("s", "threadinfo");
-            resolution = Py_BuildValue("s", "1000ns");
+        api = Py_BuildValue("s", "threadinfo");
+        resolution = Py_BuildValue("s", "1000ns");
 #elif defined(USE_CLOCK_TYPE_CLOCKGETTIME)
-            api = Py_BuildValue("s", "clockgettime");
-            resolution = Py_BuildValue("s", "1ns");
+        api = Py_BuildValue("s", "clockgettime");
+        resolution = Py_BuildValue("s", "1ns");
 #elif defined(USE_CLOCK_TYPE_RUSAGE)
-            api = Py_BuildValue("s", "getrusage");
-            resolution = Py_BuildValue("s", "1000ns");
+        api = Py_BuildValue("s", "getrusage");
+        resolution = Py_BuildValue("s", "1000ns");
 #endif
     }
     
-    //PyDict_SetItemString(result, "type", type);
+    PyDict_SetItemString(result, "type", type);
     PyDict_SetItemString(result, "api", api);
     PyDict_SetItemString(result, "resolution", resolution);
 
@@ -918,6 +926,8 @@ static PyMethodDef yappi_methods[] = {
     {"clear_stats", clear_stats, METH_VARARGS, NULL},
     {"is_running", is_running, METH_VARARGS, NULL},
     {"get_clock_info", get_clock_info, METH_VARARGS, NULL},
+    //{"get_clock_type", get_clock_info, METH_VARARGS, NULL},
+    //{"set_clock_type", get_clock_info, METH_VARARGS, NULL},
     {"mem_usage", mem_usage, METH_VARARGS, NULL},
     {"profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage. do not call this.
     {NULL, NULL}      /* sentinel */

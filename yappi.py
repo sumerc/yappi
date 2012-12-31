@@ -59,7 +59,6 @@ class StatString(object):
     """
     Class to prettify/trim a profile result column.
     """
-    
     _s = ""
     _TRAIL_DOT = ".."
 
