@@ -68,7 +68,7 @@ if __name__ == '__main__':
     filename = 'callgrind.yappi'
     yappi.get_func_stats().save(filename, type='callgrind')
     test_print('\nWritten callgrind file to %s\n' % filename)
-    yappi.get_func_stats().debug_print()
+    yappi.get_func_stats().print_all()
     
     if sys.hexversion < 0x03000000:
         import cProfile

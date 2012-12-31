@@ -103,7 +103,7 @@ class YFuncStat(YStat):
     """
     Class holding information for function stats.
     """
-    _KEYS = ('name', 'module', 'lineno', 'ncall', 'ttot', 'tsub', 'index', 'children', 'tavg', 'full_name')
+    _KEYS = ('name', 'module', 'lineno', 'ncall', 'nactualcall', 'ttot', 'tsub', 'index', 'children', 'tavg', 'full_name')
     
     def __eq__(self, other):
         if other is None:
@@ -117,6 +117,7 @@ class YFuncStat(YStat):
             return self
         
         self.ncall += other.ncall
+        self.nactualcall += other.nactualcall
         self.ttot += other.ttot
         self.tsub += other.tsub
         self.tavg += other.tavg
@@ -133,6 +134,9 @@ class YFuncStat(YStat):
             if child.full_name == full_name:
                 return child
         return None
+    
+    def is_recursive(self):
+        return self.ncall != self.nactualcall
         
 class YChildFuncStat(YStat):
     """
@@ -353,7 +357,12 @@ class YFuncStats(YStats):
         for stat in self:
             out.write(StatString(stat.full_name).ltrim(FUNC_NAME_LEN))
             out.write(" " * COLUMN_GAP)
-            out.write(StatString(stat.ncall).rtrim(CALLCOUNT_LEN))
+            
+            # the function is recursive?
+            if stat.is_recursive():
+                out.write(StatString("%d/%d" % (stat.ncall, stat.nactualcall)).rtrim(CALLCOUNT_LEN))
+            else:
+                out.write(StatString(stat.ncall).rtrim(CALLCOUNT_LEN))
             out.write(" " * COLUMN_GAP)
             out.write(StatString("%0.6f" % stat.tsub).rtrim(TIME_COLUMN_LEN))
             out.write(" " * COLUMN_GAP)
@@ -376,7 +385,7 @@ class YFuncStats(YStats):
             console.write(CRLF)
             console.write("full_name: %s" % stat.full_name)
             console.write(CRLF)
-            console.write("ncall: %d" % stat.ncall)
+            console.write("ncall: %d/%d" % (stat.ncall, stat.nactualcall))
             console.write(CRLF)
             console.write("ttot: %0.6f" % stat.ttot)
             console.write(CRLF)

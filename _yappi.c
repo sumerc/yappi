@@ -43,6 +43,7 @@ typedef struct {
     PyObject *modname;
     unsigned long lineno;
     unsigned long callcount;
+    unsigned long nonrecursive_callcount; // used in pstats, holds the number of actual calls when the function is recursive.
     long long tsubtotal;
     long long ttotal;
     int builtin;
@@ -133,6 +134,7 @@ _create_pit(void)
     if (!pit)
         return NULL;
     pit->callcount = 0;
+    pit->nonrecursive_callcount = 0;
     pit->ttotal = 0;
     pit->tsubtotal = 0;
     pit->name = NULL;
@@ -399,7 +401,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 
     ci = spop(current_ctx->cs);
     if (!ci) {
-        return; // leaving a frame while callstack is empty
+        return; // leaving a frame while callstack is empty, return silently for this.
     }
     cp = ci->ckey;
 
@@ -409,6 +411,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     pi = shead(current_ctx->cs);
     if (!pi) { // no head this is the first function in the callstack?
         cp->ttotal += elapsed;
+        cp->nonrecursive_callcount++;
         return;
     }
     pp = pi->ckey;
@@ -419,6 +422,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         cp->tsubtotal -= elapsed;
     } else {
         cp->ttotal += elapsed;
+        cp->nonrecursive_callcount++;
     }
 
     // update parent's sub total if recursive above code will extract the subtotal and
@@ -448,8 +452,6 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         pci = newpci;
     }
     pci->callcount++;
-    // FIXME: this is not necessarily correct
-    //        need to check what happens with recursive functions
     pci->ttotal += elapsed;
 }
 
@@ -825,8 +827,9 @@ _pitenumstat(_hitem *item, void * arg)
                                               pci->ttotal * tickfactor()));
         pci = (_pit_children_info *)pci->next;
     }
-    exc = PyObject_CallFunction(efn, "((OOkkffIO))", pt->name, pt->modname, pt->lineno, pt->callcount, pt->ttotal * tickfactor(),
-                          cumdiff * tickfactor(), pt->index, children);
+    exc = PyObject_CallFunction(efn, "((OOkkkffIO))", pt->name, pt->modname, pt->lineno, pt->callcount,
+                        pt->nonrecursive_callcount, pt->ttotal * tickfactor(), cumdiff * tickfactor(), 
+                        pt->index, children);
     // TODO: ref leak on children???
     if (!exc) {
         PyErr_Print();
