@@ -7,6 +7,7 @@
 [+] invalid sort_type for threads.. revisit sort and limit params.
 [+] stats.py can generate the sort error write a TC for that.
 [+] make full_name like : module:lineno function, maybe use same syntax in callgrind output.
+[-] add support for using wall time for profiling. Lots of people download v0.53.
 [-] Test debug build after merging the wackou branch.
 [-] add saving as pstat format.
 [-] add stat tests and re-TEST again. add pstat tests.
