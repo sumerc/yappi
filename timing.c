@@ -1,10 +1,18 @@
 #include "timing.h"
 
-static clock_type_t g_clock_type = WALL_CLOCK;
+static clock_type_t g_clock_type = CPU_CLOCK;
 
-void set_timing_clock_type(clock_type_t type)
+int set_timing_clock_type(clock_type_t type)
 {
+    // validate
+    if ((type != WALL_CLOCK) && (type != CPU_CLOCK))
+    {
+        return 0;
+    }
+    
     g_clock_type = type;
+    
+    return 1;
 }
 
 clock_type_t get_timing_clock_type(void)

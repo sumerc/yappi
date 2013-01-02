@@ -46,7 +46,7 @@ typedef struct {
     unsigned long nonrecursive_callcount; // used in pstats, holds the number of actual calls when the function is recursive.
     long long tsubtotal;
     long long ttotal;
-    int builtin;
+    unsigned int builtin; // 0 for normal, 1 for ccall
     unsigned int index;
     _pit_children_info *children;
 } _pit; // profile_item
@@ -742,6 +742,7 @@ _ctxenumstat(_hitem *item, void *arg)
     PyObject *last_func_name;
     PyObject *last_mod_name;
     unsigned long last_line_no;
+    unsigned int last_builtin;
 
     ctx = (_ctx *)item->val;
 
@@ -749,10 +750,12 @@ _ctxenumstat(_hitem *item, void *arg)
         last_func_name = ctx->last_pit->name;
         last_mod_name = ctx->last_pit->modname;
         last_line_no = ctx->last_pit->lineno;
+        last_builtin = ctx->last_pit->builtin;
     } else {
         last_func_name = NULL;
         last_mod_name = NULL;
         last_line_no = 0;
+        last_builtin = 0;
     }
 
     tcname = ctx->class_name;
@@ -762,8 +765,8 @@ _ctxenumstat(_hitem *item, void *arg)
 
     cumdiff = _calc_cumdiff(tickcount(), ctx->t0);
     
-    exc = PyObject_CallFunction(efn, "((skOOkfk))", tcname, ctx->id, last_func_name,
-        last_mod_name, last_line_no, cumdiff * tickfactor(), ctx->sched_cnt);
+    exc = PyObject_CallFunction(efn, "((skOOkIfk))", tcname, ctx->id, last_func_name,
+        last_mod_name, last_line_no, last_builtin, cumdiff * tickfactor(), ctx->sched_cnt);
     if (!exc) {
         PyErr_Print();
         return 1; // abort enumeration
@@ -827,8 +830,8 @@ _pitenumstat(_hitem *item, void * arg)
                                               pci->ttotal * tickfactor()));
         pci = (_pit_children_info *)pci->next;
     }
-    exc = PyObject_CallFunction(efn, "((OOkkkffIO))", pt->name, pt->modname, pt->lineno, pt->callcount,
-                        pt->nonrecursive_callcount, pt->ttotal * tickfactor(), cumdiff * tickfactor(), 
+    exc = PyObject_CallFunction(efn, "((OOkkkIffIO))", pt->name, pt->modname, pt->lineno, pt->callcount,
+                        pt->nonrecursive_callcount, pt->builtin, pt->ttotal * tickfactor(), cumdiff * tickfactor(), 
                         pt->index, children);
     // TODO: ref leak on children???
     if (!exc) {
@@ -877,7 +880,37 @@ mem_usage(PyObject *self, PyObject *args)
 }
 
 static PyObject *
-get_clock_info(PyObject *self, PyObject *args)
+set_clock_type(PyObject *self, PyObject *args)
+{
+    int clock_type;
+    
+    if (!PyArg_ParseTuple(args, "i", &clock_type)) {
+        return NULL;
+    }
+    
+    // return silently if same clock_type
+    if (clock_type == get_timing_clock_type())
+    {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+    
+    if (yapphavestats) {
+        PyErr_SetString(YappiProfileError, "clock type cannot be changed previous stats are available. clear the stats first.");
+        return NULL;
+    }
+    
+    if (!set_timing_clock_type(clock_type)) {
+        PyErr_SetString(YappiProfileError, "Invalid clock type.");
+        return NULL;
+    }   
+    
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject *
+get_clock_type(PyObject *self, PyObject *args)
 {
     PyObject *type,*api,*result,*resolution;
     clock_type_t clk_type;
@@ -925,9 +958,8 @@ static PyMethodDef yappi_methods[] = {
     {"enum_thread_stats", enum_thread_stats, METH_VARARGS, NULL},
     {"clear_stats", clear_stats, METH_VARARGS, NULL},
     {"is_running", is_running, METH_VARARGS, NULL},
-    {"get_clock_info", get_clock_info, METH_VARARGS, NULL},
-    //{"get_clock_type", get_clock_info, METH_VARARGS, NULL},
-    //{"set_clock_type", get_clock_info, METH_VARARGS, NULL},
+    {"get_clock_type", get_clock_type, METH_VARARGS, NULL},
+    {"set_clock_type", set_clock_type, METH_VARARGS, NULL},
     {"mem_usage", mem_usage, METH_VARARGS, NULL},
     {"profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage. do not call this.
     {NULL, NULL}      /* sentinel */

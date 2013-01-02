@@ -13,7 +13,7 @@ import pickle
 class YappiError(Exception): pass
 
 __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
-           'get_clock_info', 'mem_usage']
+           'get_clock_type', 'get_clock_type',  'mem_usage']
 
 CRLF = '\n'
 COLUMN_GAP = 2
@@ -33,6 +33,8 @@ SORTORDER_ASC = 0
 SORTORDER_DESC = 1
 
 SHOW_ALL = 0
+
+CLOCK_TYPES = {"WALL":0, "CPU":1}
 
 def _validate_func_sorttype(sort_type):
     if sort_type not in [SORTTYPE_NAME, SORTTYPE_NCALL, SORTTYPE_TTOT, SORTTYPE_TSUB, SORTTYPE_TAVG]:
@@ -102,7 +104,8 @@ class YFuncStat(YStat):
     """
     Class holding information for function stats.
     """
-    _KEYS = ('name', 'module', 'lineno', 'ncall', 'nactualcall', 'ttot', 'tsub', 'index', 'children', 'tavg', 'full_name')
+    _KEYS = ('name', 'module', 'lineno', 'ncall', 'nactualcall', 'builtin', 'ttot', 'tsub', 'index', 
+        'children', 'tavg', 'full_name')
     
     def __eq__(self, other):
         if other is None:
@@ -158,7 +161,8 @@ class YThreadStat(YStat):
     """
     Class holding information for thread stats.
     """
-    _KEYS = ('name', 'id', 'last_func_name', 'last_func_mod', 'last_line_no', 'ttot', 'sched_count', 'last_func_full_name')
+    _KEYS = ('name', 'id', 'last_func_name', 'last_func_mod', 'last_line_no', 'last_builtin', 'ttot', 'sched_count', 
+        'last_func_full_name')
             
 class YStats(object):
     """
@@ -223,8 +227,14 @@ class YFuncStats(YStats):
         return super(YFuncStats, self).get()
     
     def _enumerator(self, stat_entry):
-        tavg = stat_entry[4]/stat_entry[3]
-        full_name = "%s:%d %s" % (stat_entry[1], stat_entry[2], stat_entry[0])
+        
+        # builtin function?
+        if stat_entry[5] == 1: 
+            full_name = "%s.%s" % (stat_entry[1], stat_entry[0])
+        else:
+            full_name = "%s:%d %s" % (stat_entry[1], stat_entry[2], stat_entry[0])       
+            
+        tavg = stat_entry[6]/stat_entry[3]
         fstat = YFuncStat(stat_entry + (tavg,full_name))
         
         # do not show profile stats of yappi itself. 
@@ -232,7 +242,8 @@ class YFuncStats(YStats):
             return
             
         self._stats.append(fstat)
-        # hold the max idx number for merging new entries
+        
+        # hold the max idx number for merging new entries(for making the merging entries indexes unique)
         if self._idx_max < fstat.index:
             self._idx_max = fstat.index
         
@@ -416,7 +427,12 @@ class YThreadStats(YStats):
         return super(YThreadStats, self).get()
         
     def _enumerator(self, stat_entry):
-        last_func_full_name = "%s:%d %s" % (stat_entry[3], stat_entry[4], stat_entry[2])
+        # builtin?
+        if stat_entry[5] == 1:
+            last_func_full_name = "%s:%d %s" % (stat_entry[3], stat_entry[4], stat_entry[2])
+        else:
+            last_func_full_name = "%s.%s" % (stat_entry[3], stat_entry[2])
+            
         tstat = YThreadStat(stat_entry + (last_func_full_name, ))
         self._stats.append(tstat)
         
@@ -438,7 +454,7 @@ class YThreadStats(YStats):
         out.write(CRLF)
         out.write("name           tid              fname                      ttot      scnt")
         out.write(CRLF)
-        for stat in stats:
+        for stat in self:
             out.write(StatString(stat.name).ltrim(THREAD_NAME_LEN))
             out.write(" " * COLUMN_GAP)
             out.write(StatString(stat.id).rtrim(THREAD_ID_LEN))
@@ -490,12 +506,21 @@ def clear_stats():
     """
     _yappi.clear_stats()
 
-def clock_type():
+def get_clock_type():
     """
-    Returns the internal native(OS dependant) API used to retrieve per-thread cputime and
-    its resolution.
+    Returns the OS api used for timing plus the precision and the clock type information in a dict.
     """
     return _yappi.get_clock_type()
+    
+def set_clock_type(type):
+    """
+    Sets the internal clock type for timing. Profiler shall not have any previous stats.
+    Otherwise an exception is thrown.
+    """
+    type = type.upper()
+    if type not in CLOCK_TYPES:
+        raise YappiError("Invalid clock type:%s" % (type))
+    _yappi.set_clock_type(CLOCK_TYPES[type])
 
 def mem_usage():
     """
