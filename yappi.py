@@ -138,6 +138,11 @@ class YFuncStat(YStat):
         return None
     
     def is_recursive(self):
+        # we have a known bug where call_leave not called for some thread functions(run() especially)
+        # in that case ncalls will be updated in call_enter, however nactualcall will not. This is for
+        # checking that case.
+        if self.nactualcall == 0:
+            return False
         return self.ncall != self.nactualcall
         
 class YChildFuncStat(YStat):
@@ -170,8 +175,10 @@ class YStats(object):
     """
     def __init__(self):
         self._stats = []
+        self._clock_type = None
         
     def get(self):
+        self._clock_type = _yappi.get_clock_type()["type"]
         return self
         
     def sort(self, sort_type, sort_order):
@@ -240,7 +247,7 @@ class YFuncStats(YStats):
         # do not show profile stats of yappi itself. 
         if os.path.basename(fstat.module) == ("%s.py" % __name__) or fstat.module == "_yappi": 
             return
-            
+        fstat.builtin = bool(fstat.builtin)
         self._stats.append(fstat)
         
         # hold the max idx number for merging new entries(for making the merging entries indexes unique)
@@ -248,7 +255,11 @@ class YFuncStats(YStats):
             self._idx_max = fstat.index
         
     def _add_from_YSTAT(self, file):
-        saved_stats = pickle.load(file)
+        saved_stats, saved_clock_type = pickle.load(file)
+        if self._clock_type != saved_clock_type and self._clock_type is not None:
+            raise YappiError("Clock type mismatch between current and saved profiler sessions.[%s,%s]" % \
+                (self._clock_type, saved_clock_type))
+        self._clock_type = saved_clock_type
         
         # add 'not present' previous entries with unique indexes
         for saved_stat in saved_stats:
@@ -271,8 +282,8 @@ class YFuncStats(YStats):
             saved_stat_in_curr += saved_stat
     
     def _save_as_YSTAT(self, path):
-        file = open(path, "wb")        
-        pickle.dump(self._stats, file)
+        file = open(path, "wb")
+        pickle.dump((self._stats, self._clock_type), file)
         
     def _save_as_CALLGRIND(self, path):
         """

@@ -21,6 +21,7 @@ class IOThread(threading.Thread):
         time.sleep(2.0)
         for i in range(1000000): pass
         
+#yappi.start(profile_threads=False)
 yappi.start()
 
 l = []
@@ -35,11 +36,6 @@ c.start()
 
 time.sleep(1.0)
 
-yappi.print_func_stats(sort_type=yappi.SORTTYPE_TTOT)
-yappi.print_thread_stats()
+yappi.get_func_stats().print_all()
+yappi.get_thread_stats().print_all()
 
-"""
-f = open("den.txt", "w")
-yappi.print_stats(f)
-yappi.stop()
-"""

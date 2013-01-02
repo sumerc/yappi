@@ -39,6 +39,7 @@ fstats1.print_all()
 fstats1.save("foo1")
 yappi.clear_stats()
 
+#yappi.set_clock_type("waLL")
 yappi.start(builtins=True, profile_threads=False)
 test1()
 yappi.stop()
