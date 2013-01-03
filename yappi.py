@@ -149,7 +149,7 @@ class YChildFuncStat(YStat):
     """
     Class holding information for children function stats.
     """
-    _KEYS = ('index', 'ncall', 'ttot', 'full_name')
+    _KEYS = ('index', 'ncall', 'nactualcall', 'ttot', 'full_name')
     
     def __eq__(self, other):
         if other is None:
@@ -158,7 +158,8 @@ class YChildFuncStat(YStat):
         
     def __add__(self, other):
         if other is None:
-            return self       
+            return self
+        self.nactualcall += other.nactualcall
         self.ncall += other.ncall
         self.ttot += other.ttot
              
@@ -423,7 +424,7 @@ class YFuncStats(YStats):
                 console.write("full_name: %s" % child_stat.full_name)
                 console.write(CRLF)
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
-                console.write("ncall: %d" % child_stat.ncall)
+                console.write("ncall: %d/%d" % child_stat.ncall, child_stat.nactualcall)
                 console.write(CRLF)
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
                 console.write("ttot: %0.6f" % child_stat.ttot)
@@ -492,7 +493,6 @@ def get_func_stats():
     """
     Gets the function profiler results with given filters and returns an iterable.
     """
-    
     stats = YFuncStats().get()
     return stats
 
@@ -500,7 +500,6 @@ def get_thread_stats():
     """
     Gets the thread profiler results with given filters and returns an iterable.
     """
-    
     stats = YThreadStats().get()
     return stats
 

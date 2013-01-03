@@ -8,8 +8,10 @@
 [+] stats.py can generate the sort error write a TC for that.
 [+] make full_name like : module:lineno function, maybe use same syntax in callgrind output.
 [+] add support for using wall time for profiling. Lots of people download v0.53.
-[-] clock type shall be saved in save(), merging two different profile results with different clock types is
+[+] clock type shall be saved in save(), merging two different profile results with different clock types is
     ambigous, prevent that.
+[-] maybe add a pause/resume functionality for _yappi. When wee retrieve the stats and the profiler is on user is
+    shown the internal functions used by yappi. These should be discarded?
 [-] Test debug build after merging the wackou branch.
 [-] add saving as pstat format.
 [-] add stat tests and re-TEST again. add pstat tests.

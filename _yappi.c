@@ -33,6 +33,7 @@ PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
 typedef struct {
     unsigned int index;
     unsigned long callcount;
+    unsigned long nonrecursive_callcount; // holds the number of actual calls when the function is recursive.
     long long ttotal;
     struct _pit_children_info *next;
 } _pit_children_info;
@@ -43,7 +44,7 @@ typedef struct {
     PyObject *modname;
     unsigned long lineno;
     unsigned long callcount;
-    unsigned long nonrecursive_callcount; // used in pstats, holds the number of actual calls when the function is recursive.
+    unsigned long nonrecursive_callcount; // holds the number of actual calls when the function is recursive.
     long long tsubtotal;
     long long ttotal;
     unsigned int builtin; // 0 for normal, 1 for ccall
@@ -398,6 +399,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     _pit_children_info *pci,*ppci,*newpci;
     _cstackitem *ci,*pi;
     long long elapsed;
+    int is_recursive;
 
     ci = spop(current_ctx->cs);
     if (!ci) {
@@ -418,11 +420,12 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 
     // are we leaving a recursive function that is already in the callstack?
     // then extract the elapsed from subtotal of the the current pit(profile item).
+    is_recursive = 0;
     if (scount(current_ctx->cs, cp) > 0) {
         cp->tsubtotal -= elapsed;
+        is_recursive = 1;
     } else {
         cp->ttotal += elapsed;
-        cp->nonrecursive_callcount++;
     }
 
     // update parent's sub total if recursive above code will extract the subtotal and
@@ -442,6 +445,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         newpci = ymalloc(sizeof(_pit_children_info));
         newpci->index = cp->index;
         newpci->callcount = 0;
+        newpci->nonrecursive_callcount = 0;
         newpci->ttotal = 0;
         newpci->next = NULL;
         if (!ppci) {
@@ -453,6 +457,14 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     }
     pci->callcount++;
     pci->ttotal += elapsed;
+    
+    // if function is not recursive (or in other words _currently_ _not_ found on the stack more than once)
+    // increment the relevant nactualcall param.
+    if (!is_recursive) 
+    {
+        cp->nonrecursive_callcount++;
+        pci->nonrecursive_callcount++;
+    }    
 }
 
 // context will be cleared by the free list. we do not free it here.
@@ -826,14 +838,13 @@ _pitenumstat(_hitem *item, void * arg)
     children = PyList_New(0);
     pci = pt->children;
     while(pci) {
-        PyList_Append(children, Py_BuildValue("Ikf", pci->index, pci->callcount,
+        PyList_Append(children, Py_BuildValue("Ikkf", pci->index, pci->callcount, pci->nonrecursive_callcount,
                                               pci->ttotal * tickfactor()));
         pci = (_pit_children_info *)pci->next;
     }
     exc = PyObject_CallFunction(efn, "((OOkkkIffIO))", pt->name, pt->modname, pt->lineno, pt->callcount,
                         pt->nonrecursive_callcount, pt->builtin, pt->ttotal * tickfactor(), cumdiff * tickfactor(), 
                         pt->index, children);
-    // TODO: ref leak on children???
     if (!exc) {
         PyErr_Print();
         return 1; // abort enumeration
