@@ -19,34 +19,30 @@ CRLF = '\n'
 COLUMN_GAP = 2
 TIME_COLUMN_LEN = 8 # 0.000000, 12345.98, precision is microsecs
 
-SORTTYPE_NAME = 0
-SORTTYPE_NCALL = 3
-SORTTYPE_TTOT = 4
-SORTTYPE_TSUB = 5
-SORTTYPE_TAVG = 8
-SORTTYPE_THREAD_NAME = 0
-SORTTYPE_THREAD_ID = 1
-SORTTYPE_THREAD_TTOT = 3
-SORTTYPE_THREAD_SCHEDCNT = 4
-
-SORTORDER_ASC = 0
-SORTORDER_DESC = 1
-
+SORT_TYPES_FUNCSTATS = {"name":0, "callcount":3, "totaltime":6, "subtime":7, "avgtime":10}
+SORT_TYPES_THREADSTATS = {"name":0, "id":1, "totaltime":6, "schedcount":7}
+SORT_ORDERS = {"ascending":0, "asc":0, "descending":1, "desc":1}
 SHOW_ALL = 0
 
 CLOCK_TYPES = {"WALL":0, "CPU":1}
 
 def _validate_func_sorttype(sort_type):
-    if sort_type not in [SORTTYPE_NAME, SORTTYPE_NCALL, SORTTYPE_TTOT, SORTTYPE_TSUB, SORTTYPE_TAVG]:
-        raise YappiError("Invalid SortType parameter.[%d]" % (sort_type))
+    sort_type = sort_type.lower()
+    if sort_type not in SORT_TYPES_FUNCSTATS:
+        raise YappiError("Invalid SortType parameter.[%s]" % (sort_type))
+    return sort_type
 
 def _validate_thread_sorttype(sort_type):
-    if sort_type not in [SORTTYPE_THREAD_NAME, SORTTYPE_THREAD_ID, SORTTYPE_THREAD_TTOT, SORTTYPE_THREAD_SCHEDCNT]:
-        raise YappiError("Invalid SortType parameter.[%d]" % (sort_type))
+    sort_type = sort_type.lower()
+    if sort_type not in SORT_TYPES_THREADSTATS:
+        raise YappiError("Invalid SortType parameter.[%s]" % (sort_type))
+    return sort_type
         
 def _validate_sortorder(sort_order):
-    if sort_order not in [SORTORDER_ASC, SORTORDER_DESC]:
-        raise YappiError("Invalid SortOrder parameter.[%d]" % (sort_order))
+    sort_order = sort_order.lower()
+    if sort_order not in SORT_ORDERS:
+        raise YappiError("Invalid SortOrder parameter.[%s]" % (sort_order))
+    return sort_order
         
 '''
  _callback will only be called once per-thread. _yappi will detect
@@ -183,7 +179,7 @@ class YStats(object):
         return self
         
     def sort(self, sort_type, sort_order):
-        self._stats.sort(key=lambda stat: stat[sort_type], reverse=(sort_order==SORTORDER_DESC))
+        self._stats.sort(key=lambda stat: stat[sort_type], reverse=(sort_order==SORT_ORDERS["desc"]))
         return self
         
     def limit(self, limit):
@@ -393,11 +389,11 @@ class YFuncStats(YStats):
             out.write(StatString("%0.6f" % stat.tavg).rtrim(TIME_COLUMN_LEN))
             out.write(CRLF)
             
-    def sort(self, sort_type=SORTTYPE_NCALL, sort_order=SORTORDER_DESC):
-        _validate_func_sorttype(sort_type)
-        _validate_sortorder(sort_order)
-
-        return super(YFuncStats, self).sort(sort_type, sort_order)
+    def sort(self, sort_type, sort_order="desc"):
+        sort_type = _validate_func_sorttype(sort_type)
+        sort_order = _validate_sortorder(sort_order)
+        
+        return super(YFuncStats, self).sort(SORT_TYPES_FUNCSTATS[sort_type], SORT_ORDERS[sort_order])
         
     def debug_print(self):
         console = sys.stdout
@@ -448,11 +444,11 @@ class YThreadStats(YStats):
         tstat = YThreadStat(stat_entry + (last_func_full_name, ))
         self._stats.append(tstat)
         
-    def sort(self, sort_type=SORTTYPE_THREAD_NAME, sort_order=SORTORDER_DESC):
-        _validate_thread_sorttype(sort_type)
-        _validate_sortorder(sort_order)
+    def sort(self, sort_type, sort_order="desc"):
+        sort_type = _validate_thread_sorttype(sort_type)
+        sort_order = _validate_sortorder(sort_order)
 
-        return super(YThreadStats, self).sort(sort_type, sort_order)
+        return super(YThreadStats, self).sort(SORT_TYPES_THREADSTATS[sort_type], SORT_ORDERS[sort_order])
         
     def print_all(self, out=sys.stdout):
         """
