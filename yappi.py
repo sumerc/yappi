@@ -207,7 +207,7 @@ class YFuncStats(YStats):
 
     _idx_max = 0
     _SUPPORTED_LOAD_FORMATS = ['YSTAT']
-    _SUPPORTED_SAVE_FORMATS = ['YSTAT', 'CALLGRIND']
+    _SUPPORTED_SAVE_FORMATS = ['YSTAT', 'CALLGRIND', 'PSTAT']
         
     def get(self):
         _yappi.enum_func_stats(self._enumerator)
@@ -281,6 +281,32 @@ class YFuncStats(YStats):
     def _save_as_YSTAT(self, path):
         file = open(path, "wb")
         pickle.dump((self._stats, self._clock_type), file)
+        
+    def _save_as_PSTAT(self, path):
+        """
+        Save the profiling information as PSTAT. For this, we first need to convert our internal
+        self._stats list (YSTAT type) to PSTAT. So there are some differences between the 
+        statistics parameters. The PSTAT format is as following:
+        
+        PSTAT expects a dict entry as following:
+        
+        stats[("mod_name", line_no, "func_name")] = \
+            total_call_count, actual_call_count, total_time, cumulative_time, 
+            {("mod_name", line_no, "func_name") : total_call_count}
+            
+        Note that in PSTAT the total_time spent in the function is called as cumulative_time and 
+        the time spent in the function as total_time. From Yappi's perspective, this means:
+        
+        total_time = tsub
+        cumulative_time = ttot
+        
+        Other than that we hold called functions in a pfofile entry as named 'children'. On the
+        other hand, PSTAT expects to have a dict of callers of the function. So we also need to 
+        convert the information to that.       
+
+        PSTAT only expects to have the above dict to be saved.
+        """
+        pass
         
     def _save_as_CALLGRIND(self, path):
         """
