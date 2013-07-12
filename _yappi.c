@@ -542,7 +542,7 @@ _profile_thread(PyThreadState *ts)
         if (!flput(flctx, ctx)) {
             yerr("Context cannot be recycled. Possible memory leak.");
         }
-        dprintf("Context add failed. Already added?(%p, %ld)", ts,
+        ydprintf("Context add failed. Already added?(%p, %ld)", ts,
                 PyThreadState_GET()->thread_id);
         return NULL;
     }

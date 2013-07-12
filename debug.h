@@ -3,15 +3,15 @@
 
 #ifdef DEBUG_CALL
 #ifndef _MSC_VER
-#define dprintf(fmt, args...) fprintf(stderr, "[&] [yappi-dbg] " fmt "\n", ## args)
+#define ydprintf(fmt, args...) fprintf(stderr, "[&] [yappi-dbg] " fmt "\n", ## args)
 #else
-#define dprintf(fmt, ...) fprintf(stderr, "[&] [yappi-dbg] " fmt "\n", __VA_ARGS__)
+#define ydprintf(fmt, ...) fprintf(stderr, "[&] [yappi-dbg] " fmt "\n", __VA_ARGS__)
 #endif
 #else
 #ifndef _MSC_VER
-#define dprintf(fmt, args...)
+#define ydprintf(fmt, args...)
 #else
-#define dprintf(fmt, ...)
+#define ydprintf(fmt, ...)
 #endif
 #endif
 
