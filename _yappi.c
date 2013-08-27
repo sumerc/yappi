@@ -66,7 +66,7 @@ typedef struct {
     int multithreaded;
 } _flag; // flags passed from yappi.start()
 
-// profiler global vars
+// globals
 static PyObject *YappiProfileError;
 static _htab *contexts;
 static _htab *pits;
@@ -83,12 +83,14 @@ static long long yappstoptick;
 static _ctx *prev_ctx;
 static _ctx *current_ctx;
 
-// forward
+// defines
+#define UNINITIALIZED_STRING_VAL "N/A"
+
+// forwards
 static _ctx * _profile_thread(PyThreadState *ts);
 
 
 // string formatting helper functions compatible with with both 2.x and 3.x
-
 #ifdef IS_PY3K
 #define PyStr_AS_CSTRING(s) PyBytes_AS_STRING(PyUnicode_AsUTF8String(s))
 #else
@@ -485,6 +487,10 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         yerr("no context found or can be created.");
         return 0;
     }
+    if (!current_ctx->class_name)
+    {
+        current_ctx->class_name = _get_current_thread_class_name();
+    }
 
     switch (what) {
     case PyTrace_CALL:
@@ -513,9 +519,6 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     // update ctx statistics
     if (prev_ctx != current_ctx) {
         current_ctx->sched_cnt++;
-    }
-    if (!current_ctx->class_name) {
-        current_ctx->class_name = _get_current_thread_class_name();
     }
     prev_ctx = current_ctx;
     return 0;
@@ -764,15 +767,15 @@ _ctxenumstat(_hitem *item, void *arg)
         last_line_no = ctx->last_pit->lineno;
         last_builtin = ctx->last_pit->builtin;
     } else {
-        last_func_name = NULL;
-        last_mod_name = NULL;
+        last_func_name = PyStr_FromString(UNINITIALIZED_STRING_VAL);
+        last_mod_name = PyStr_FromString(UNINITIALIZED_STRING_VAL);
         last_line_no = 0;
         last_builtin = 0;
     }
 
     tcname = ctx->class_name;
     if (tcname == NULL)
-        tcname = "N/A";
+        tcname = UNINITIALIZED_STRING_VAL;
     efn = (PyObject *)arg;
 
     cumdiff = _calc_cumdiff(tickcount(), ctx->t0);

@@ -16,13 +16,13 @@ class WorkerThread2(threading.Thread):
         time.sleep(2.0)
         for i in range(1000000): pass
         
-class IOThread(threading.Thread):
+class IOThread2(threading.Thread):
     def run(self):        
-        time.sleep(2.0)
+        #time.sleep(2.0)
         for i in range(1000000): pass
         
 #yappi.start(profile_threads=False)
-yappi.start()
+#yappi.start()
 
 l = []
 c = WorkerThread()
@@ -31,8 +31,12 @@ c.start()
 c = WorkerThread2()
 c.start()
 
-c = IOThread()
+
+
+c = IOThread2()
 c.start()
+
+yappi.start()
 
 time.sleep(1.0)
 
