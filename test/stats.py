@@ -49,13 +49,20 @@ yappi.clear_stats()
 
 yfs = yappi.YFuncStats()
 yfs.add("foo1").add('foobar1')
-yfs.sort(sort_type=yappi.SORTTYPE_TTOT).print_all() 
+yfs.sort(sort_type="totaltime").print_all() 
 yfs.save('callgrind.out', 'callgrind')
 #foobar_stat = yfs.find_by_name('test1')
 #yfs.debug_print()
 for stat in yfs:
     fstatin1 = fstats1.find_by_full_name(stat.full_name)
     fstatin2 = fstats2.find_by_full_name(stat.full_name)
+    
+# test pstats
+yfs.save('pstat.out', 'pstat')
+import pstats
+p = pstats.Stats('pstat.out')
+p.strip_dirs().sort_stats("cumulative").print_stats()
+yfs.print_all()
     
         
 

@@ -141,6 +141,9 @@ class YFuncStat(YStat):
             return False
         return self.ncall != self.nactualcall
         
+    def full_name_as_tuple(self):
+        return (self.module, self.lineno, self.name)
+        
 class YChildFuncStat(YStat):
     """
     Class holding information for children function stats.
@@ -163,8 +166,7 @@ class YThreadStat(YStat):
     """
     Class holding information for thread stats.
     """
-    _KEYS = ('name', 'id', 'last_func_name', 'last_func_mod', 'last_line_no', 'last_builtin', 'ttot', 'sched_count', 
-        'last_func_full_name')
+    _KEYS = ('name', 'id', 'last_func_name', 'last_func_mod', 'last_line_no', 'last_builtin', 'ttot','sched_count', 'last_func_full_name')
             
 class YStats(object):
     """
@@ -270,7 +272,7 @@ class YFuncStats(YStats):
             for saved_child_stat in saved_stat.children:
                 # we know for sure child's index is pointing to a valid stat in saved_stats
                 # so as saved_stat is already in sync. (in above loop), we can safely assume
-                # that we shall point to a valid stat in current_stats with the child's full_name                
+                # that we shall point to a valid stat in current_stats with the child's full_name
                 saved_child_stat.index = self.find_by_full_name(saved_child_stat.full_name).index
                                 
         # merge stats
@@ -288,7 +290,7 @@ class YFuncStats(YStats):
         self._stats list (YSTAT type) to PSTAT. So there are some differences between the 
         statistics parameters. The PSTAT format is as following:
         
-        PSTAT expects a dict entry as following:
+        PSTAT expects a dict. entry as following:
         
         stats[("mod_name", line_no, "func_name")] = \
             total_call_count, actual_call_count, total_time, cumulative_time, 
@@ -300,13 +302,27 @@ class YFuncStats(YStats):
         total_time = tsub
         cumulative_time = ttot
         
-        Other than that we hold called functions in a pfofile entry as named 'children'. On the
+        Other than that we hold called functions in a profile entry as named 'children'. On the
         other hand, PSTAT expects to have a dict of callers of the function. So we also need to 
         convert the information to that.       
 
         PSTAT only expects to have the above dict to be saved.
         """
-        pass
+        
+        _pstat_dict = {}
+        
+        # TODO: populate callers
+        #_callers = {}
+        #for fs in self:
+        #    for cs in fs.children:
+        #        pass
+        
+        for fs in self:
+            _pstat_dict[fs.full_name_as_tuple()] = (fs.ncall, fs.nactualcall, fs.tsub, fs.ttot, {}, )
+        
+        file = open(path, "wb")
+        import marshal
+        marshal.dump(_pstat_dict, file)
         
     def _save_as_CALLGRIND(self, path):
         """
@@ -380,7 +396,6 @@ class YFuncStats(YStats):
         return self
         
     def save(self, path, type="ystat"):
-        
         type = type.upper()
         if type not in self._SUPPORTED_SAVE_FORMATS:
             raise NotImplementedError('Saving in "%s" format is not possible currently.' % (type))
