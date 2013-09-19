@@ -62,6 +62,8 @@ yfs.save('pstat.out', 'pstat')
 import pstats
 p = pstats.Stats('pstat.out')
 p.strip_dirs().sort_stats("cumulative").print_stats()
+from pyprof2calltree import convert
+convert('pstat.out', 'callgrind.out2')
 yfs.print_all()
     
         

@@ -141,8 +141,8 @@ class YFuncStat(YStat):
             return False
         return self.ncall != self.nactualcall
         
-    def full_name_as_tuple(self):
-        return (self.module, self.lineno, self.name)
+    def __hash__(self):
+        return self.index
         
 class YChildFuncStat(YStat):
     """
@@ -161,6 +161,9 @@ class YChildFuncStat(YStat):
         self.nactualcall += other.nactualcall
         self.ncall += other.ncall
         self.ttot += other.ttot
+    
+    def __hash__(self):
+        return self.index     
              
 class YThreadStat(YStat):
     """
@@ -293,14 +296,21 @@ class YFuncStats(YStats):
         PSTAT expects a dict. entry as following:
         
         stats[("mod_name", line_no, "func_name")] = \
-            total_call_count, actual_call_count, total_time, cumulative_time, 
-            {("mod_name", line_no, "func_name") : total_call_count}
+            ( total_call_count, actual_call_count, total_time, cumulative_time, 
+            {
+                ("mod_name", line_no, "func_name") : 
+                (total_call_count, --> total count caller called the callee
+                actual_call_count, --> total count caller called the callee - (recursive calls)
+                total_time,        --> total time caller spent _only_ for this function (not further subcalls)
+                cumulative_time)   --> total time caller spent for this function
+            } --> callers dict
+            )
             
-        Note that in PSTAT the total_time spent in the function is called as cumulative_time and 
-        the time spent in the function as total_time. From Yappi's perspective, this means:
+        Note that in PSTAT the total time spent in the function is called as cumulative_time and 
+        the time spent _only_ in the function as total_time. From Yappi's perspective, this means:
         
-        total_time = tsub
-        cumulative_time = ttot
+        total_time (inline time) = tsub
+        cumulative_time (total time) = ttot
         
         Other than that we hold called functions in a profile entry as named 'children'. On the
         other hand, PSTAT expects to have a dict of callers of the function. So we also need to 
@@ -308,17 +318,26 @@ class YFuncStats(YStats):
 
         PSTAT only expects to have the above dict to be saved.
         """
+        def pstat_id(fs):
+            return (fs.module, fs.lineno, fs.name)
         
         _pstat_dict = {}
         
-        # TODO: populate callers
-        #_callers = {}
-        #for fs in self:
-        #    for cs in fs.children:
-        #        pass
-        
+        # convert callees to callers
+        _callers = {}
         for fs in self:
-            _pstat_dict[fs.full_name_as_tuple()] = (fs.ncall, fs.nactualcall, fs.tsub, fs.ttot, {}, )
+            if not fs in _callers:
+                _callers[fs] = {}
+            for ct in fs.children:
+                if not ct in _callers:
+                    _callers[ct] = {}
+                # TODO: inline time for this subcall, 
+                _callers[ct][pstat_id(fs)] = (ct.ncall, ct.nactualcall, 0 ,ct.ttot)
+                
+        
+        # populate the pstat dict.
+        for fs in self:
+            _pstat_dict[pstat_id(fs)] = (fs.ncall, fs.nactualcall, fs.tsub, fs.ttot, _callers[fs], )
         
         file = open(path, "wb")
         import marshal
