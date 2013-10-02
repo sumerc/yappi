@@ -29,6 +29,8 @@ assert fs.ttot < 1.0
 assert fs.tsub < 1.0
 assert fs.ncall == 1
 
+
+
 test_passed("trivial timing function")
 
 # try get_stats after clear_stats
@@ -99,7 +101,7 @@ test_passed("chained-recursive function #2")
 def bar():
     for i in range(1000000):pass
 stats = run_and_get_func_stats('bar()')
-stats.sort(sort_type=yappi.SORTTYPE_TTOT) 
+stats.sort(sort_type="totaltime") 
 prev_stat = stats[0] # sorted asceinding TTOT
 for stat in stats:
     assert stat.ttot <= prev_stat.ttot

@@ -35,6 +35,7 @@ typedef struct {
     unsigned long callcount;
     unsigned long nonrecursive_callcount; // holds the number of actual calls when the function is recursive.
     long long ttotal;
+    long long tsubtotal;
     struct _pit_children_info *next;
 } _pit_children_info;
 
@@ -48,7 +49,7 @@ typedef struct {
     long long tsubtotal;
     long long ttotal;
     unsigned int builtin; // 0 for normal, 1 for ccall
-    unsigned int index;
+    unsigned int index;    
     _pit_children_info *children;
 } _pit; // profile_item
 
@@ -220,7 +221,6 @@ static void
 _del_pit(_pit *pit)
 {
     _pit_children_info *it,*next;
-
     it = pit->children;
     while(it) {
         next = (_pit_children_info *)it->next;
@@ -365,13 +365,13 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     // something went wrong. No mem, or another error. we cannot find
     // a corresponding pit. just run away:)
     if (!cp) {
-        yerr("pit not found");
+        yerr("pit not found"); // (defensive)
         goto err;
     }
 
     hci = spush(current_ctx->cs, cp);
-    if (!hci) { // runaway!
-        yerr("spush failed.");
+    if (!hci) { // runaway! (defensive)
+        yerr("spush failed .");
         goto err;
     }
 
@@ -393,13 +393,54 @@ err:
 
 }
 
+static _pit_children_info *
+_get_child_info(_pit *parent, _pit *child)
+{
+    _pit_children_info *citem;
+    
+    citem = parent->children;    
+    while(citem) { 
+        if (citem->index == child->index) {
+            break;
+        }
+        citem = (_pit_children_info *)citem->next;
+    }
+    return citem;
+}
+
+static _pit_children_info *
+_add_child_info(_pit *parent, _pit *child)
+{
+    _pit_children_info *newci,*cit;
+    
+    newci = ymalloc(sizeof(_pit_children_info));
+    newci->index = child->index;
+    newci->callcount = 0;
+    newci->nonrecursive_callcount = 0;
+    newci->ttotal = 0;
+    newci->tsubtotal = 0;
+    newci->next = NULL;
+    if (!parent->children) {
+        parent->children = newci;
+    }
+    else {
+        // go till end
+        cit = parent->children;
+        while(cit->next) {
+            cit = (_pit_children_info *)cit->next;
+        }
+        cit->next = (struct _pit_children_info *)newci;
+    }
+    
+    return newci;
+}
 
 static void
 _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 {
-    _pit *cp, *pp;
-    _pit_children_info *pci,*ppci,*newpci;
-    _cstackitem *ci,*pi;
+    _pit *cp, *pp, *ppp;
+    _pit_children_info *pci,*ppci;
+    _cstackitem *ci,*pi,*ppi;
     long long elapsed;
     int is_recursive;
 
@@ -408,9 +449,9 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         return; // leaving a frame while callstack is empty, return silently for this.
     }
     cp = ci->ckey;
-
+    
     elapsed = tickcount() - ci->t0;
-
+    
     // get the parent function in the callstack
     pi = shead(current_ctx->cs);
     if (!pi) { // no head this is the first function in the callstack?
@@ -419,54 +460,65 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         return;
     }
     pp = pi->ckey;
-
+   
     // are we leaving a recursive function that is already in the callstack?
     // then extract the elapsed from subtotal of the the current pit(profile item).
-    is_recursive = 0;
-    if (scount(current_ctx->cs, cp) > 0) {
+    is_recursive = (scount(current_ctx->cs, cp) > 0);
+    if (is_recursive) {
         cp->tsubtotal -= elapsed;
-        is_recursive = 1;
     } else {
         cp->ttotal += elapsed;
+        cp->nonrecursive_callcount++;
     }
-
+    
     // update parent's sub total if recursive above code will extract the subtotal and
     // below code will have no effect.
     pp->tsubtotal += elapsed;
-
+    
     // update children of the parent function
-    ppci = pci = pp->children;
-    while(pci) {
-        if (pci->index == cp->index) {
-            break;
-        }
-        ppci = pci;
-        pci = (_pit_children_info *)pci->next;
-    }
-    if (!pci) { // cur func not in the children list
-        newpci = ymalloc(sizeof(_pit_children_info));
-        newpci->index = cp->index;
-        newpci->callcount = 0;
-        newpci->nonrecursive_callcount = 0;
-        newpci->ttotal = 0;
-        newpci->next = NULL;
-        if (!ppci) {
-            pp->children = newpci;
-        } else {
-            ppci->next = (struct _pit_children_info *)newpci;
-        }
-        pci = newpci;
-    }
+    pci = _get_child_info(pp, cp);    
+    if(!pci)
+    {
+        pci = _add_child_info(pp, cp);
+    }    
     pci->callcount++;
-    pci->ttotal += elapsed;
     
     // if function is not recursive (or in other words _currently_ _not_ found on the stack more than once)
-    // increment the relevant nactualcall param.
-    if (!is_recursive) 
-    {
-        cp->nonrecursive_callcount++;
+    // increment the relevant nactualcall params.
+    if (is_recursive) {
+        pci->tsubtotal -= elapsed;
+    } else {
+        pci->ttotal += elapsed;
         pci->nonrecursive_callcount++;
-    }    
+    }
+   
+    // update children of the parent-parent function's tsubtotal. When a calls b and b calls c, we need to update the 
+    // child info of b in a->children as the tsubtotal of child b is affected by c.   
+    pi = spop(current_ctx->cs);
+    ppi = spop(current_ctx->cs);
+    if (!ppi) {
+        return; // nothing to do, there is no grandparent
+    }
+    ppp = ppi->ckey;
+    pp = pi->ckey;
+    
+    ppci = _get_child_info(ppp, pp);
+    if(!ppci)
+    {
+        // maybe no callleave is called for the grandparent function yet.
+        ppci = _add_child_info(ppp, pp);
+    }
+    // update parent-parent's children sub total if recursive. we already extracted tsubtotal above and
+    // below code will have no effect.
+    ppci->tsubtotal += elapsed;
+    
+    // normalize the callstack 
+    ci = spush(current_ctx->cs, ppp);
+    if (!ci || !spush(current_ctx->cs, pp))
+    {
+        yerr("possible callstack corruption."); //defensive
+        return;
+    }
 }
 
 // context will be cleared by the free list. we do not free it here.
