@@ -18,16 +18,24 @@ long_description = f.read()
 HOMEPAGE = "http://yappi.googlecode.com/"
 NAME = "yappi"
 VERSION = "0.62"
+_DEBUG = False # compile/link code for debugging
 
 user_macros = []
 user_libraries = []
+compile_args = []
+link_args = []
 
 if os.name == 'posix' and sys.platform != 'darwin': 
     compiler = new_compiler()
     if compiler.has_function('timer_create', libraries=('rt',)):
         user_macros.append(('LIB_RT_AVAILABLE','1'))
         user_libraries.append('rt')
-    
+        
+if _DEBUG:
+    compile_args.append('/Zi')
+    link_args.append('/DEBUG')
+    # TODO: Implement *nix side. Need -g AFAI remember.
+ 
 #user_macros.append(('DEBUG_MEM', '1')),
 #user_macros.append(('DEBUG_CALL', '1'))
 #user_macros.append(('YDEBUG', '1')),
@@ -61,6 +69,8 @@ setup(name=NAME,
         sources = ["_yappi.c", "callstack.c", "hashtab.c", "mem.c", "freelist.c", "timing.c"],
         define_macros = user_macros,
         libraries = user_libraries,
+        extra_compile_args = compile_args,
+        extra_link_args = link_args,
         )],
     py_modules =  ["yappi"],
     entry_points = {
@@ -70,7 +80,7 @@ setup(name=NAME,
     },
     description="Yet Another Python Profiler",
     long_description = long_description,
-    keywords = "python multithread profile",
+    keywords = "python thread multithread profile",
     classifiers=CLASSIFIERS,
     license = "MIT",
     url = HOMEPAGE,
