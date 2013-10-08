@@ -148,7 +148,7 @@ class YChildFuncStat(YStat):
     """
     Class holding information for children function stats.
     """
-    _KEYS = ('index', 'ncall', 'nactualcall', 'ttot', 'full_name')
+    _KEYS = ('index', 'ncall', 'nactualcall', 'ttot', 'tsub', 'full_name')
     
     def __eq__(self, other):
         if other is None:
@@ -161,6 +161,7 @@ class YChildFuncStat(YStat):
         self.nactualcall += other.nactualcall
         self.ncall += other.ncall
         self.ttot += other.ttot
+        self.tsub += other.tsub
     
     def __hash__(self):
         return self.index     
@@ -331,10 +332,8 @@ class YFuncStats(YStats):
             for ct in fs.children:
                 if not ct in _callers:
                     _callers[ct] = {}
-                # TODO: inline time for this subcall, 
-                _callers[ct][pstat_id(fs)] = (ct.ncall, ct.nactualcall, 0 ,ct.ttot)
-                
-        
+                _callers[ct][pstat_id(fs)] = (ct.ncall, ct.nactualcall, ct.tsub ,ct.ttot)
+                        
         # populate the pstat dict.
         for fs in self:
             _pstat_dict[pstat_id(fs)] = (fs.ncall, fs.nactualcall, fs.tsub, fs.ttot, _callers[fs], )
@@ -477,14 +476,17 @@ class YFuncStats(YStats):
                 console.write("index: %d" % child_stat.index)
                 console.write(CRLF)
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
-                console.write("full_name: %s" % child_stat.full_name)
+                console.write("child_full_name: %s" % child_stat.full_name)
                 console.write(CRLF)
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
-                console.write("ncall: %d/%d" % child_stat.ncall, child_stat.nactualcall)
+                console.write("ncall: %d/%d" % (child_stat.ncall, child_stat.nactualcall))
                 console.write(CRLF)
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
                 console.write("ttot: %0.6f" % child_stat.ttot)
-                console.write(CRLF)                
+                console.write(CRLF)      
+                console.write(" " * CHILD_STATS_LEFT_MARGIN)
+                console.write("tsub: %0.6f" % child_stat.tsub)
+                console.write(CRLF) 
             console.write(CRLF)
         
 class YThreadStats(YStats):

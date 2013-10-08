@@ -8,7 +8,7 @@ NOTE: Please note that below tests are only for development, on some _slow_ hard
 There are implicit assumptions on how much time a specific statement can take at much. Tested on
 i5 2.8 and AMD Dual 2.4 processors.
 """
-
+"""
 # try get_stats() before start
 assert_raises_exception('yappi.get_stats()')
 
@@ -28,8 +28,6 @@ assert fs != None
 assert fs.ttot < 1.0
 assert fs.tsub < 1.0
 assert fs.ncall == 1
-
-
 
 test_passed("trivial timing function")
 
@@ -96,7 +94,7 @@ fsy = stats.find_by_name('y')
 fsz = stats.find_by_name('z')
 
 yappi.clear_stats()
-test_passed("chained-recursive function #2")
+test_passed("chained-recursive function #1")
 
 def bar():
     for i in range(1000000):pass
@@ -113,6 +111,36 @@ assert stats[0].sched_count != 0
 assert stats[0].ttot >= 0.0
 test_passed("basic thread stat functionality")
 
+yappi.clear_stats()
+"""
+yappi.set_clock_type("wall") # to increase testability
+
+CONTINUE = 1
+STOP = 3
+    
+def q(n):
+    if n == STOP:
+        return
+    time.sleep(0.2)
+    w()   
+    
+def w():
+    time.sleep(0.2)
+    e(CONTINUE)
+    
+def e(n):  
+    if n == STOP:
+        r()
+        return
+    time.sleep(0.2)
+    e(n+1)    
+def r():
+    q(STOP) # stop recursion
+    
+stats = run_and_get_func_stats('q(CONTINUE)')
+stats.debug_print()
+test_passed("chained recursive + recursive function")
+    
 """
 class MyThread(threading.Thread):
     

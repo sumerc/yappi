@@ -489,11 +489,11 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     // for parent-child relationships. If a calls b and b calls a, the subtotal of a will include the time spent in 
     // the child a because, in children relationships, recursive function means a calls a only.
     if (pci->index == pp->index) {
-        pci->tsubtotal -= elapsed;
-    } else {
-        pci->ttotal += elapsed;
+        //pci->tsubtotal -= elapsed;
+    } else {        
         pci->nonrecursive_callcount++;
     }
+    pci->ttotal += elapsed;
    
     // update children of the parent-parent function's tsubtotal. When a calls b and b calls c, we need to update the 
     // child info of b in a->children as the tsubtotal of child b is affected by c.   
@@ -876,7 +876,7 @@ enum_thread_stats(PyObject *self, PyObject *args)
 static int
 _pitenumstat(_hitem *item, void * arg)
 {
-    long long cumdiff;
+    long long cumdiff, child_cumdiff;
     PyObject *efn;
     _pit *pt;
     PyObject *exc;
@@ -896,8 +896,9 @@ _pitenumstat(_hitem *item, void * arg)
     children = PyList_New(0);
     pci = pt->children;
     while(pci) {
-        PyList_Append(children, Py_BuildValue("Ikkf", pci->index, pci->callcount, pci->nonrecursive_callcount,
-                                              pci->ttotal * tickfactor()));
+        child_cumdiff = _calc_cumdiff(pci->ttotal, pci->tsubtotal);
+        PyList_Append(children, Py_BuildValue("Ikkff", pci->index, pci->callcount, pci->nonrecursive_callcount,
+                                              pci->ttotal * tickfactor(), child_cumdiff * tickfactor()));
         pci = (_pit_children_info *)pci->next;
     }
     exc = PyObject_CallFunction(efn, "((OOkkkIffIO))", pt->name, pt->modname, pt->lineno, pt->callcount,
