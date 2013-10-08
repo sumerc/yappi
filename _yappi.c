@@ -33,9 +33,9 @@ PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
 typedef struct {
     unsigned int index;
     unsigned long callcount;
-    unsigned long nonrecursive_callcount; // holds the number of actual calls when the function is recursive.
-    long long ttotal;
-    long long tsubtotal;
+    unsigned long nonrecursive_callcount;   // the number of actual calls when the parent-child is recursive.
+    long long tsubtotal;                    // the time that the child function spent in its children
+    long long ttotal;                       // the total time that the child function spent
     struct _pit_children_info *next;
 } _pit_children_info;
 
@@ -45,10 +45,10 @@ typedef struct {
     PyObject *modname;
     unsigned long lineno;
     unsigned long callcount;
-    unsigned long nonrecursive_callcount; // holds the number of actual calls when the function is recursive.
-    long long tsubtotal;
-    long long ttotal;
-    unsigned int builtin; // 0 for normal, 1 for ccall
+    unsigned long nonrecursive_callcount;   // the number of actual calls when the function is recursive.
+    long long tsubtotal;                    // the time that a function spent in its children
+    long long ttotal;                       // the total time that a function spent
+    unsigned int builtin;                   // 0 for normal, 1 for ccall
     unsigned int index;    
     _pit_children_info *children;
 } _pit; // profile_item
@@ -347,52 +347,6 @@ _code2pit(PyFrameObject *fobj)
     return pit;
 }
 
-static void
-_call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
-{
-    _pit *cp;
-    PyObject *last_type, *last_value, *last_tb;
-    _cstackitem *hci;
-
-    PyErr_Fetch(&last_type, &last_value, &last_tb);
-
-    if (ccall) {
-        cp = _ccode2pit((PyCFunctionObject *)arg);
-    } else {
-        cp = _code2pit(frame);
-    }
-
-    // something went wrong. No mem, or another error. we cannot find
-    // a corresponding pit. just run away:)
-    if (!cp) {
-        yerr("pit not found"); // (defensive)
-        goto err;
-    }
-
-    hci = spush(current_ctx->cs, cp);
-    if (!hci) { // runaway! (defensive)
-        yerr("spush failed .");
-        goto err;
-    }
-
-    hci->t0 = tickcount();
-    cp->callcount++;
-
-    // do not show builtin pits if specified even in last_pit of the context.
-    if  ((!flags.builtins) && (cp->builtin))
-        ;
-    else {
-        current_ctx->last_pit = cp;
-    }
-
-    PyErr_Restore(last_type, last_value, last_tb);
-
-err:
-
-    PyErr_Restore(last_type, last_value, last_tb);
-
-}
-
 static _pit_children_info *
 _get_child_info(_pit *parent, _pit *child)
 {
@@ -436,6 +390,52 @@ _add_child_info(_pit *parent, _pit *child)
 }
 
 static void
+_call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
+{
+    _pit *cp;
+    PyObject *last_type, *last_value, *last_tb;
+    _cstackitem *hci;
+
+    PyErr_Fetch(&last_type, &last_value, &last_tb);
+
+    if (ccall) {
+        cp = _ccode2pit((PyCFunctionObject *)arg);
+    } else {
+        cp = _code2pit(frame);
+    }
+
+    // something went wrong. No mem, or another error. we cannot find
+    // a corresponding pit. just run away:)
+    if (!cp) {
+        yerr("pit not found"); // (defensive)
+        goto err;
+    }
+
+    hci = spush(current_ctx->cs, cp);
+    if (!hci) { // runaway! (defensive)
+        yerr("spush failed .");
+        goto err;
+    }
+
+    hci->t0 = tickcount();
+    cp->callcount++;
+
+    // do not show builtin pits if specified even in last_pit of the context.
+    if  ((!flags.builtins) && (cp->builtin))
+        ;
+    else {
+        current_ctx->last_pit = cp;
+    }
+    
+    PyErr_Restore(last_type, last_value, last_tb);
+
+err:
+
+    PyErr_Restore(last_type, last_value, last_tb);
+
+}
+
+static void
 _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 {
     _pit *cp, *pp, *ppp;
@@ -475,6 +475,8 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     // below code will have no effect.
     pp->tsubtotal += elapsed;
     
+    // TODO: Some of the "child info" updating code below might be moved to _call_enter
+    
     // update children of the parent function
     pci = _get_child_info(pp, cp);    
     if(!pci)
@@ -483,9 +485,10 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     }    
     pci->callcount++;
     
-    // if function is not recursive (or in other words _currently_ _not_ found on the stack more than once)
-    // increment the relevant nactualcall params.
-    if (is_recursive) {
+    // function calls itself recursively? note that we do not get into account the chained-recursive functions
+    // for parent-child relationships. If a calls b and b calls a, the subtotal of a will include the time spent in 
+    // the child a because, in children relationships, recursive function means a calls a only.
+    if (pci->index == pp->index) {
         pci->tsubtotal -= elapsed;
     } else {
         pci->ttotal += elapsed;
@@ -505,7 +508,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     ppci = _get_child_info(ppp, pp);
     if(!ppci)
     {
-        // maybe no callleave is called for the grandparent function yet.
+        // maybe no call leave is called for the grandparent function yet.
         ppci = _add_child_info(ppp, pp);
     }
     // update parent-parent's children sub total if recursive. we already extracted tsubtotal above and
