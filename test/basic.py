@@ -120,22 +120,20 @@ STOP = 3
     
 def q(n):
     if n == STOP:
+        for i in range(10000): pass
         return
     time.sleep(0.2)
-    w()   
+    w(n)   
     
-def w():
+def w(n):
     time.sleep(0.2)
-    e(CONTINUE)
+    e(n)
     
 def e(n):  
     if n == STOP:
-        r()
         return
     time.sleep(0.2)
-    e(n+1)    
-def r():
-    q(STOP) # stop recursion
+    q(n+1)
     
 stats = run_and_get_func_stats('q(CONTINUE)')
 stats.debug_print()

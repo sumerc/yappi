@@ -46,7 +46,7 @@ typedef struct {
     unsigned long lineno;
     unsigned long callcount;
     unsigned long nonrecursive_callcount;   // the number of actual calls when the function is recursive.
-    long long tsubtotal;                    // the time that a function spent in its children
+    long long tsubtotal;                    // the time that a function spent in its children (excluding recursive calls)
     long long ttotal;                       // the total time that a function spent
     unsigned int builtin;                   // 0 for normal, 1 for ccall
     unsigned int index;    
