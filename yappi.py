@@ -244,7 +244,8 @@ class YFuncStats(YStats):
         else:
             full_name = "%s:%d %s" % (stat_entry[1], stat_entry[2], stat_entry[0])       
             
-        tavg = stat_entry[6]/stat_entry[3]
+        #tavg = stat_entry[6]/stat_entry[3]
+        tavg = 0
         fstat = YFuncStat(stat_entry + (tavg,full_name))
         
         # do not show profile stats of yappi itself. 

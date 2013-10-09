@@ -528,7 +528,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         pci->nonrecursive_callcount++;
     }
     // wait for the top-level parent to be active to set tsub.
-    if (cp->recursionlevel == 1) {
+    if (pp->recursionlevel == 1) {
         pp->tsubtotal += elapsed;        
     }
     
