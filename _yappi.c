@@ -83,6 +83,7 @@ static long long yappstarttick;
 static long long yappstoptick;
 static _ctx *prev_ctx;
 static _ctx *current_ctx;
+static PyObject *test_timings; // used for testing
 
 // defines
 #define UNINITIALIZED_STRING_VAL "N/A"
@@ -347,14 +348,27 @@ _code2pit(PyFrameObject *fobj)
     return pit;
 }
 
-static _pit_children_info *
-_get_child_info(_pit *parent, _pit *child)
+static _pit *
+_get_parent(void)
 {
+    _cstackitem *pi;
+    pi = shead(current_ctx->cs);
+    if (!pi) {
+        return NULL;
+    }
+    return pi->ckey;
+}
+
+static _pit_children_info *
+_get_child_info(_pit *current)
+{
+    _pit *parent;    
     _pit_children_info *citem;
     
+    parent = _get_parent();    
     citem = parent->children;    
     while(citem) { 
-        if (citem->index == child->index) {
+        if (citem->index == current->index) {
             break;
         }
         citem = (_pit_children_info *)citem->next;
@@ -363,12 +377,14 @@ _get_child_info(_pit *parent, _pit *child)
 }
 
 static _pit_children_info *
-_add_child_info(_pit *parent, _pit *child)
+_add_child_info(_pit *current)
 {
+    _pit *parent;
     _pit_children_info *newci,*cit;
     
+    parent = _get_parent();    
     newci = ymalloc(sizeof(_pit_children_info));
-    newci->index = child->index;
+    newci->index = current->index;
     newci->callcount = 0;
     newci->nonrecursive_callcount = 0;
     newci->ttotal = 0;
@@ -392,10 +408,11 @@ _add_child_info(_pit *parent, _pit *child)
 static void
 _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 {
-    _pit *cp;
+    _pit *cp,*pp;
     PyObject *last_type, *last_value, *last_tb;
-    _cstackitem *hci;
-
+    _cstackitem *hci,*pi;
+    _pit_children_info *pci;
+    
     PyErr_Fetch(&last_type, &last_value, &last_tb);
 
     if (ccall) {
@@ -410,7 +427,19 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         yerr("pit not found"); // (defensive)
         goto err;
     }
-
+    
+    // create/update children info if we have a valid parent
+    pi = shead(current_ctx->cs);
+    if (pi) {
+        pp = pi->ckey;
+        pci = _get_child_info(cp);    
+        if(!pci)
+        {
+            pci = _add_child_info(cp);
+        }    
+        pci->callcount++;
+    }
+    
     hci = spush(current_ctx->cs, cp);
     if (!hci) { // runaway! (defensive)
         yerr("spush failed .");
@@ -419,7 +448,7 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 
     hci->t0 = tickcount();
     cp->callcount++;
-
+    
     // do not show builtin pits if specified even in last_pit of the context.
     if  ((!flags.builtins) && (cp->builtin))
         ;
@@ -438,11 +467,14 @@ err:
 static void
 _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 {
-    _pit *cp, *pp, *ppp;
-    _pit_children_info *pci,*ppci;
+    _pit *cp, *pp;
+    _pit_children_info *pci;
     _cstackitem *ci,*pi,*ppi;
     long long elapsed;
     int is_recursive;
+    int is_parent_recursive;
+    int is_child_recursive;
+    PyObject *tval;
 
     ci = spop(current_ctx->cs);
     if (!ci) {
@@ -450,78 +482,59 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     }
     cp = ci->ckey;
     
-    elapsed = tickcount() - ci->t0;
+    if (test_timings) { // testing?
+        tval = PyDict_GetItem(test_timings, PyStr_FromFormat("%s_%d", PyStr_AS_CSTRING(cp->name), 
+            cp->callcount));
+        cp->callcount--;
+        if (tval) {
+            elapsed = PyLong_AsLong(tval) * 10000000; // PyInt_AsLong for 2.x            
+        } else {
+            elapsed = 30000000;
+        }
+    } else {
+        elapsed = tickcount() - ci->t0;
+    }
+    //elapsed = tickcount() - ci->t0;
     
-    // get the parent function in the callstack
-    pi = shead(current_ctx->cs);
-    if (!pi) { // no head this is the first function in the callstack?
+    // is this the last function in the callstack?
+    pp = _get_parent();
+    if (!pp) {
         cp->ttotal += elapsed;
         cp->nonrecursive_callcount++;
         return;
     }
-    pp = pi->ckey;
-   
-    // are we leaving a recursive function that is already in the callstack?
-    // then extract the elapsed from subtotal of the the current pit(profile item).
+    
+    // are we leaving a function that is already in the callstack, in other words recursive?
+    // then wait for the top-level one to calculate ttot.
     is_recursive = (scount(current_ctx->cs, cp) > 0);
-    if (is_recursive) {
-        cp->tsubtotal -= elapsed;
-    } else {
-        cp->ttotal += elapsed;
+    if (!is_recursive) {
+         cp->ttotal += elapsed;
         cp->nonrecursive_callcount++;
     }
     
-    // update parent's sub total if recursive above code will extract the subtotal and
-    // below code will have no effect.
-    pp->tsubtotal += elapsed;
-    
-    // TODO: Some of the "child info" updating code below might be moved to _call_enter
+    // we get the parent by shead, so we expect scount to be '1'
+    is_parent_recursive = (scount(current_ctx->cs, pp) > 1); 
+    if (!is_parent_recursive) {
+        pp->tsubtotal += elapsed;        
+    }
     
     // update children of the parent function
-    pci = _get_child_info(pp, cp);    
+    pci = _get_child_info(cp);    
     if(!pci)
     {
-        pci = _add_child_info(pp, cp);
-    }    
-    pci->callcount++;
-    
-    // function calls itself recursively? note that we do not get into account the chained-recursive functions
-    // for parent-child relationships. If a calls b and b calls a, the subtotal of a will include the time spent in 
-    // the child a because, in children relationships, recursive function means a calls a only.
-    if (pci->index == pp->index) {
-        //pci->tsubtotal -= elapsed;
-    } else {        
-        pci->nonrecursive_callcount++;
-    }
-    pci->ttotal += elapsed;
-   
-    // update children of the parent-parent function's tsubtotal. When a calls b and b calls c, we need to update the 
-    // child info of b in a->children as the tsubtotal of child b is affected by c.   
-    pi = spop(current_ctx->cs);
-    ppi = spop(current_ctx->cs);
-    if (!ppi) {
-        return; // nothing to do, there is no grandparent
-    }
-    ppp = ppi->ckey;
-    pp = pi->ckey;
-    
-    ppci = _get_child_info(ppp, pp);
-    if(!ppci)
-    {
-        // maybe no call leave is called for the grandparent function yet.
-        ppci = _add_child_info(ppp, pp);
-    }
-    // update parent-parent's children sub total if recursive. we already extracted tsubtotal above and
-    // below code will have no effect.
-    ppci->tsubtotal += elapsed;
-    
-    // normalize the callstack 
-    ci = spush(current_ctx->cs, ppp);
-    if (!ci || !spush(current_ctx->cs, pp))
-    {
-        yerr("possible callstack corruption."); //defensive
+        yerr("possible callstack corruption.#1");
         return;
-    }
+    }    
+    
+    if (!is_recursive) {
+        pci->nonrecursive_callcount++;
+    } 
+    // is this child recursive?
+    //is_child_recursive = ;
+    //if (!is_child_recursive) {
+    //    pci->ttotal += elapsed;
+    //    ppci->tsubtotal += elapsed;
+    //} 
 }
 
 // context will be cleared by the free list. we do not free it here.
@@ -791,6 +804,7 @@ clear_stats(PyObject *self, PyObject *args)
     fldestroy(flctx);
     yappinitialized = 0;
     yapphavestats = 0;
+    
 
 // check for mem leaks if DEBUG_MEM is specified
 #ifdef DEBUG_MEM
@@ -950,6 +964,22 @@ mem_usage(PyObject *self, PyObject *args)
 }
 
 static PyObject *
+set_timings(PyObject *self, PyObject *args)
+{
+    if (!PyArg_ParseTuple(args, "O", &test_timings)) {
+        return NULL;
+    }
+    
+    if (!PyDict_Check(test_timings))
+    {
+        PyErr_SetString(YappiProfileError, "timings should be dict.");
+        return NULL;
+    }
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject *
 set_clock_type(PyObject *self, PyObject *args)
 {
     int clock_type;
@@ -1031,6 +1061,7 @@ static PyMethodDef yappi_methods[] = {
     {"get_clock_type", get_clock_type, METH_VARARGS, NULL},
     {"set_clock_type", set_clock_type, METH_VARARGS, NULL},
     {"mem_usage", mem_usage, METH_VARARGS, NULL},
+    {"set_timings", set_timings, METH_VARARGS, NULL}, // for test usage. do not call this directly.
     {"profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage. do not call this.
     {NULL, NULL}      /* sentinel */
 };

@@ -8,6 +8,8 @@ NOTE: Please note that below tests are only for development, on some _slow_ hard
 There are implicit assumptions on how much time a specific statement can take at much. Tested on
 i5 2.8 and AMD Dual 2.4 processors.
 """
+CONTINUE = 1
+STOP = 3
 """
 # try get_stats() before start
 assert_raises_exception('yappi.get_stats()')
@@ -113,33 +115,44 @@ test_passed("basic thread stat functionality")
 
 yappi.clear_stats()
 """
-yappi.set_clock_type("wall") # to increase testability
+# set specific timings (elapsed values for testing)
+import _yappi
+_timings = {"a_1":10,"b_1":8,"c_1":6, "a_2":3}
+_yappi.set_timings(_timings)
 
 CONTINUE = 1
-STOP = 3
+STOP = 2
     
-def q(n):
-    if n == STOP:
-        for i in range(10000): pass
-        return
-    time.sleep(0.2)
-    w(n)   
-    
-def w(n):
-    time.sleep(0.2)
-    e(n)
-    
-def e(n):  
+def a(n):
     if n == STOP:
         return
-    time.sleep(0.2)
-    q(n+1)
+    b(n)   
     
-stats = run_and_get_func_stats('q(CONTINUE)')
+def b(n):        
+    c(n)
+    
+def c(n):
+    a(n+1)
+    
+stats = run_and_get_func_stats('a(CONTINUE)')
 stats.debug_print()
-test_passed("chained recursive + recursive function")
-    
+test_passed("chained recursive function")
+
+yappi.clear_stats()
 """
+def d(n):
+    t0 = time.time()
+    if n == STOP:
+        for i in range(1000000): pass
+        return
+    for i in range(1000000): pass
+    d(n+1)
+    
+t0 = time.time()
+stats = run_and_get_func_stats('d(CONTINUE)')
+stats.debug_print()
+test_passed("recursive function #2")
+
 class MyThread(threading.Thread):
     
     def __init__(self, tid):
