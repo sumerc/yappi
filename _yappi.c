@@ -33,7 +33,8 @@ PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
 typedef struct {
     unsigned int index;
     unsigned long callcount;
-    unsigned long nonrecursive_callcount;   // the number of actual calls when the parent-child is recursive.
+    unsigned long nonrecursive_callcount;   // the number of non-recursive calls.
+    unsigned long recursionlevel;           // holds the current recursion level.
     long long tsubtotal;                    // the time that the child function spent in its children
     long long ttotal;                       // the total time that the child function spent
     struct _pit_children_info *next;
@@ -46,7 +47,8 @@ typedef struct {
     unsigned long lineno;
     unsigned long callcount;
     unsigned long nonrecursive_callcount;   // the number of actual calls when the function is recursive.
-    long long tsubtotal;                    // the time that a function spent in its children (excluding recursive calls)
+    unsigned long recursionlevel;           // holds the current recursion level.
+    long long tsubtotal;                    // time function spent in its children (excluding recursive calls)
     long long ttotal;                       // the total time that a function spent
     unsigned int builtin;                   // 0 for normal, 1 for ccall
     unsigned int index;    
@@ -359,13 +361,22 @@ _get_parent(void)
     return pi->ckey;
 }
 
-static _pit_children_info *
-_get_child_info(_pit *current)
+static _pit *
+_pop_parent(void)
 {
-    _pit *parent;    
+    _cstackitem *pi;
+    pi = spop(current_ctx->cs);
+    if (!pi) {
+        return NULL;
+    }
+    return pi->ckey;
+}
+
+static _pit_children_info *
+_get_child_info(_pit *parent, _pit *current)
+{
     _pit_children_info *citem;
     
-    parent = _get_parent();    
     citem = parent->children;    
     while(citem) { 
         if (citem->index == current->index) {
@@ -377,16 +388,15 @@ _get_child_info(_pit *current)
 }
 
 static _pit_children_info *
-_add_child_info(_pit *current)
+_add_child_info(_pit *parent, _pit *current)
 {
-    _pit *parent;
     _pit_children_info *newci,*cit;
-    
-    parent = _get_parent();    
+  
     newci = ymalloc(sizeof(_pit_children_info));
     newci->index = current->index;
     newci->callcount = 0;
     newci->nonrecursive_callcount = 0;
+    newci->recursionlevel = 0;
     newci->ttotal = 0;
     newci->tsubtotal = 0;
     newci->next = NULL;
@@ -432,12 +442,13 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     pi = shead(current_ctx->cs);
     if (pi) {
         pp = pi->ckey;
-        pci = _get_child_info(cp);    
+        pci = _get_child_info(pp, cp);    
         if(!pci)
         {
-            pci = _add_child_info(cp);
+            pci = _add_child_info(pp, cp);
         }    
         pci->callcount++;
+        pci->recursionlevel++;
     }
     
     hci = spush(current_ctx->cs, cp);
@@ -448,6 +459,7 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 
     hci->t0 = tickcount();
     cp->callcount++;
+    cp->recursionlevel++;
     
     // do not show builtin pits if specified even in last_pit of the context.
     if  ((!flags.builtins) && (cp->builtin))
@@ -469,11 +481,8 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 {
     _pit *cp, *pp;
     _pit_children_info *pci;
-    _cstackitem *ci,*pi,*ppi;
+    _cstackitem *ci;
     long long elapsed;
-    int is_recursive;
-    int is_parent_recursive;
-    int is_child_recursive;
     PyObject *tval;
 
     ci = spop(current_ctx->cs);
@@ -494,47 +503,49 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     } else {
         elapsed = tickcount() - ci->t0;
     }
-    //elapsed = tickcount() - ci->t0;
     
     // is this the last function in the callstack?
-    pp = _get_parent();
+    pp = _pop_parent();
     if (!pp) {
         cp->ttotal += elapsed;
         cp->nonrecursive_callcount++;
         return;
     }
     
-    // are we leaving a function that is already in the callstack, in other words recursive?
-    // then wait for the top-level one to calculate ttot.
-    is_recursive = (scount(current_ctx->cs, cp) > 0);
-    if (!is_recursive) {
-         cp->ttotal += elapsed;
-        cp->nonrecursive_callcount++;
+    // get children info
+    pci = _get_child_info(pp, cp);    
+    if(!pci)
+    {
+        yerr("possible callstack corruption.#1"); //defensive
+        return;
     }
     
-    // we get the parent by shead, so we expect scount to be '1'
-    is_parent_recursive = (scount(current_ctx->cs, pp) > 1); 
-    if (!is_parent_recursive) {
+    // are we leaving a function that is already in the callstack, in other words recursive?
+    // then wait for the top-level one to calculate ttot.
+    if (cp->recursionlevel == 1) {
+        cp->ttotal += elapsed;
+        cp->nonrecursive_callcount++;
+        pci->nonrecursive_callcount++;
+    }
+    // wait for the top-level parent to be active to set tsub.
+    if (cp->recursionlevel == 1) {
         pp->tsubtotal += elapsed;        
     }
     
-    // update children of the parent function
-    pci = _get_child_info(cp);    
-    if(!pci)
-    {
-        yerr("possible callstack corruption.#1");
-        return;
-    }    
+    // is this parent-child occurs more than once in the callstack?
+    if (pci->recursionlevel == 1) {
+        pci->ttotal += elapsed;
+        //ppci->tsubtotal += elapsed;
+    }
     
-    if (!is_recursive) {
-        pci->nonrecursive_callcount++;
-    } 
-    // is this child recursive?
-    //is_child_recursive = ;
-    //if (!is_child_recursive) {
-    //    pci->ttotal += elapsed;
-    //    ppci->tsubtotal += elapsed;
-    //} 
+    pci->recursionlevel--;
+    cp->recursionlevel--;
+    
+    ci = spush(current_ctx->cs, pp);
+    if (!ci) {
+        yerr("spush failed #2."); // defensive
+        return;
+    }
 }
 
 // context will be cleared by the free list. we do not free it here.
