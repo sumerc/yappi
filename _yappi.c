@@ -34,7 +34,6 @@ typedef struct {
     unsigned int index;
     unsigned long callcount;
     unsigned long nonrecursive_callcount;   // the number of non-recursive calls.
-    unsigned long recursionlevel;           // holds the current recursion level.
     long long tsubtotal;                    // the time that the child function spent in its children
     long long ttotal;                       // the total time that the child function spent
     struct _pit_children_info *next;
@@ -47,7 +46,6 @@ typedef struct {
     unsigned long lineno;
     unsigned long callcount;
     unsigned long nonrecursive_callcount;   // the number of actual calls when the function is recursive.
-    unsigned long recursionlevel;           // holds the current recursion level.
     long long tsubtotal;                    // time function spent in its children (excluding recursive calls)
     long long ttotal;                       // the total time that a function spent
     unsigned int builtin;                   // 0 for normal, 1 for ccall
@@ -57,6 +55,7 @@ typedef struct {
 
 typedef struct {
     _cstack *cs;
+    _htab *rec_levels;
     long id;
     _pit *last_pit;
     unsigned long sched_cnt;
@@ -129,8 +128,6 @@ PyStr_FromString(const char *s)
     return ret;
 }
 
-
-
 // module functions
 static _pit *
 _create_pit(void)
@@ -170,6 +167,9 @@ _create_ctx(void)
     ctx->id = 0;
     ctx->class_name = NULL;
     ctx->t0 = tickcount();
+    ctx->rec_levels = htcreate(HT_RLEVEL_SIZE);
+    if (!ctx->rec_levels)
+        return NULL;
     return ctx;
 }
 
@@ -396,7 +396,6 @@ _add_child_info(_pit *parent, _pit *current)
     newci->index = current->index;
     newci->callcount = 0;
     newci->nonrecursive_callcount = 0;
-    newci->recursionlevel = 0;
     newci->ttotal = 0;
     newci->tsubtotal = 0;
     newci->next = NULL;
@@ -413,6 +412,54 @@ _add_child_info(_pit *parent, _pit *current)
     }
     
     return newci;
+}
+
+static long
+get_rec_level(uintptr_t key)
+{
+    _hitem *it;
+    
+    it = hfind(current_ctx->rec_levels, key);
+    if (!it) {        
+        return -1; // should not happen
+    }
+    return it->val;
+}
+
+static int
+incr_rec_level(uintptr_t key)
+{
+    _hitem *it;
+    
+    it = hfind(current_ctx->rec_levels, key);
+    if (it) {
+        it->val++;
+    } else {
+        if (!hadd(current_ctx->rec_levels, key, 1))
+        {
+            return 0;
+        }
+    }    
+    return 1;
+}
+
+static int
+decr_rec_level(uintptr_t key)
+{
+    _hitem *it;
+    uintptr_t v;
+    
+    it = hfind(current_ctx->rec_levels, key);
+    if (it) {
+        v = it->val--;  /*supress warning -- it is safe to cast long vs pointers*/
+        if (v == 0)
+        {
+            hfree(current_ctx->rec_levels, it);
+        }
+    } else {        
+        return 0; // should not happen 
+    }  
+    return 1;
 }
 
 static void
@@ -448,7 +495,7 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
             pci = _add_child_info(pp, cp);
         }    
         pci->callcount++;
-        pci->recursionlevel++;
+        incr_rec_level((uintptr_t)pci);
     }
     
     hci = spush(current_ctx->cs, cp);
@@ -459,7 +506,7 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 
     hci->t0 = tickcount();
     cp->callcount++;
-    cp->recursionlevel++;
+    incr_rec_level((uintptr_t)cp);
     
     // do not show builtin pits if specified even in last_pit of the context.
     if  ((!flags.builtins) && (cp->builtin))
@@ -479,11 +526,12 @@ err:
 static void
 _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 {
-    _pit *cp, *pp;
-    _pit_children_info *pci;
+    _pit *cp, *pp, *ppp;
+    _pit_children_info *pci,*ppci;
     _cstackitem *ci;
     long long elapsed;
     PyObject *tval;
+    uintptr_t rlevel;
 
     ci = spop(current_ctx->cs);
     if (!ci) {
@@ -491,12 +539,13 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     }
     cp = ci->ckey;
     
-    if (test_timings) { // testing?
-        tval = PyDict_GetItem(test_timings, PyStr_FromFormat("%s_%d", PyStr_AS_CSTRING(cp->name), 
-            cp->callcount));
-        cp->callcount--;
+    // if test_timings dict is set, this means 
+    if (test_timings) { 
+        rlevel = get_rec_level((uintptr_t)cp);        
+        tval = PyDict_GetItem(test_timings, 
+            PyStr_FromFormat("%s_%d", PyStr_AS_CSTRING(cp->name), rlevel));
         if (tval) {
-            elapsed = PyLong_AsLong(tval) * 10000000; // PyInt_AsLong for 2.x            
+            elapsed = PyLong_AsLong(tval) * 10000000; 
         } else {
             elapsed = 30000000;
         }
@@ -520,26 +569,37 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         return;
     }
     
-    // are we leaving a function that is already in the callstack, in other words recursive?
-    // then wait for the top-level one to calculate ttot.
-    if (cp->recursionlevel == 1) {
+    // wait for the top-level function/parent/child to update timing values accordingly.              
+    if (get_rec_level((uintptr_t)cp) == 1) {
         cp->ttotal += elapsed;
         cp->nonrecursive_callcount++;
         pci->nonrecursive_callcount++;
     }
-    // wait for the top-level parent to be active to set tsub.
-    if (pp->recursionlevel == 1) {
+    if (get_rec_level((uintptr_t)pp) == 1) {
         pp->tsubtotal += elapsed;        
     }
-    
-    // is this parent-child occurs more than once in the callstack?
-    if (pci->recursionlevel == 1) {
+    if (get_rec_level((uintptr_t)pci) == 1) {
         pci->ttotal += elapsed;
-        //ppci->tsubtotal += elapsed;
+        
+        ppp = _pop_parent();
+        if (ppp) {
+            ppci = _get_child_info(ppp, pp);    
+            if(!ppci)
+            {
+                yerr("possible callstack corruption.#2"); //defensive
+                return;
+            }            
+            ppci->tsubtotal += elapsed;            
+        }
+        ci = spush(current_ctx->cs, ppp);
+        if (!ci) {
+            yerr("spush failed #3."); // defensive
+            return;
+        } 
     }
     
-    pci->recursionlevel--;
-    cp->recursionlevel--;
+    decr_rec_level((uintptr_t)pci);
+    decr_rec_level((uintptr_t)cp);
     
     ci = spush(current_ctx->cs, pp);
     if (!ci) {
@@ -554,6 +614,7 @@ static void
 _del_ctx(_ctx * ctx)
 {
     sdestroy(ctx->cs);
+    htdestroy(ctx->rec_levels);
 }
 
 static int
@@ -624,7 +685,7 @@ _profile_thread(PyThreadState *ts)
         if (!flput(flctx, ctx)) {
             yerr("Context cannot be recycled. Possible memory leak.");
         }
-        ydprintf("Context add failed. Already added?(%p, %ld)", ts,
+        yerr("Context add failed. Already added?(%p, %ld)", ts,
                 PyThreadState_GET()->thread_id);
         return NULL;
     }

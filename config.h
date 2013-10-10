@@ -24,6 +24,6 @@
 #define FL_CTX_SIZE 100
 #define HT_PIT_SIZE 10
 #define HT_CTX_SIZE 5
-#define HT_CS_COUNT_SIZE 7
+#define HT_RLEVEL_SIZE 10
 
 #endif
