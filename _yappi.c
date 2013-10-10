@@ -557,7 +557,9 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     pp = _pop_parent();
     if (!pp) {
         cp->ttotal += elapsed;
+        cp->tsubtotal += elapsed;
         cp->nonrecursive_callcount++;
+        decr_rec_level((uintptr_t)cp);
         return;
     }
     
@@ -569,38 +571,41 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         return;
     }
     
+    pp->tsubtotal -= elapsed;
+    cp->tsubtotal += elapsed;
+    
+    ppp = _pop_parent();
+    if (ppp) {
+        ppci = _get_child_info(ppp, pp);    
+        if(!ppci)
+        {
+            yerr("possible callstack corruption.#2"); //defensive
+            return;
+        }            
+        ppci->tsubtotal -= elapsed;   
+        pci->tsubtotal += elapsed;
+    }
+    ci = spush(current_ctx->cs, ppp);
+    if (!ci) {
+        yerr("spush failed #3."); // defensive
+        return;
+    } 
+    
     // wait for the top-level function/parent/child to update timing values accordingly.              
     if (get_rec_level((uintptr_t)cp) == 1) {
         cp->ttotal += elapsed;
         cp->nonrecursive_callcount++;
         pci->nonrecursive_callcount++;
     }
-    if (get_rec_level((uintptr_t)pp) == 1) {
-        pp->tsubtotal += elapsed;        
-    }
+    
     if (get_rec_level((uintptr_t)pci) == 1) {
         pci->ttotal += elapsed;
-        
-        ppp = _pop_parent();
-        if (ppp) {
-            ppci = _get_child_info(ppp, pp);    
-            if(!ppci)
-            {
-                yerr("possible callstack corruption.#2"); //defensive
-                return;
-            }            
-            ppci->tsubtotal += elapsed;            
-        }
-        ci = spush(current_ctx->cs, ppp);
-        if (!ci) {
-            yerr("spush failed #3."); // defensive
-            return;
-        } 
     }
     
     decr_rec_level((uintptr_t)pci);
     decr_rec_level((uintptr_t)cp);
     
+    //printf("out cp:%s_%d rl:%d\r\n", PyStr_AS_CSTRING(cp->name), rlevel, get_rec_level((uintptr_t)cp));    
     ci = spush(current_ctx->cs, pp);
     if (!ci) {
         yerr("spush failed #2."); // defensive
@@ -685,7 +690,7 @@ _profile_thread(PyThreadState *ts)
         if (!flput(flctx, ctx)) {
             yerr("Context cannot be recycled. Possible memory leak.");
         }
-        yerr("Context add failed. Already added?(%p, %ld)", ts,
+        ydprintf("Context add failed. Already added?(%p, %ld)", ts,
                 PyThreadState_GET()->thread_id);
         return NULL;
     }
@@ -962,7 +967,6 @@ enum_thread_stats(PyObject *self, PyObject *args)
 static int
 _pitenumstat(_hitem *item, void * arg)
 {
-    long long cumdiff, child_cumdiff;
     PyObject *efn;
     _pit *pt;
     PyObject *exc;
@@ -975,20 +979,18 @@ _pitenumstat(_hitem *item, void * arg)
         return 0;
     }
 
-    cumdiff = _calc_cumdiff(pt->ttotal, pt->tsubtotal);
     efn = (PyObject *)arg;
 
     // convert children function index list to PyList
     children = PyList_New(0);
     pci = pt->children;
     while(pci) {
-        child_cumdiff = _calc_cumdiff(pci->ttotal, pci->tsubtotal);
         PyList_Append(children, Py_BuildValue("Ikkff", pci->index, pci->callcount, pci->nonrecursive_callcount,
-                                              pci->ttotal * tickfactor(), child_cumdiff * tickfactor()));
+                                              pci->ttotal * tickfactor(), pci->tsubtotal * tickfactor()));
         pci = (_pit_children_info *)pci->next;
     }
     exc = PyObject_CallFunction(efn, "((OOkkkIffIO))", pt->name, pt->modname, pt->lineno, pt->callcount,
-                        pt->nonrecursive_callcount, pt->builtin, pt->ttotal * tickfactor(), cumdiff * tickfactor(), 
+                        pt->nonrecursive_callcount, pt->builtin, pt->ttotal * tickfactor(), pt->tsubtotal * tickfactor(), 
                         pt->index, children);
     if (!exc) {
         PyErr_Print();

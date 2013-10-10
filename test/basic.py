@@ -1,16 +1,12 @@
 import time
 import yappi
+import _yappi
 import threading
-from test_utils import assert_raises_exception, run_and_get_func_stats, test_passed, run_and_get_thread_stats
+from test_utils import assert_raises_exception, run_and_get_func_stats, test_passed, run_and_get_thread_stats,get_child_stat
 
-"""
-NOTE: Please note that below tests are only for development, on some _slow_ hardware they may fail.
-There are implicit assumptions on how much time a specific statement can take at much. Tested on
-i5 2.8 and AMD Dual 2.4 processors.
-"""
 CONTINUE = 1
 STOP = 3
-"""
+
 # try get_stats() before start
 assert_raises_exception('yappi.get_stats()')
 
@@ -49,60 +45,13 @@ assert fs.ncall == 57313
 assert fs.ttot == fs.tsub
 yappi.clear_stats()
 
-test_passed("recursive function")
-
-# try profiling a chained-recursive function
-ncount = 3
-ncc = 0
-def a():
-    for i in range(1000000): pass
-    global ncount
-    global ncc
-    if ncc == ncount:
-        return
-    ncc += 1
-    b()
-    
-def b():
-    for i in range(1000000): pass
-    a()
-    time.sleep(1.0)
-    
-stats = run_and_get_func_stats('a()')  
-fsa = stats.find_by_name('a')
-fsb = stats.find_by_name('b')
-assert fsa.ncall == 4
-assert fsa.tsub < fsa.ttot
-assert fsa.ttot >= fsb.ttot
-assert fsb.ncall == 3
-assert fsa.ttot <= 3.0
-assert fsb.ttot <= 3.0
-yappi.clear_stats()
-
-def x(n):
-    if n==0:
-        return
-    y(n)
-    
-def y(n):
-    time.sleep(1.0)
-    z(n)
-    
-def z(n):
-    x(n-1)
-stats = run_and_get_func_stats('x(2)')  
-fsx = stats.find_by_name('x')
-fsy = stats.find_by_name('y')
-fsz = stats.find_by_name('z')
-
-yappi.clear_stats()
-test_passed("chained-recursive function #1")
+test_passed("recursive function #1 ")
 
 def bar():
     for i in range(1000000):pass
 stats = run_and_get_func_stats('bar()')
 stats.sort(sort_type="totaltime") 
-prev_stat = stats[0] # sorted asceinding TTOT
+prev_stat = stats[0] # sorted ascending TTOT
 for stat in stats:
     assert stat.ttot <= prev_stat.ttot
     prev_stat = stat    
@@ -114,70 +63,111 @@ assert stats[0].ttot >= 0.0
 test_passed("basic thread stat functionality")
 
 yappi.clear_stats()
-"""
-# set specific timings (elapsed values for testing)
-import _yappi
-_timings = {"a_1":10,"b_1":8,"c_1":6, "a_2":3}
-_yappi.set_timings(_timings)
 
-CONTINUE = 1
-STOP = 2
+_timings = {"a_1":20,"b_1":19,"c_1":17, "a_2":13, "d_1":12, "c_2":10, "a_3":5}
+_yappi.set_timings(_timings)
     
 def a(n):
     if n == STOP:
         return
-    b(n)   
-    
+    if n == CONTINUE + 1:
+        d(n)
+    else:
+        b(n)    
 def b(n):        
-    c(n)
-    
+    c(n)    
 def c(n):
-    a(n+1)
-    
+    a(n+1)    
+def d(n):
+    c(n)    
 stats = run_and_get_func_stats('a(CONTINUE)')
-stats.debug_print()
-test_passed("chained recursive function")
+fsa = stats.find_by_name('a')
+fsb = stats.find_by_name('b')
+fsc = stats.find_by_name('c')
+fsd = stats.find_by_name('d')
+assert fsa.ncall == 3
+assert fsa.nactualcall == 1
+assert fsa.ttot == 20
+assert fsa.tsub == 7
+assert fsb.ttot == 19
+assert fsb.tsub == 2
+assert fsc.ttot == 17
+assert fsc.tsub == 9
+assert fsd.ttot == 12
+assert fsd.tsub == 2
+cfsca = get_child_stat(fsc, fsa)
+assert cfsca.nactualcall == 0
+assert cfsca.ncall == 2
+assert cfsca.ttot == 13
+assert cfsca.tsub == 6
+test_passed("recursive function (abcadc)")
 
 yappi.clear_stats()
-"""
+_timings = {"d_1":9, "d_2":7, "d_3":3, "d_4":2}
+_yappi.set_timings(_timings)
 def d(n):
-    t0 = time.time()
     if n == STOP:
-        for i in range(1000000): pass
         return
-    for i in range(1000000): pass
     d(n+1)
-    
-t0 = time.time()
-stats = run_and_get_func_stats('d(CONTINUE)')
-stats.debug_print()
-test_passed("recursive function #2")
+stats = run_and_get_func_stats('d(CONTINUE-1)')
+fsd = stats.find_by_name('d')
+assert fsd.ncall == 4
+assert fsd.nactualcall == 1
+assert fsd.ttot == 9
+assert fsd.tsub == 9
+cfsdd = get_child_stat(fsd, fsd)
+assert cfsdd.ttot == 7
+assert cfsdd.tsub == 7
+assert cfsdd.ncall == 3
+assert cfsdd.nactualcall == 0
+test_passed("recursive function (aaaa)")
 
-class MyThread(threading.Thread):
+yappi.clear_stats()
+_timings = {"a_1":20,"b_1":19,"c_1":17, "a_2":13, "b_2":11, "c_2":9, "a_3":6}
+_yappi.set_timings(_timings)
     
-    def __init__(self, tid):
-        self._tid = tid
-        threading.Thread.__init__(self)
-    
-    def sleep1(self):
-        pass
-    
-    def run(self):
-        for i in range(1000000): pass
-        time.sleep(1.0)
-        
-def bar():
-    n = 25
-    for i in range(0,n):
-        c = MyThread(i)
-        c.start()
-        #c.join()
-    time.sleep(1.0)
-stats = run_with_yappi('bar()')
-fsa = stats.find_by_name('run')
-print(fsa.ttot)
-import yappi
-yappi.print_stats()
-test_passed("trivial multithread function")
-"""
+def a(n):
+    if n == STOP:
+        return
+    else:
+        b(n)
+def b(n):        
+    c(n)    
+def c(n):
+    a(n+1)    
+
+stats = run_and_get_func_stats('a(CONTINUE)')
+fsa = stats.find_by_name('a')
+fsb = stats.find_by_name('b')
+fsc = stats.find_by_name('c')
+
+assert fsa.ncall == 3
+assert fsa.nactualcall == 1
+assert fsa.ttot == 20
+assert fsa.tsub == 9
+assert fsb.ttot == 19
+assert fsb.tsub == 4
+assert fsc.ttot == 17
+assert fsc.tsub == 7
+cfsab = get_child_stat(fsa, fsb)
+cfsbc = get_child_stat(fsb, fsc)
+cfsca = get_child_stat(fsc, fsa)
+assert cfsab.ttot == 19
+assert cfsab.tsub == 4
+assert cfsbc.ttot == 17
+assert cfsbc.tsub == 7
+assert cfsca.ttot == 13
+assert cfsca.tsub == 8
+
+#stats.debug_print()
+test_passed("recursive function (abcabc)")
+
+#TODO:
+# abaa
+# bbaab
+# abbb
+# aaab
+# baba
+# abcd
+
 test_passed("general tests passed.:)")

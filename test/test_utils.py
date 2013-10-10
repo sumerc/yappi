@@ -34,3 +34,9 @@ def run_and_get_func_stats(func, **kwargs):
 def run_and_get_thread_stats(func, **kwargs):
     _run_with_yappi(func)
     return yappi.get_thread_stats(**kwargs)
+
+# both parent and child are YFuncStat objects
+def get_child_stat(parent, child):
+    for item in parent.children:
+        if item.index == child.index:
+            return item
