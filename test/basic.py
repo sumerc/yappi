@@ -140,7 +140,6 @@ stats = run_and_get_func_stats('a(CONTINUE)')
 fsa = stats.find_by_name('a')
 fsb = stats.find_by_name('b')
 fsc = stats.find_by_name('c')
-
 assert fsa.ncall == 3
 assert fsa.nactualcall == 1
 assert fsa.ttot == 20
@@ -163,11 +162,43 @@ assert cfsca.tsub == 8
 test_passed("recursive function (abcabc)")
 
 #TODO:
+# abcbca
+# aabccb
 # abaa
-# bbaab
+# bbaa
 # abbb
 # aaab
 # baba
 # abcd
 
-test_passed("general tests passed.:)")
+yappi.clear_stats()
+_timings = {"a_1":6,"b_1":4}
+_yappi.set_timings(_timings)
+
+def a():
+    b()
+    yappi.stop()
+    
+def b():    
+    time.sleep(0.2)
+
+yappi.start()
+a()
+stats = yappi.get_func_stats()
+fsa = stats.find_by_name('a')
+fsb = stats.find_by_name('b')
+
+assert fsa.ncall == 1
+assert fsa.nactualcall == 0
+assert fsa.ttot == 0 # no call_leave called
+assert fsa.tsub == 0 # no call_leave called
+assert fsb.ttot == 4 
+# fsb.tsub might differ as we use timings dict and builtins are not enabled. 
+
+#stats.debug_print()
+test_passed("stop in the middle")
+
+yappi.clear_stats()
+
+test_passed("BASIC TESTS")
+

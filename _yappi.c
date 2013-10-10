@@ -545,7 +545,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         tval = PyDict_GetItem(test_timings, 
             PyStr_FromFormat("%s_%d", PyStr_AS_CSTRING(cp->name), rlevel));
         if (tval) {
-            elapsed = PyLong_AsLong(tval) * 10000000; 
+            elapsed = PyLong_AsLong(tval) * 10000000;  // TODO: When these tests run on Other OS, this constant should be changed. 
         } else {
             elapsed = 30000000;
         }
@@ -605,7 +605,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     decr_rec_level((uintptr_t)pci);
     decr_rec_level((uintptr_t)cp);
     
-    //printf("out cp:%s_%d rl:%d\r\n", PyStr_AS_CSTRING(cp->name), rlevel, get_rec_level((uintptr_t)cp));    
+    //printf("out cp:%s elapsed:%d\r\n", PyStr_AS_CSTRING(cp->name), cp->tsubtotal);    
     ci = spush(current_ctx->cs, pp);
     if (!ci) {
         yerr("spush failed #2."); // defensive
@@ -881,7 +881,8 @@ clear_stats(PyObject *self, PyObject *args)
     fldestroy(flctx);
     yappinitialized = 0;
     yapphavestats = 0;
-    
+    Py_XDECREF(test_timings);
+    test_timings = NULL;
 
 // check for mem leaks if DEBUG_MEM is specified
 #ifdef DEBUG_MEM
@@ -985,9 +986,16 @@ _pitenumstat(_hitem *item, void * arg)
     children = PyList_New(0);
     pci = pt->children;
     while(pci) {
+        // normalize tsubtotal. tsubtotal being negative is an expected situation.
+        if (pci->tsubtotal < 0) {
+            pci->tsubtotal = 0;
+        }        
         PyList_Append(children, Py_BuildValue("Ikkff", pci->index, pci->callcount, pci->nonrecursive_callcount,
                                               pci->ttotal * tickfactor(), pci->tsubtotal * tickfactor()));
         pci = (_pit_children_info *)pci->next;
+    }
+    if (pt->tsubtotal < 0) {
+        pt->tsubtotal = 0;
     }
     exc = PyObject_CallFunction(efn, "((OOkkkIffIO))", pt->name, pt->modname, pt->lineno, pt->callcount,
                         pt->nonrecursive_callcount, pt->builtin, pt->ttotal * tickfactor(), pt->tsubtotal * tickfactor(), 
@@ -1049,6 +1057,8 @@ set_timings(PyObject *self, PyObject *args)
         PyErr_SetString(YappiProfileError, "timings should be dict.");
         return NULL;
     }
+    Py_INCREF(test_timings);
+    
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1181,7 +1191,8 @@ init_yappi(void)
     yappinitialized = 0;
     yapphavestats = 0;
     yapprunning = 0;
-
+    test_timings = NULL;
+    
     if (!_init_profiler()) {
         PyErr_SetString(YappiProfileError, "profiler cannot be initialized.");
 #ifdef IS_PY3K
