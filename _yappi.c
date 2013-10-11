@@ -428,7 +428,8 @@ get_rec_level(uintptr_t key)
     _hitem *it;
     
     it = hfind(current_ctx->rec_levels, key);
-    if (!it) {        
+    if (!it) {
+        yerr("possible time calculation corruption. #1");
         return -1; // should not happen
     }
     return it->val;
@@ -445,7 +446,8 @@ incr_rec_level(uintptr_t key)
     } else {
         if (!hadd(current_ctx->rec_levels, key, 1))
         {
-            return 0;
+            yerr("possible time calculation corruption. #2");
+            return 0; // should not happen
         }
     }    
     return 1;
@@ -464,7 +466,8 @@ decr_rec_level(uintptr_t key)
         {
             hfree(current_ctx->rec_levels, it);
         }
-    } else {        
+    } else {
+        yerr("possible time calculation corruption. #3");
         return 0; // should not happen 
     }  
     return 1;
