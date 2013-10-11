@@ -2,7 +2,7 @@ import time
 import yappi
 import _yappi
 import threading
-from test_utils import assert_raises_exception, run_and_get_func_stats, test_passed, run_and_get_thread_stats,get_child_stat
+from test_utils import assert_raises_exception, run_and_get_func_stats, test_passed, run_and_get_thread_stats,get_child_stat,test_start
 
 CONTINUE = 1
 STOP = 3
@@ -30,7 +30,7 @@ assert fs.ncall == 1
 test_passed("trivial timing function")
 
 # try get_stats after clear_stats
-yappi.clear_stats()
+test_start()
 assert_raises_exception('yappi.get_stats()')
 # try profiling a simple recursive function
 def fib(n):
@@ -43,10 +43,9 @@ stats = run_and_get_func_stats('fib(22)')
 fs = stats.find_by_name('fib')
 assert fs.ncall == 57313
 assert fs.ttot == fs.tsub
-yappi.clear_stats()
-
 test_passed("recursive function #1 ")
 
+test_start()
 def bar():
     for i in range(1000000):pass
 stats = run_and_get_func_stats('bar()')
@@ -62,7 +61,7 @@ assert stats[0].sched_count != 0
 assert stats[0].ttot >= 0.0
 test_passed("basic thread stat functionality")
 
-yappi.clear_stats()
+test_start()
 
 _timings = {"a_1":20,"b_1":19,"c_1":17, "a_2":13, "d_1":12, "c_2":10, "a_3":5}
 _yappi.set_timings(_timings)
@@ -102,7 +101,7 @@ assert cfsca.ttot == 13
 assert cfsca.tsub == 6
 test_passed("recursive function (abcadc)")
 
-yappi.clear_stats()
+test_start()
 _timings = {"d_1":9, "d_2":7, "d_3":3, "d_4":2}
 _yappi.set_timings(_timings)
 def d(n):
@@ -122,7 +121,7 @@ assert cfsdd.ncall == 3
 assert cfsdd.nactualcall == 0
 test_passed("recursive function (aaaa)")
 
-yappi.clear_stats()
+test_start()
 _timings = {"a_1":20,"b_1":19,"c_1":17, "a_2":13, "b_2":11, "c_2":9, "a_3":6}
 _yappi.set_timings(_timings)
     
@@ -171,7 +170,7 @@ test_passed("recursive function (abcabc)")
 # baba
 # abcd
 
-yappi.clear_stats()
+test_start()
 _timings = {"a_1":6,"b_1":4}
 _yappi.set_timings(_timings)
 
@@ -198,7 +197,37 @@ assert fsb.ttot == 4
 #stats.debug_print()
 test_passed("stop in the middle")
 
-yappi.clear_stats()
+test_start()
+_timings = {"a_1":6,"b_1":5,"c_1":3}
+_yappi.set_timings(_timings)
 
-test_passed("BASIC TESTS")
+def a():
+    b()
+def b():
+    c()
+def c():
+    pass
+yappi.start()
+a()
+stats = yappi.get_func_stats()
+fsa = stats.find_by_name('a')
+fsb = stats.find_by_name('b')
+fsc = stats.find_by_name('c')
+cfsab = get_child_stat(fsa, fsb)
+cfsbc = get_child_stat(fsb, fsc)
+
+assert fsa.ttot == 6
+assert fsa.tsub == 1
+assert fsb.ttot == 5
+assert fsb.tsub == 2
+assert fsc.ttot == 3
+assert fsc.tsub == 3
+assert cfsab.ttot == 5
+assert cfsab.tsub == 2
+assert cfsbc.ttot == 3
+assert cfsbc.tsub == 3
+
+test_passed("basic (abc)")
+
+test_passed("FUNCTIONALITY TESTS")
 

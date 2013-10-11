@@ -351,25 +351,33 @@ _code2pit(PyFrameObject *fobj)
 }
 
 static _pit *
-_get_parent(void)
+_get_frame(void)
 {
-    _cstackitem *pi;
-    pi = shead(current_ctx->cs);
-    if (!pi) {
+    _cstackitem *ci;
+    
+    ci = shead(current_ctx->cs);
+    if (!ci) {
         return NULL;
     }
-    return pi->ckey;
+    return ci->ckey;
+}
+
+static _cstackitem *
+_push_frame(_pit *cp)
+{
+    return spush(current_ctx->cs, cp);
 }
 
 static _pit *
-_pop_parent(void)
+_pop_frame(void)
 {
-    _cstackitem *pi;
-    pi = spop(current_ctx->cs);
-    if (!pi) {
+    _cstackitem *ci;
+    
+    ci = spop(current_ctx->cs);
+    if (!ci) {
         return NULL;
     }
-    return pi->ckey;
+    return ci->ckey;
 }
 
 static _pit_children_info *
@@ -498,9 +506,9 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         incr_rec_level((uintptr_t)pci);
     }
     
-    hci = spush(current_ctx->cs, cp);
+    hci = _push_frame(cp);
     if (!hci) { // runaway! (defensive)
-        yerr("spush failed .");
+        yerr("push failed #1.");
         goto err;
     }
 
@@ -532,14 +540,16 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     long long elapsed;
     PyObject *tval;
     uintptr_t rlevel;
-
+    
+    // leaving a frame while callstack is empty? 
     ci = spop(current_ctx->cs);
     if (!ci) {
-        return; // leaving a frame while callstack is empty, return silently for this.
+        return; // return silently
     }
     cp = ci->ckey;
     
     // if test_timings dict is set, this means 
+    // TODO: move below code to timing module. This should be transparent to _yappi module.
     if (test_timings) { 
         rlevel = get_rec_level((uintptr_t)cp);        
         tval = PyDict_GetItem(test_timings, 
@@ -554,7 +564,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     }
     
     // is this the last function in the callstack?
-    pp = _pop_parent();
+    pp = _pop_frame();
     if (!pp) {
         cp->ttotal += elapsed;
         cp->tsubtotal += elapsed;
@@ -570,11 +580,13 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         yerr("possible callstack corruption.#1"); //defensive
         return;
     }
-    
+    // a calls b. b's elapsed time is subtracted from a's tsub and a adds its own elapsed it is leaving.
     pp->tsubtotal -= elapsed;
     cp->tsubtotal += elapsed;
     
-    ppp = _pop_parent();
+    // a calls b calls c. child c's elapsed time is subtracted from child b's tsub and child b adds its
+    // own elapsed when it is leaving
+    ppp = _get_frame();
     if (ppp) {
         ppci = _get_child_info(ppp, pp);    
         if(!ppci)
@@ -582,14 +594,9 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
             yerr("possible callstack corruption.#2"); //defensive
             return;
         }            
-        ppci->tsubtotal -= elapsed;   
-        pci->tsubtotal += elapsed;
+        ppci->tsubtotal -= elapsed;
     }
-    ci = spush(current_ctx->cs, ppp);
-    if (!ci) {
-        yerr("spush failed #3."); // defensive
-        return;
-    } 
+    pci->tsubtotal += elapsed;
     
     // wait for the top-level function/parent/child to update timing values accordingly.              
     if (get_rec_level((uintptr_t)cp) == 1) {
@@ -605,10 +612,9 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     decr_rec_level((uintptr_t)pci);
     decr_rec_level((uintptr_t)cp);
     
-    //printf("out cp:%s elapsed:%d\r\n", PyStr_AS_CSTRING(cp->name), cp->tsubtotal);    
-    ci = spush(current_ctx->cs, pp);
+    ci = _push_frame(pp);
     if (!ci) {
-        yerr("spush failed #2."); // defensive
+        yerr("push failed #2."); // defensive
         return;
     }
 }

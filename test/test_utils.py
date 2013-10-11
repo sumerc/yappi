@@ -6,7 +6,10 @@ def test_print(msg):
 
 def test_passed(msg):
     test_print("[+]    TEST: %s passed.\r\n" % (msg))
-    
+
+def test_start():
+    yappi.clear_stats()
+
 def _run(func):
     import __main__
     globals = locals = __main__.__dict__
