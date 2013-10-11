@@ -64,7 +64,7 @@ test_passed("basic thread stat functionality")
 test_start()
 
 _timings = {"a_1":20,"b_1":19,"c_1":17, "a_2":13, "d_1":12, "c_2":10, "a_3":5}
-_yappi.set_timings(_timings)
+_yappi.set_test_timings(_timings)
     
 def a(n):
     if n == STOP:
@@ -103,7 +103,7 @@ test_passed("recursive function (abcadc)")
 
 test_start()
 _timings = {"d_1":9, "d_2":7, "d_3":3, "d_4":2}
-_yappi.set_timings(_timings)
+_yappi.set_test_timings(_timings)
 def d(n):
     if n == STOP:
         return
@@ -123,7 +123,7 @@ test_passed("recursive function (aaaa)")
 
 test_start()
 _timings = {"a_1":20,"b_1":19,"c_1":17, "a_2":13, "b_2":11, "c_2":9, "a_3":6}
-_yappi.set_timings(_timings)
+_yappi.set_test_timings(_timings)
     
 def a(n):
     if n == STOP:
@@ -172,7 +172,7 @@ test_passed("recursive function (abcabc)")
 
 test_start()
 _timings = {"a_1":6,"b_1":4}
-_yappi.set_timings(_timings)
+_yappi.set_test_timings(_timings)
 
 def a():
     b()
@@ -199,7 +199,7 @@ test_passed("stop in the middle")
 
 test_start()
 _timings = {"a_1":6,"b_1":5,"c_1":3}
-_yappi.set_timings(_timings)
+_yappi.set_test_timings(_timings)
 
 def a():
     b()

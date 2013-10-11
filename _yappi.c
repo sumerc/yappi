@@ -475,7 +475,7 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 {
     _pit *cp,*pp;
     PyObject *last_type, *last_value, *last_tb;
-    _cstackitem *hci,*pi;
+    _cstackitem *ci;
     _pit_children_info *pci;
     
     PyErr_Fetch(&last_type, &last_value, &last_tb);
@@ -494,9 +494,8 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     }
     
     // create/update children info if we have a valid parent
-    pi = shead(current_ctx->cs);
-    if (pi) {
-        pp = pi->ckey;
+    pp = _get_frame();
+    if (pp) {
         pci = _get_child_info(pp, cp);    
         if(!pci)
         {
@@ -506,13 +505,13 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         incr_rec_level((uintptr_t)pci);
     }
     
-    hci = _push_frame(cp);
-    if (!hci) { // runaway! (defensive)
+    ci = _push_frame(cp);
+    if (!ci) { // runaway! (defensive)
         yerr("push failed #1.");
         goto err;
     }
 
-    hci->t0 = tickcount();
+    ci->t0 = tickcount();
     cp->callcount++;
     incr_rec_level((uintptr_t)cp);
     
@@ -531,36 +530,51 @@ err:
 
 }
 
-static void
-_call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
+long long
+_get_frame_elapsed(void)
 {
-    _pit *cp, *pp, *ppp;
-    _pit_children_info *pci,*ppci;
     _cstackitem *ci;
-    long long elapsed;
+    _pit *cp;
     PyObject *tval;
     uintptr_t rlevel;
+    long long result;
     
-    // leaving a frame while callstack is empty? 
-    ci = spop(current_ctx->cs);
+    ci = shead(current_ctx->cs);
     if (!ci) {
-        return; // return silently
+        return 0LL;
     }
     cp = ci->ckey;
     
-    // if test_timings dict is set, this means 
-    // TODO: move below code to timing module. This should be transparent to _yappi module.
     if (test_timings) { 
         rlevel = get_rec_level((uintptr_t)cp);        
         tval = PyDict_GetItem(test_timings, 
             PyStr_FromFormat("%s_%d", PyStr_AS_CSTRING(cp->name), rlevel));
         if (tval) {
-            elapsed = PyLong_AsLong(tval) * 10000000;  // TODO: When these tests run on Other OS, this constant should be changed. 
+            result = PyLong_AsLong(tval) * (long long)(1.0 / tickfactor());
         } else {
-            elapsed = 30000000;
+            result = DEFAULT_TEST_ELAPSED_TIME;
         }
     } else {
-        elapsed = tickcount() - ci->t0;
+        result = tickcount() - ci->t0;
+    }
+    
+    return result;
+}
+
+static void
+_call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
+{
+    _pit *cp, *pp, *ppp;
+    _pit_children_info *pci,*ppci;
+    long long elapsed;    
+        
+    elapsed = _get_frame_elapsed();    
+    
+    // leaving a frame while callstack is empty? 
+    cp = _pop_frame();
+    if (!cp)
+    {
+        return; // return silently.
     }
     
     // is this the last function in the callstack?
@@ -612,8 +626,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     decr_rec_level((uintptr_t)pci);
     decr_rec_level((uintptr_t)cp);
     
-    ci = _push_frame(pp);
-    if (!ci) {
+    if (!_push_frame(pp)) {
         yerr("push failed #2."); // defensive
         return;
     }
@@ -1052,7 +1065,7 @@ mem_usage(PyObject *self, PyObject *args)
 }
 
 static PyObject *
-set_timings(PyObject *self, PyObject *args)
+set_test_timings(PyObject *self, PyObject *args)
 {
     if (!PyArg_ParseTuple(args, "O", &test_timings)) {
         return NULL;
@@ -1151,7 +1164,7 @@ static PyMethodDef yappi_methods[] = {
     {"get_clock_type", get_clock_type, METH_VARARGS, NULL},
     {"set_clock_type", set_clock_type, METH_VARARGS, NULL},
     {"mem_usage", mem_usage, METH_VARARGS, NULL},
-    {"set_timings", set_timings, METH_VARARGS, NULL}, // for test usage. do not call this directly.
+    {"set_test_timings", set_test_timings, METH_VARARGS, NULL}, // for test usage. do not call this directly.
     {"profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage. do not call this.
     {NULL, NULL}      /* sentinel */
 };
