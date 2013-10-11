@@ -7,6 +7,8 @@
 
 */
 
+// TODO: Any more place to put _log_err(x)'s???
+
 #include "config.h"
 
 #if !defined(HAVE_LONG_LONG)
@@ -129,6 +131,13 @@ PyStr_FromString(const char *s)
 }
 
 // module functions
+
+static void
+_log_err(unsigned int code)
+{
+    yerr("Internal Error. [%u]", code);
+}
+
 static _pit *
 _create_pit(void)
 {
@@ -429,7 +438,7 @@ get_rec_level(uintptr_t key)
     
     it = hfind(current_ctx->rec_levels, key);
     if (!it) {
-        yerr("possible time calculation corruption. #1");
+        _log_err(1);
         return -1; // should not happen
     }
     return it->val;
@@ -446,7 +455,7 @@ incr_rec_level(uintptr_t key)
     } else {
         if (!hadd(current_ctx->rec_levels, key, 1))
         {
-            yerr("possible time calculation corruption. #2");
+            _log_err(2);
             return 0; // should not happen
         }
     }    
@@ -467,7 +476,7 @@ decr_rec_level(uintptr_t key)
             hfree(current_ctx->rec_levels, it);
         }
     } else {
-        yerr("possible time calculation corruption. #3");
+        _log_err(3);
         return 0; // should not happen 
     }  
     return 1;
@@ -492,7 +501,7 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     // something went wrong. No mem, or another error. we cannot find
     // a corresponding pit. just run away:)
     if (!cp) {
-        yerr("pit not found"); // (defensive)
+        _log_err(4);
         goto err;
     }
     
@@ -510,7 +519,7 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     
     ci = _push_frame(cp);
     if (!ci) { // runaway! (defensive)
-        yerr("push failed #1.");
+        _log_err(5);
         goto err;
     }
 
@@ -594,8 +603,8 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     pci = _get_child_info(pp, cp);    
     if(!pci)
     {
-        yerr("possible callstack corruption.#1"); //defensive
-        return;
+        _log_err(6);
+        return; // defensive
     }
     // a calls b. b's elapsed time is subtracted from a's tsub and a adds its own elapsed it is leaving.
     pp->tsubtotal -= elapsed;
@@ -608,7 +617,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         ppci = _get_child_info(ppp, pp);    
         if(!ppci)
         {
-            yerr("possible callstack corruption.#2"); //defensive
+            _log_err(7);
             return;
         }            
         ppci->tsubtotal -= elapsed;
@@ -630,8 +639,8 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     decr_rec_level((uintptr_t)cp);
     
     if (!_push_frame(pp)) {
-        yerr("push failed #2."); // defensive
-        return;
+        _log_err(8);
+        return; //defensive
     }
 }
 
@@ -651,9 +660,10 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     // get current ctx
     current_ctx = _thread2ctx(frame->f_tstate);
     if (!current_ctx) {
-        yerr("no context found or can be created.");
-        return 0;
+        _log_err(9);
+        return 0; // defensive
     }
+    
     if (!current_ctx->class_name)
     {
         current_ctx->class_name = _get_current_thread_class_name();
@@ -710,7 +720,7 @@ _profile_thread(PyThreadState *ts)
     if (!hadd(contexts, (uintptr_t)ts->thread_id, (uintptr_t)ctx)) {
         _del_ctx(ctx);
         if (!flput(flctx, ctx)) {
-            yerr("Context cannot be recycled. Possible memory leak.");
+            _log_err(10);
         }
         ydprintf("Context add failed. Already added?(%p, %ld)", ts,
                 PyThreadState_GET()->thread_id);
