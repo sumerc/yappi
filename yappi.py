@@ -2,7 +2,7 @@
  yappi.py
  Yet Another Python Profiler
 
- Sumer Cip 2012
+ Sumer Cip 2013
 '''
 import os
 import sys
@@ -13,7 +13,7 @@ import pickle
 class YappiError(Exception): pass
 
 __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
-           'get_clock_type', 'get_clock_type',  'mem_usage']
+           'get_clock_type', 'set_clock_type',  'mem_usage']
 
 CRLF = '\n'
 COLUMN_GAP = 2

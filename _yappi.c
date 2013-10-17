@@ -3,7 +3,7 @@
  yappi
  Yet Another Python Profiler
 
- Sumer Cip 2012
+ Sumer Cip 2013
 
 */
 
@@ -58,11 +58,11 @@ typedef struct {
 typedef struct {
     _cstack *cs;
     _htab *rec_levels;
-    long id;
     _pit *last_pit;
-    unsigned long sched_cnt;
+    long id;
     char *class_name;
-    long long t0; // profiling start CPU time
+    long long t0;                           // profiling start CPU time
+    unsigned long sched_cnt;                // how many times this thread is scheduled
 } _ctx; // context
 
 typedef struct {
@@ -407,7 +407,7 @@ _get_child_info(_pit *parent, _pit *current)
 static _pit_children_info *
 _add_child_info(_pit *parent, _pit *current)
 {
-    _pit_children_info *newci,*cit;
+    _pit_children_info *newci;
   
     newci = ymalloc(sizeof(_pit_children_info));
     newci->index = current->index;
@@ -415,18 +415,8 @@ _add_child_info(_pit *parent, _pit *current)
     newci->nonrecursive_callcount = 0;
     newci->ttotal = 0;
     newci->tsubtotal = 0;
-    newci->next = NULL;
-    if (!parent->children) {
-        parent->children = newci;
-    }
-    else {
-        // go till end
-        cit = parent->children;
-        while(cit->next) {
-            cit = (_pit_children_info *)cit->next;
-        }
-        cit->next = (struct _pit_children_info *)newci;
-    }
+    newci->next = (struct _pit_children_info *)parent->children;
+    parent->children = (_pit_children_info *)newci;
     
     return newci;
 }
