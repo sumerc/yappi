@@ -159,17 +159,6 @@ assert cfsca.tsub == 8
 
 #stats.debug_print()
 test_passed("recursive function (abcabc)")
-
-#TODO:
-# abcbca
-# aabccb
-# abaa
-# bbaa
-# abbb
-# aaab
-# baba
-# abcd
-
 test_start()
 _timings = {"a_1":6,"b_1":4}
 _yappi.set_test_timings(_timings)
@@ -228,6 +217,82 @@ assert cfsbc.ttot == 3
 assert cfsbc.tsub == 3
 
 test_passed("basic (abc)")
+
+test_start()
+def a():
+    time.sleep(0.4) # is a builtin function
+yappi.set_clock_type('wall')
+yappi.start(builtins=True)
+a()
+stats = yappi.get_func_stats()
+fsa = stats.find_by_name('sleep')
+assert fsa is not None
+assert fsa.ttot > 0.3
+test_passed('start parameters (builtin+clock_type)')
+
+test_start()
+yappi.set_clock_type('wall')
+def a():
+    time.sleep(0.2)
+class Worker1(threading.Thread):
+    def a(self):
+        time.sleep(0.3)
+    def run(self):
+        self.a()
+yappi.start(builtins=False, profile_threads=True)
+
+c = Worker1()
+c.start()
+c.join()
+a()
+stats = yappi.get_func_stats()
+fsa1 = stats.find_by_name('Worker1.a')
+fsa2 = stats.find_by_name('a')
+assert fsa1 is not None
+assert fsa2 is not None
+assert fsa1.ttot > 0.2
+assert fsa2.ttot > 0.1
+test_passed('start parameters (multithread=True)')
+
+test_start()
+yappi.set_clock_type('wall')
+def a():
+    time.sleep(0.2)
+class Worker1(threading.Thread):
+    def a(self):
+        time.sleep(0.3)
+    def run(self):
+        self.a()
+yappi.start(profile_threads=False)
+
+c = Worker1()
+c.start()
+c.join()
+a()
+
+stats = yappi.get_func_stats()
+fsa1 = stats.find_by_name('Worker1.a')
+fsa2 = stats.find_by_name('a')
+assert fsa1 is None
+assert fsa2 is not None
+assert fsa2.ttot > 0.1
+
+#fsa2 = stats.find_by_name('a')
+#stats.print_all()
+test_passed('start parameters (multithread=False)')
+
+
+#TODO:
+# abcbca
+# aabccb
+# abaa
+# bbaa
+# abbb
+# aaab
+# baba
+# abcd
+
+
 
 test_passed("FUNCTIONALITY TESTS")
 

@@ -8,7 +8,10 @@ def test_passed(msg):
     test_print("[+]    TEST: %s passed.\r\n" % (msg))
 
 def test_start():
+    if yappi.is_running():
+        yappi.stop()
     yappi.clear_stats()
+    yappi.set_clock_type('cpu') # reset to default clock type
 
 def _run(func):
     import __main__
