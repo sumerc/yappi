@@ -159,32 +159,7 @@ assert cfsca.tsub == 8
 
 #stats.debug_print()
 test_passed("recursive function (abcabc)")
-test_start()
-_timings = {"a_1":6,"b_1":4}
-_yappi.set_test_timings(_timings)
 
-def a():
-    b()
-    yappi.stop()
-    
-def b():    
-    time.sleep(0.2)
-
-yappi.start()
-a()
-stats = yappi.get_func_stats()
-fsa = stats.find_by_name('a')
-fsb = stats.find_by_name('b')
-
-assert fsa.ncall == 1
-assert fsa.nactualcall == 0
-assert fsa.ttot == 0 # no call_leave called
-assert fsa.tsub == 0 # no call_leave called
-assert fsb.ttot == 4 
-# fsb.tsub might differ as we use timings dict and builtins are not enabled. 
-
-#stats.debug_print()
-test_passed("stop in the middle")
 
 test_start()
 _timings = {"a_1":6,"b_1":5,"c_1":3}
@@ -219,9 +194,34 @@ assert cfsbc.tsub == 3
 test_passed("basic (abc)")
 
 test_start()
+test_passed("recursive function (abcbca)")
+
+test_start()
+test_passed("recursive function (aabccb)")
+
+test_start()
+test_passed("recursive function (abaa)")
+
+test_start()
+test_passed("recursive function (bbaa)")
+
+test_start()
+test_passed("recursive function (abbb)")
+
+test_start()
+test_passed("recursive function (aaab)")
+
+test_start()
+test_passed("recursive function (baba)")
+
+test_start()
+test_passed("recursive function (abcd)")
+
+test_start()
 def a():
     time.sleep(0.4) # is a builtin function
 yappi.set_clock_type('wall')
+
 yappi.start(builtins=True)
 a()
 stats = yappi.get_func_stats()
@@ -282,16 +282,32 @@ assert fsa2.ttot > 0.1
 test_passed('start parameters (multithread=False)')
 
 
-#TODO:
-# abcbca
-# aabccb
-# abaa
-# bbaa
-# abbb
-# aaab
-# baba
-# abcd
+test_start()
+_timings = {"a_1":6,"b_1":4}
+_yappi.set_test_timings(_timings)
 
+def a():
+    b()
+    yappi.stop()
+    
+def b():    
+    time.sleep(0.2)
+
+yappi.start()
+a()
+stats = yappi.get_func_stats()
+fsa = stats.find_by_name('a')
+fsb = stats.find_by_name('b')
+
+assert fsa.ncall == 1
+assert fsa.nactualcall == 0
+assert fsa.ttot == 0 # no call_leave called
+assert fsa.tsub == 0 # no call_leave called
+assert fsb.ttot == 4 
+# fsb.tsub might differ as we use timings dict and builtins are not enabled. 
+
+#stats.debug_print()
+test_passed("stop in the middle")
 
 
 test_passed("FUNCTIONALITY TESTS")

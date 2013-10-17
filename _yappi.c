@@ -893,12 +893,17 @@ clear_stats(PyObject *self, PyObject *args)
         PyErr_SetString(YappiProfileError, "clear_stats cannot be called while profiler is running.");
         return NULL;
     }
-
+    
+    if (!yapphavestats) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+    
     henum(pits, _pitenumdel, NULL);
     htdestroy(pits);
     henum(contexts, _ctxenumdel, NULL);
     htdestroy(contexts);
-
+    
     fldestroy(flpit);
     fldestroy(flctx);
     yappinitialized = 0;
