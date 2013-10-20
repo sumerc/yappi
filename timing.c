@@ -21,7 +21,7 @@ clock_type_t get_timing_clock_type(void)
 }
 
 #if !defined(_WINDOWS)
-static gettimeofday_usec(void)
+static long long gettimeofday_usec(void)
 {
     struct timeval tv;
     long long rc;
@@ -114,20 +114,21 @@ tickcount(void)
 {
     long long rc;
     
+    rc = 0; // suppress "may be uninitialized" warning
     if (g_clock_type == CPU_CLOCK) {
 #if defined(USE_CLOCK_TYPE_CLOCKGETTIME)
-            struct timespec tp;
-            
-            clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tp);
-            rc = tp.tv_sec;
-            rc = rc * 1000000000 + (tp.tv_nsec);
+        struct timespec tp;
+        
+        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tp);
+        rc = tp.tv_sec;
+        rc = rc * 1000000000 + (tp.tv_nsec);
 #elif (defined(USE_CLOCK_TYPE_RUSAGE) && defined(RUSAGE_WHO))
-            struct timeval tv;
-            struct rusage usage;
-            
-            getrusage(RUSAGE_WHO, &usage);
-            rc = (usage.ru_utime.tv_sec + usage.ru_stime.tv_sec);
-            rc = (rc * 1000000) + (usage.ru_utime.tv_usec + usage.ru_stime.tv_usec);
+        struct timeval tv;
+        struct rusage usage;
+        
+        getrusage(RUSAGE_WHO, &usage);
+        rc = (usage.ru_utime.tv_sec + usage.ru_stime.tv_sec);
+        rc = (rc * 1000000) + (usage.ru_utime.tv_usec + usage.ru_stime.tv_usec);
 #endif
     } else if (g_clock_type == WALL_CLOCK) {
         rc = gettimeofday_usec();
@@ -147,6 +148,8 @@ tickfactor(void)
     } else if (g_clock_type == WALL_CLOCK) {
         return 0.000001;
     }
+    
+    return 1.0; // suppress "reached end of non-void function" warning
 }
 
 #endif /* *nix */
