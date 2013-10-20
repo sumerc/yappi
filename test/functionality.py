@@ -4,6 +4,14 @@ import _yappi
 import threading
 from test_utils import assert_raises_exception, run_and_get_func_stats, test_end, run_and_get_thread_stats,get_child_stat,test_start
 
+"""
+TODO: 
+ - ctx stat correctness, 
+ - some stat save/load test, 
+ - linux set_test_timings does not work correctly. floating arithmetic differs a bit
+   we shall not rely on floating point arithmetic on different OSes(1.0 / tickfactor())
+   make multiplying by tickfactor() a separate function.
+"""
 CONTINUE = 1
 STOP = 3
 
