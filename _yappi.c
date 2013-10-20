@@ -31,12 +31,12 @@ PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
 #endif
 
 // linked list for holding callee/caller info in the pit
-// we need to record the timing data on the pairs (parent, child) only index is not enough
+// we need to record the timing data on the pairs (parent, child)
 typedef struct {
     unsigned int index;
     unsigned long callcount;
-    unsigned long nonrecursive_callcount;   // the number of non-recursive calls.
-    long long tsubtotal;                    // the time that the child function spent in its children
+    unsigned long nonrecursive_callcount;   // how many times the child function is called non-recursively?
+    long long tsubtotal;                    // the time that the child function spent excluding its children (include recursive parent-child calls)
     long long ttotal;                       // the total time that the child function spent
     struct _pit_children_info *next;
 } _pit_children_info;
@@ -48,7 +48,7 @@ typedef struct {
     unsigned long lineno;
     unsigned long callcount;
     unsigned long nonrecursive_callcount;   // the number of actual calls when the function is recursive.
-    long long tsubtotal;                    // time function spent in its children (excluding recursive calls)
+    long long tsubtotal;                    // time function spent excluding its children (include recursive calls)
     long long ttotal;                       // the total time that a function spent
     unsigned int builtin;                   // 0 for normal, 1 for ccall
     unsigned int index;    
@@ -551,11 +551,13 @@ _get_frame_elapsed(void)
         rlevel = get_rec_level((uintptr_t)cp);        
         tval = PyDict_GetItem(test_timings, 
             PyStr_FromFormat("%s_%d", PyStr_AS_CSTRING(cp->name), rlevel));
-        if (tval) {
+        //printf("name:%s_%d \r\n", PyStr_AS_CSTRING(cp->name), rlevel);
+        if (tval) {            
             result = PyLong_AsLong(tval) * (long long)(1.0 / tickfactor());
         } else {
             result = DEFAULT_TEST_ELAPSED_TIME;
         }
+        
     } else {
         result = tickcount() - ci->t0;
     }
@@ -598,8 +600,8 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     }
     // a calls b. b's elapsed time is subtracted from a's tsub and a adds its own elapsed it is leaving.
     pp->tsubtotal -= elapsed;
-    cp->tsubtotal += elapsed;
-    
+    cp->tsubtotal += elapsed;    
+        
     // a calls b calls c. child c's elapsed time is subtracted from child b's tsub and child b adds its
     // own elapsed when it is leaving
     ppp = _get_frame();

@@ -4,7 +4,7 @@ import yappi
 def test_print(msg):
     sys.stdout.write(msg)
 
-def test_passed(msg):
+def test_end(msg):
     test_print("[+]    TEST: %s passed.\r\n" % (msg))
 
 def test_start():
