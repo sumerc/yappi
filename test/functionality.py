@@ -62,6 +62,10 @@ assert stats[0].ttot >= 0.0
 test_passed("basic thread stat functionality")
 
 test_start()
+yappi.clear_stats()
+test_passed("clear_stats without stats")
+
+test_start()
 
 _timings = {"a_1":20,"b_1":19,"c_1":17, "a_2":13, "d_1":12, "c_2":10, "a_3":5}
 _yappi.set_test_timings(_timings)
@@ -160,7 +164,6 @@ assert cfsca.tsub == 8
 #stats.debug_print()
 test_passed("recursive function (abcabc)")
 
-
 test_start()
 _timings = {"a_1":6,"b_1":5,"c_1":3}
 _yappi.set_test_timings(_timings)
@@ -215,7 +218,7 @@ test_start()
 test_passed("recursive function (baba)")
 
 test_start()
-test_passed("recursive function (abcd)")
+test_passed("basic function (abcd)")
 
 test_start()
 def a():

@@ -13,7 +13,7 @@ import pickle
 class YappiError(Exception): pass
 
 __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
-           'get_clock_type', 'set_clock_type',  'mem_usage']
+           'get_clock_type', 'set_clock_type',  'get_mem_usage']
 
 CRLF = '\n'
 COLUMN_GAP = 2
@@ -590,11 +590,11 @@ def set_clock_type(type):
         raise YappiError("Invalid clock type:%s" % (type))
     _yappi.set_clock_type(CLOCK_TYPES[type])
 
-def mem_usage():
+def get_mem_usage():
     """
-    Returns the memory usage of the profiler itself.
+    Returns the internal memory usage of the profiler itself.
     """
-    return _yappi.mem_usage()
+    return _yappi.get_mem_usage()
  
 def main():
     from optparse import OptionParser

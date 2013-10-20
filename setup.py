@@ -17,7 +17,7 @@ long_description = f.read()
 
 HOMEPAGE = "http://yappi.googlecode.com/"
 NAME = "yappi"
-VERSION = "0.62"
+VERSION = "0.82"
 _DEBUG = False # compile/link code for debugging
 
 user_macros = []
@@ -34,7 +34,7 @@ if os.name == 'posix' and sys.platform != 'darwin':
 if _DEBUG:
     compile_args.append('/Zi')
     link_args.append('/DEBUG')
-    # TODO: Implement *nix side. Need -g AFAI remember.
+    # TODO: Implement *nix side. Need -g AFAIR.
  
 #user_macros.append(('DEBUG_MEM', '1')),
 #user_macros.append(('DEBUG_CALL', '1'))
@@ -80,7 +80,7 @@ setup(name=NAME,
     },
     description="Yet Another Python Profiler",
     long_description = long_description,
-    keywords = "python thread multithread profile",
+    keywords = "python thread multithread profiler",
     classifiers=CLASSIFIERS,
     license = "MIT",
     url = HOMEPAGE,

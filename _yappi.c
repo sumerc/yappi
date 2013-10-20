@@ -1067,7 +1067,7 @@ is_running(PyObject *self, PyObject *args)
 }
 
 static PyObject *
-mem_usage(PyObject *self, PyObject *args)
+get_mem_usage(PyObject *self, PyObject *args)
 {
     return Py_BuildValue("l", ymemusage());
 }
@@ -1171,7 +1171,7 @@ static PyMethodDef yappi_methods[] = {
     {"is_running", is_running, METH_VARARGS, NULL},
     {"get_clock_type", get_clock_type, METH_VARARGS, NULL},
     {"set_clock_type", set_clock_type, METH_VARARGS, NULL},
-    {"mem_usage", mem_usage, METH_VARARGS, NULL},
+    {"get_mem_usage", get_mem_usage, METH_VARARGS, NULL},
     {"set_test_timings", set_test_timings, METH_VARARGS, NULL}, // for test usage. do not call this directly.
     {"profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage. do not call this.
     {NULL, NULL}      /* sentinel */
