@@ -90,17 +90,14 @@ static PyObject *test_timings; // used for testing
 
 // defines
 #define UNINITIALIZED_STRING_VAL "N/A"
-
-// forwards
-static _ctx * _profile_thread(PyThreadState *ts);
-
-
-// string formatting helper functions compatible with with both 2.x and 3.x
-#ifdef IS_PY3K
+#ifdef IS_PY3K // string formatting helper functions compatible with with both 2.x and 3.x
 #define PyStr_AS_CSTRING(s) PyBytes_AS_STRING(PyUnicode_AsUTF8String(s))
 #else
 #define PyStr_AS_CSTRING(s) PyString_AS_STRING(s)
 #endif
+
+// forwards
+static _ctx * _profile_thread(PyThreadState *ts);
 
 static PyObject * 
 PyStr_FromFormat(const char *fmt, ...)
@@ -536,9 +533,7 @@ long long
 _get_frame_elapsed(void)
 {
     _cstackitem *ci;
-    _pit *cp;
-    PyObject *tval;
-    uintptr_t rlevel;
+    _pit *cp;    
     long long result;
     
     ci = shead(current_ctx->cs);
@@ -548,12 +543,12 @@ _get_frame_elapsed(void)
     cp = ci->ckey;
     
     if (test_timings) { 
-        rlevel = get_rec_level((uintptr_t)cp);        
-        tval = PyDict_GetItem(test_timings, 
-            PyStr_FromFormat("%s_%d", PyStr_AS_CSTRING(cp->name), rlevel));
         //printf("name:%s_%d \r\n", PyStr_AS_CSTRING(cp->name), rlevel);
+        uintptr_t rlevel = get_rec_level((uintptr_t)cp);        
+        PyObject *tval = PyDict_GetItem(test_timings, 
+            PyStr_FromFormat("%s_%d", PyStr_AS_CSTRING(cp->name), rlevel));
         if (tval) {            
-            result = PyLong_AsLong(tval) * (long long)(1.0 / tickfactor());
+            result = PyLong_AsLong(tval);
         } else {
             result = DEFAULT_TEST_ELAPSED_TIME;
         }
@@ -922,6 +917,16 @@ clear_stats(PyObject *self, PyObject *args)
     return Py_None;
 }
 
+// normalizes the time count if test_timing is not set.
+static double
+_normt(long long tickcount)
+{
+    if (!test_timings) {
+        return tickcount * tickfactor();
+    }
+    return (double)tickcount;
+}
+
 static int
 _ctxenumstat(_hitem *item, void *arg)
 {
@@ -957,7 +962,7 @@ _ctxenumstat(_hitem *item, void *arg)
     cumdiff = _calc_cumdiff(tickcount(), ctx->t0);
     
     exc = PyObject_CallFunction(efn, "((skOOkIfk))", tcname, ctx->id, last_func_name,
-        last_mod_name, last_line_no, last_builtin, cumdiff * tickfactor(), ctx->sched_cnt);
+        last_mod_name, last_line_no, last_builtin, _normt(cumdiff), ctx->sched_cnt);
     if (!exc) {
         PyErr_Print();
         return 1; // abort enumeration
@@ -993,7 +998,6 @@ enum_thread_stats(PyObject *self, PyObject *args)
     return Py_None;
 }
 
-
 static int
 _pitenumstat(_hitem *item, void * arg)
 {
@@ -1020,14 +1024,14 @@ _pitenumstat(_hitem *item, void * arg)
             pci->tsubtotal = 0;
         }        
         PyList_Append(children, Py_BuildValue("Ikkff", pci->index, pci->callcount, pci->nonrecursive_callcount,
-                                              pci->ttotal * tickfactor(), pci->tsubtotal * tickfactor()));
+                                              _normt(pci->ttotal), _normt(pci->tsubtotal) ));
         pci = (_pit_children_info *)pci->next;
     }
     if (pt->tsubtotal < 0) {
         pt->tsubtotal = 0;
     }
     exc = PyObject_CallFunction(efn, "((OOkkkIffIO))", pt->name, pt->modname, pt->lineno, pt->callcount,
-                        pt->nonrecursive_callcount, pt->builtin, pt->ttotal * tickfactor(), pt->tsubtotal * tickfactor(), 
+                        pt->nonrecursive_callcount, pt->builtin, _normt(pt->ttotal), _normt(pt->tsubtotal), 
                         pt->index, children);
     if (!exc) {
         PyErr_Print();
