@@ -6,6 +6,7 @@ import ytest_utils
 TODO: 
  - ctx stat correctness, 
  - some stat save/load test, 
+ - test_multithread_profiling() stuck on line c.join() in Python2.7?? unittesting bug?? Inspect. 
 """
 
 class BasicUsage(ytest_utils.YappiUnitTestCase):
@@ -60,7 +61,7 @@ class BasicUsage(ytest_utils.YappiUnitTestCase):
 
         c = Worker1()
         c.start()
-        c.join() # TODO: I know this stuck on py2.7??? 
+        c.join()
         a()
         stats = yappi.get_func_stats()
         fsa1 = stats.find_by_name('Worker1.a')
