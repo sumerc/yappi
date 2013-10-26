@@ -7,6 +7,8 @@ TODO:
  - ctx stat correctness, 
  - some stat save/load test, 
  - test_multithread_profiling() stuck on line c.join() in Python2.7?? unittesting bug?? Inspect. 
+   _get_current_thread_class_name() causing the hang as we call Python code from C.
+ - write more tests for complex multithreaded scenarios, such as producer/consumers ...etc.
 """
 
 class BasicUsage(ytest_utils.YappiUnitTestCase):
@@ -61,7 +63,7 @@ class BasicUsage(ytest_utils.YappiUnitTestCase):
 
         c = Worker1()
         c.start()
-        c.join()
+        c.join()        
         a()
         stats = yappi.get_func_stats()
         fsa1 = stats.find_by_name('Worker1.a')
