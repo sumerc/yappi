@@ -1,17 +1,15 @@
 import yappi
 import _yappi
-import ytest_utils
+import testutils
 
 """
 TODO: 
  - ctx stat correctness, 
  - some stat save/load test, 
- - test_multithread_profiling() stuck on line c.join() in Python2.7?? unittesting bug?? Inspect. 
-   _get_current_thread_class_name() causing the hang as we call Python code from C.
  - write more tests for complex multithreaded scenarios, such as producer/consumers ...etc.
 """
 
-class BasicUsage(ytest_utils.YappiUnitTestCase):
+class BasicUsage(testutils.YappiUnitTestCase):
     
     def test_module_stress(self):
         self.assertRaises(_yappi.error, yappi.get_func_stats)
@@ -97,7 +95,7 @@ class BasicUsage(ytest_utils.YappiUnitTestCase):
         self.assertTrue(fsa2 is not None)
         self.assertTrue(fsa2.ttot > 0.1)
    
-class NonRecursiveFunctions(ytest_utils.YappiUnitTestCase):
+class NonRecursiveFunctions(testutils.YappiUnitTestCase):
     def test_abcd(self):
         _timings = {"a_1":6,"b_1":5,"c_1":3, "d_1":1}
         _yappi.set_test_timings(_timings)
@@ -110,15 +108,15 @@ class NonRecursiveFunctions(ytest_utils.YappiUnitTestCase):
             d()
         def d():
             pass
-        ytest_utils.run_with_yappi(a)
+        testutils.run_with_yappi(a)
         stats = yappi.get_func_stats()
         fsa = stats.find_by_name('a')
         fsb = stats.find_by_name('b')
         fsc = stats.find_by_name('c')
         fsd = stats.find_by_name('d')
-        cfsab = ytest_utils.get_child_stat(fsa, fsb)
-        cfsbc = ytest_utils.get_child_stat(fsb, fsc)
-        cfscd = ytest_utils.get_child_stat(fsc, fsd)
+        cfsab = testutils.get_child_stat(fsa, fsb)
+        cfsbc = testutils.get_child_stat(fsb, fsc)
+        cfscd = testutils.get_child_stat(fsc, fsd)
 
         self.assertEqual(fsa.ttot , 6)
         self.assertEqual(fsa.tsub , 1)
@@ -159,14 +157,14 @@ class NonRecursiveFunctions(ytest_utils.YappiUnitTestCase):
         self.assertEqual(fsa.tsub , 0) # no call_leave called
         self.assertEqual(fsb.ttot , 4) 
         
-class RecursiveFunctions(ytest_utils.YappiUnitTestCase): 
+class RecursiveFunctions(testutils.YappiUnitTestCase): 
     def test_fibonacci(self):
         def fib(n):
            if n > 1:
                return fib(n-1) + fib(n-2)
            else:
                return n
-        ytest_utils.run_with_yappi(fib, 22)
+        testutils.run_with_yappi(fib, 22)
         stats = yappi.get_func_stats()
         fs = stats.find_by_name('fib')
         self.assertEqual(fs.ncall, 57313)
@@ -189,7 +187,7 @@ class RecursiveFunctions(ytest_utils.YappiUnitTestCase):
             a(n+1)    
         def d(n):
             c(n)
-        ytest_utils.run_with_yappi(a, 1)
+        testutils.run_with_yappi(a, 1)
         stats = yappi.get_func_stats()
         fsa = stats.find_by_name('a')
         fsb = stats.find_by_name('b')
@@ -205,7 +203,7 @@ class RecursiveFunctions(ytest_utils.YappiUnitTestCase):
         self.assertEqual(fsc.tsub, 9)
         self.assertEqual(fsd.ttot, 12)
         self.assertEqual(fsd.tsub, 2)
-        cfsca = ytest_utils.get_child_stat(fsc, fsa)
+        cfsca = testutils.get_child_stat(fsc, fsa)
         self.assertEqual(cfsca.nactualcall, 0)
         self.assertEqual(cfsca.ncall, 2)
         self.assertEqual(cfsca.ttot, 13)
@@ -218,14 +216,14 @@ class RecursiveFunctions(ytest_utils.YappiUnitTestCase):
             if n == 3:
                 return
             d(n+1)
-        ytest_utils.run_with_yappi(d, 0)
+        testutils.run_with_yappi(d, 0)
         stats = yappi.get_func_stats()
         fsd = stats.find_by_name('d')
         self.assertEqual(fsd.ncall , 4)
         self.assertEqual(fsd.nactualcall , 1)
         self.assertEqual(fsd.ttot , 9)
         self.assertEqual(fsd.tsub , 9)
-        cfsdd = ytest_utils.get_child_stat(fsd, fsd)
+        cfsdd = testutils.get_child_stat(fsd, fsd)
         self.assertEqual(cfsdd.ttot , 7)
         self.assertEqual(cfsdd.tsub , 7)
         self.assertEqual(cfsdd.ncall , 3)
@@ -245,7 +243,7 @@ class RecursiveFunctions(ytest_utils.YappiUnitTestCase):
         def c(n):
             a(n+1)    
 
-        ytest_utils.run_with_yappi(a, 1)
+        testutils.run_with_yappi(a, 1)
         stats = yappi.get_func_stats()
         fsa = stats.find_by_name('a')
         fsb = stats.find_by_name('b')
@@ -258,9 +256,9 @@ class RecursiveFunctions(ytest_utils.YappiUnitTestCase):
         self.assertEqual(fsb.tsub , 4)
         self.assertEqual(fsc.ttot , 17)
         self.assertEqual(fsc.tsub , 7)
-        cfsab = ytest_utils.get_child_stat(fsa, fsb)
-        cfsbc = ytest_utils.get_child_stat(fsb, fsc)
-        cfsca = ytest_utils.get_child_stat(fsc, fsa)
+        cfsab = testutils.get_child_stat(fsa, fsb)
+        cfsbc = testutils.get_child_stat(fsb, fsc)
+        cfsca = testutils.get_child_stat(fsc, fsa)
         self.assertEqual(cfsab.ttot , 19)
         self.assertEqual(cfsab.tsub , 4)
         self.assertEqual(cfsbc.ttot , 17)
@@ -285,14 +283,14 @@ class RecursiveFunctions(ytest_utils.YappiUnitTestCase):
                 b()
             else:
                 a()                
-        ytest_utils.run_with_yappi(a)
+        testutils.run_with_yappi(a)
         stats = yappi.get_func_stats()
         fsa = stats.find_by_name('a')
         fsb = stats.find_by_name('b')
         fsc = stats.find_by_name('c')
-        cfsab = ytest_utils.get_child_stat(fsa, fsb)
-        cfsbc = ytest_utils.get_child_stat(fsb, fsc)
-        cfsca = ytest_utils.get_child_stat(fsc, fsa)
+        cfsab = testutils.get_child_stat(fsa, fsb)
+        cfsbc = testutils.get_child_stat(fsb, fsc)
+        cfsca = testutils.get_child_stat(fsc, fsa)
         self.assertEqual(fsa.ttot , 10)
         self.assertEqual(fsa.tsub , 2)
         self.assertEqual(fsb.ttot , 9)
@@ -330,16 +328,16 @@ class RecursiveFunctions(ytest_utils.YappiUnitTestCase):
             else:
                 b()
                 
-        ytest_utils.run_with_yappi(a)
+        testutils.run_with_yappi(a)
         stats = yappi.get_func_stats()
         fsa = stats.find_by_name('a')
         fsb = stats.find_by_name('b')
         fsc = stats.find_by_name('c')
-        cfsaa = ytest_utils.get_child_stat(fsa, fsa)
-        cfsab = ytest_utils.get_child_stat(fsa, fsb)
-        cfsbc = ytest_utils.get_child_stat(fsb, fsc)
-        cfscc = ytest_utils.get_child_stat(fsc, fsc)
-        cfscb = ytest_utils.get_child_stat(fsc, fsb)
+        cfsaa = testutils.get_child_stat(fsa, fsa)
+        cfsab = testutils.get_child_stat(fsa, fsb)
+        cfsbc = testutils.get_child_stat(fsb, fsc)
+        cfscc = testutils.get_child_stat(fsc, fsc)
+        cfscb = testutils.get_child_stat(fsc, fsb)
         self.assertEqual(fsb.ttot , 9)
         self.assertEqual(fsb.tsub , 5)
         self.assertEqual(cfsbc.ttot , 5)
@@ -370,12 +368,12 @@ class RecursiveFunctions(ytest_utils.YappiUnitTestCase):
             self._ncall += 1
             a()
             
-        ytest_utils.run_with_yappi(a)
+        testutils.run_with_yappi(a)
         stats = yappi.get_func_stats()
         fsa = stats.find_by_name('a')
         fsb = stats.find_by_name('b')
-        cfsaa = ytest_utils.get_child_stat(fsa, fsa)
-        cfsba = ytest_utils.get_child_stat(fsb, fsa)
+        cfsaa = testutils.get_child_stat(fsa, fsa)
+        cfsba = testutils.get_child_stat(fsb, fsa)
         self.assertEqual(fsb.ttot , 10)
         self.assertEqual(fsb.tsub , 1)
         self.assertEqual(fsa.ttot , 13)
@@ -405,13 +403,13 @@ class RecursiveFunctions(ytest_utils.YappiUnitTestCase):
             else:
                 return
             
-        ytest_utils.run_with_yappi(a)
+        testutils.run_with_yappi(a)
         stats = yappi.get_func_stats()
         fsa = stats.find_by_name('a')
         fsb = stats.find_by_name('b')
-        cfsaa = ytest_utils.get_child_stat(fsa, fsa)
-        cfsab = ytest_utils.get_child_stat(fsa, fsb)
-        cfsbb = ytest_utils.get_child_stat(fsb, fsb)
+        cfsaa = testutils.get_child_stat(fsa, fsa)
+        cfsab = testutils.get_child_stat(fsa, fsb)
+        cfsbb = testutils.get_child_stat(fsb, fsb)
         self.assertEqual(fsa.ttot , 13)
         self.assertEqual(fsa.tsub , 4)
         self.assertEqual(fsb.ttot , 9)
@@ -437,12 +435,12 @@ class RecursiveFunctions(ytest_utils.YappiUnitTestCase):
             self._ncall += 1
             b()
             
-        ytest_utils.run_with_yappi(a)
+        testutils.run_with_yappi(a)
         stats = yappi.get_func_stats()
         fsa = stats.find_by_name('a')
         fsb = stats.find_by_name('b')
-        cfsab = ytest_utils.get_child_stat(fsa, fsb)
-        cfsbb = ytest_utils.get_child_stat(fsb, fsb)
+        cfsab = testutils.get_child_stat(fsa, fsb)
+        cfsbb = testutils.get_child_stat(fsb, fsb)
         self.assertEqual(fsa.ttot , 13)
         self.assertEqual(fsa.tsub , 3)
         self.assertEqual(fsb.ttot , 10)
@@ -470,12 +468,12 @@ class RecursiveFunctions(ytest_utils.YappiUnitTestCase):
         def b():
             return
             
-        ytest_utils.run_with_yappi(a)
+        testutils.run_with_yappi(a)
         stats = yappi.get_func_stats()
         fsa = stats.find_by_name('a')
         fsb = stats.find_by_name('b')
-        cfsaa = ytest_utils.get_child_stat(fsa, fsa)
-        cfsab = ytest_utils.get_child_stat(fsa, fsb)
+        cfsaa = testutils.get_child_stat(fsa, fsa)
+        cfsab = testutils.get_child_stat(fsa, fsb)
         self.assertEqual(fsa.ttot , 13)
         self.assertEqual(fsa.tsub , 12)
         self.assertEqual(fsb.ttot , 1)
@@ -498,12 +496,12 @@ class RecursiveFunctions(ytest_utils.YappiUnitTestCase):
             self._ncall += 1
             a()
             
-        ytest_utils.run_with_yappi(a)
+        testutils.run_with_yappi(a)
         stats = yappi.get_func_stats()
         fsa = stats.find_by_name('a')
         fsb = stats.find_by_name('b')
-        cfsab = ytest_utils.get_child_stat(fsa, fsb)
-        cfsba = ytest_utils.get_child_stat(fsb, fsa)
+        cfsab = testutils.get_child_stat(fsa, fsb)
+        cfsba = testutils.get_child_stat(fsb, fsa)
         self.assertEqual(fsa.ttot , 13)
         self.assertEqual(fsa.tsub , 8)
         self.assertEqual(fsb.ttot , 10)

@@ -186,7 +186,7 @@ _get_current_thread_class_name(void)
 
     mthr = cthr = tattr1 = tattr2 = NULL;
 
-    mthr = PyImport_ImportModule("threading");
+    mthr = PyImport_ImportModuleNoBlock("threading"); // Requires Python 2.6.
     if (!mthr)
         goto err;
     cthr = PyObject_CallMethod(mthr, "currentThread", "");
