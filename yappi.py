@@ -121,18 +121,11 @@ class YFuncStat(YStat):
         self.tavg += other.tavg
         for other_child_stat in other.children:
             # all children point to a valid entry, and we shall have merged previous entries by here.
-            cur_child_stat = self.find_child_by_full_name(other_child_stat.full_name)
-            if cur_child_stat is None: # TODO :if other_child_stat not in self.children?
+            if other_child_stat not in self.children:
                 self.children.append(other_child_stat)
             else:
                 cur_child_stat += other_child_stat
         
-    def find_child_by_full_name(self, full_name):
-        for child in self.children:
-            if child.full_name == full_name:
-                return child
-        return None
-    
     def is_recursive(self):
         # we have a known bug where call_leave not called for some thread functions(run() especially)
         # in that case ncalls will be updated in call_enter, however nactualcall will not. This is for
@@ -206,8 +199,8 @@ class YStats(object):
     def __len__(self):
         return len(self._stats)
         
-    def __getitem__(self, item):
-        return self._stats[item]
+    #def __getitem__(self, item):
+    #    return self._stats[item]
         
 class YChildFuncStats(list):
     def __getitem__(self, key):
@@ -229,6 +222,16 @@ class YFuncStats(YStats):
     _idx_max = 0
     _SUPPORTED_LOAD_FORMATS = ['YSTAT']
     _SUPPORTED_SAVE_FORMATS = ['YSTAT', 'CALLGRIND', 'PSTAT']
+    
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            for item in self:
+                if item.index == key:
+                    return item
+        elif isinstance(key, str):
+            for item in self:
+                if item.full_name == key:
+                    return item
         
     def get(self):
         _yappi.enum_func_stats(self._enumerator)
@@ -237,7 +240,7 @@ class YFuncStats(YStats):
         for stat in self._stats:
             _childs = YChildFuncStats()
             for child_tpl in stat.children:
-                rstat = self.find_by_index(child_tpl[0])
+                rstat = self[child_tpl[0]]
                 
                 # sometimes even the profile results does not contain the result because of filtering 
                 # or timing(call_leave called but call_enter is not), with this we ensure that the children
@@ -292,11 +295,11 @@ class YFuncStats(YStats):
                 # we know for sure child's index is pointing to a valid stat in saved_stats
                 # so as saved_stat is already in sync. (in above loop), we can safely assume
                 # that we shall point to a valid stat in current_stats with the child's full_name
-                saved_child_stat.index = self.find_by_full_name(saved_child_stat.full_name).index
+                saved_child_stat.index = self[saved_child_stat.full_name].index
                                 
         # merge stats
         for saved_stat in saved_stats:
-            saved_stat_in_curr = self.find_by_full_name(saved_stat.full_name)
+            saved_stat_in_curr = self[saved_stat.full_name]
             saved_stat_in_curr += saved_stat
     
     def _save_as_YSTAT(self, path):
@@ -394,24 +397,6 @@ class YFuncStats(YStats):
                                 ]
             lines += func_stats
         file.write('\n'.join(lines))                
-                
-    def find_by_index(self, index):
-        for stat in self._stats:
-            if stat.index == index:
-                return stat
-        return None
-        
-    def find_by_full_name(self, full_name):
-        for stat in self._stats:
-            if stat.full_name == full_name:
-                return stat
-        return None
-        
-    def find_by_name(self, name):
-        for stat in self._stats:
-            if stat.name == name:
-                return stat
-        return None
       
     def add(self, path, type="ystat"):
     

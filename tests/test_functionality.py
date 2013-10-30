@@ -1,6 +1,7 @@
 import yappi
 import _yappi
 import test_utils
+import unittest
 
 """
 TODO: 
@@ -42,7 +43,7 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         yappi.start(builtins=True)
         a()
         stats = yappi.get_func_stats()
-        fsa = stats.find_by_name('sleep')
+        fsa = test_utils.find_stat_by_name(stats, 'sleep')
         self.assertTrue(fsa is not None)
         self.assertTrue(fsa.ttot > 0.3)
         
@@ -64,8 +65,8 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         c.join()
         a()
         stats = yappi.get_func_stats()
-        fsa1 = stats.find_by_name('Worker1.a')
-        fsa2 = stats.find_by_name('a')
+        fsa1 = test_utils.find_stat_by_name(stats, 'Worker1.a')
+        fsa2 = test_utils.find_stat_by_name(stats, 'a')
         self.assertTrue(fsa1 is None)
         self.assertTrue(fsa2 is not None)
         self.assertTrue(fsa2.ttot > 0.1)
@@ -89,8 +90,8 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         c.join()        
         a()
         stats = yappi.get_func_stats()
-        fsa1 = stats.find_by_name('Worker1.a')
-        fsa2 = stats.find_by_name('a')
+        fsa1 = test_utils.find_stat_by_name(stats, 'Worker1.a')
+        fsa2 = test_utils.find_stat_by_name(stats, 'a')
         self.assertTrue(fsa1 is not None)
         self.assertTrue(fsa2 is not None)
         self.assertTrue(fsa1.ttot > 0.2)
@@ -99,7 +100,10 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
     def test_producer_consumer_with_queues(self):
         # we currently just stress yappi, no functionality test is done here.
         yappi.start()
-        from queue import Queue
+        if test_utils.is_py3x():
+            from queue import Queue
+        else:
+            from Queue import Queue
         from threading import Thread
         WORKER_THREAD_COUNT = 20
         WORK_ITEM_COUNT = 2000
@@ -120,9 +124,9 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         q.join()# block until all tasks are done
         #yappi.get_func_stats().sort("callcount").print_all()
         yappi.stop()
-        
+    
+    @unittest.skipIf(not test_utils.is_py3x(), "requires Python 3.x")
     def test_concurrent_futures(self):
-        # only specific to Python 3.x. 
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(max_workers=1) as executor:
             executor.submit(pow, 323, 1235)
@@ -141,10 +145,10 @@ class NonRecursiveFunctions(test_utils.YappiUnitTestCase):
         def d():
             pass
         stats = test_utils.run_and_get_func_stats(a)
-        fsa = stats.find_by_name('a')
-        fsb = stats.find_by_name('b')
-        fsc = stats.find_by_name('c')
-        fsd = stats.find_by_name('d')
+        fsa = test_utils.find_stat_by_name(stats, 'a')
+        fsb = test_utils.find_stat_by_name(stats, 'b')
+        fsc = test_utils.find_stat_by_name(stats, 'c')
+        fsd = test_utils.find_stat_by_name(stats, 'd')
         cfsab = fsa.children[fsb]
         cfsbc = fsb.children[fsc]
         cfscd = fsc.children[fsd]
@@ -179,8 +183,8 @@ class NonRecursiveFunctions(test_utils.YappiUnitTestCase):
         yappi.start()
         a()
         stats = yappi.get_func_stats()
-        fsa = stats.find_by_name('a')
-        fsb = stats.find_by_name('b')
+        fsa = test_utils.find_stat_by_name(stats, 'a')
+        fsb = test_utils.find_stat_by_name(stats, 'b')
 
         self.assertEqual(fsa.ncall , 1)
         self.assertEqual(fsa.nactualcall, 0)
@@ -196,7 +200,7 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
            else:
                return n
         stats = test_utils.run_and_get_func_stats(fib, 22)
-        fs = stats.find_by_name('fib')
+        fs = test_utils.find_stat_by_name(stats, 'fib')
         self.assertEqual(fs.ncall, 57313)
         self.assertEqual(fs.ttot, fs.tsub)
         
@@ -218,10 +222,10 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
         def d(n):
             c(n)
         stats = test_utils.run_and_get_func_stats(a, 1)
-        fsa = stats.find_by_name('a')
-        fsb = stats.find_by_name('b')
-        fsc = stats.find_by_name('c')
-        fsd = stats.find_by_name('d')
+        fsa = test_utils.find_stat_by_name(stats, 'a')
+        fsb = test_utils.find_stat_by_name(stats, 'b')
+        fsc = test_utils.find_stat_by_name(stats, 'c')
+        fsd = test_utils.find_stat_by_name(stats, 'd')
         self.assertEqual(fsa.ncall, 3)
         self.assertEqual(fsa.nactualcall, 1)
         self.assertEqual(fsa.ttot, 20)
@@ -246,7 +250,7 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
                 return
             d(n+1)
         stats = test_utils.run_and_get_func_stats(d, 0)
-        fsd = stats.find_by_name('d')
+        fsd = test_utils.find_stat_by_name(stats, 'd')
         self.assertEqual(fsd.ncall , 4)
         self.assertEqual(fsd.nactualcall , 1)
         self.assertEqual(fsd.ttot , 9)
@@ -272,9 +276,9 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
             a(n+1)    
 
         stats = test_utils.run_and_get_func_stats(a, 1)
-        fsa = stats.find_by_name('a')
-        fsb = stats.find_by_name('b')
-        fsc = stats.find_by_name('c')
+        fsa = test_utils.find_stat_by_name(stats, 'a')
+        fsb = test_utils.find_stat_by_name(stats, 'b')
+        fsc = test_utils.find_stat_by_name(stats, 'c')
         self.assertEqual(fsa.ncall , 3)
         self.assertEqual(fsa.nactualcall , 1)
         self.assertEqual(fsa.ttot , 20)
@@ -311,9 +315,9 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
             else:
                 a()                
         stats = test_utils.run_and_get_func_stats(a)
-        fsa = stats.find_by_name('a')
-        fsb = stats.find_by_name('b')
-        fsc = stats.find_by_name('c')
+        fsa = test_utils.find_stat_by_name(stats, 'a')
+        fsb = test_utils.find_stat_by_name(stats, 'b')
+        fsc = test_utils.find_stat_by_name(stats, 'c')
         cfsab = fsa.children[fsb]
         cfsbc = fsb.children[fsc]
         cfsca = fsc.children[fsa]
@@ -355,9 +359,9 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
                 b()
                 
         stats = test_utils.run_and_get_func_stats(a)
-        fsa = stats.find_by_name('a')
-        fsb = stats.find_by_name('b')
-        fsc = stats.find_by_name('c')
+        fsa = test_utils.find_stat_by_name(stats, 'a')
+        fsb = test_utils.find_stat_by_name(stats, 'b')
+        fsc = test_utils.find_stat_by_name(stats, 'c')
         cfsaa = fsa.children[fsa.index]
         cfsab = fsa.children[fsb]
         cfsbc = fsb.children[fsc.full_name]
@@ -394,8 +398,8 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
             a()
             
         stats = test_utils.run_and_get_func_stats(a)
-        fsa = stats.find_by_name('a')
-        fsb = stats.find_by_name('b')
+        fsa = test_utils.find_stat_by_name(stats, 'a')
+        fsb = test_utils.find_stat_by_name(stats, 'b')
         cfsaa = fsa.children[fsa]
         cfsba = fsb.children[fsa]
         self.assertEqual(fsb.ttot , 10)
@@ -428,8 +432,8 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
                 return
             
         stats = test_utils.run_and_get_func_stats(a)
-        fsa = stats.find_by_name('a')
-        fsb = stats.find_by_name('b')
+        fsa = test_utils.find_stat_by_name(stats, 'a')
+        fsb = test_utils.find_stat_by_name(stats, 'b')
         cfsaa = fsa.children[fsa]
         cfsab = fsa.children[fsb]
         cfsbb = fsb.children[fsb]
@@ -459,8 +463,8 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
             b()
             
         stats = test_utils.run_and_get_func_stats(a)
-        fsa = stats.find_by_name('a')
-        fsb = stats.find_by_name('b')
+        fsa = test_utils.find_stat_by_name(stats, 'a')
+        fsb = test_utils.find_stat_by_name(stats, 'b')
         cfsab = fsa.children[fsb]
         cfsbb = fsb.children[fsb]
         self.assertEqual(fsa.ttot , 13)
@@ -491,8 +495,8 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
             return
             
         stats = test_utils.run_and_get_func_stats(a)
-        fsa = stats.find_by_name('a')
-        fsb = stats.find_by_name('b')
+        fsa = test_utils.find_stat_by_name(stats, 'a')
+        fsb = test_utils.find_stat_by_name(stats, 'b')
         cfsaa = fsa.children[fsa]
         cfsab = fsa.children[fsb]
         self.assertEqual(fsa.ttot , 13)
@@ -518,8 +522,8 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
             a()
             
         stats = test_utils.run_and_get_func_stats(a)
-        fsa = stats.find_by_name('a')
-        fsb = stats.find_by_name('b')
+        fsa = test_utils.find_stat_by_name(stats, 'a')
+        fsb = test_utils.find_stat_by_name(stats, 'b')
         cfsab = fsa.children[fsb]
         cfsba = fsb.children[fsa]
         self.assertEqual(fsa.ttot , 13)

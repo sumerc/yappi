@@ -31,3 +31,12 @@ def run_and_get_func_stats(func, *args, **kwargs):
 def run_and_get_thread_stats(func, *args, **kwargs):
     run_with_yappi(func, *args, **kwargs)
     return yappi.get_thread_stats()
+    
+def is_py3x():
+    return sys.version_info > (3, 0)
+    
+def find_stat_by_name(stats, name):
+    for stat in stats:
+        if stat.name == name:
+            return stat
+     
