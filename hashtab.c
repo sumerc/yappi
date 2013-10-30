@@ -6,13 +6,24 @@
 #include "hashtab.h"
 #include "mem.h"
 
+static unsigned int 
+HHASH(_htab *ht, uintptr_t a)
+{
+    a = (a ^ 61) ^ (a >> 16);
+    a = a + (a << 3);
+    a = a ^ (a >> 4);
+    a = a * 0x27d4eb2d;
+    a = a ^ (a >> 15);
+    return (a & ht->mask);
+}
+
 static int
 _hgrow(_htab *ht)
 {
     int i;
     _htab *dummy;
     _hitem *p, *next, *it;
-
+    
     dummy = htcreate(ht->logsize+1);
     if (!dummy)
         return 0;
@@ -25,10 +36,9 @@ _hgrow(_htab *ht)
             it = hfind(dummy, p->key);
             if (!it)
                 return 0;
-
             it->free = p->free;
             yfree(p);
-            p = next;
+            p = next;            
         }
     }
 
@@ -93,7 +103,7 @@ hadd(_htab *ht, uintptr_t key, uintptr_t val)
 {
     unsigned int h;
     _hitem *new, *p;
-
+    
     h = HHASH(ht, key);
     p = ht->_table[h];
     new = NULL;
@@ -123,8 +133,10 @@ hadd(_htab *ht, uintptr_t key, uintptr_t val)
     }
     // need resizing?
     if (((ht->count - ht->freecount) / (double)ht->realsize) >= HLOADFACTOR) {
-        if (!_hgrow(ht))
+        ydprintf("hashtab resize.(%p)", ht);
+        if (!_hgrow(ht)) {
             return 0;
+        }
     }
     return 1;
 }
@@ -133,8 +145,10 @@ _hitem *
 hfind(_htab *ht, uintptr_t key)
 {
     _hitem *p;
-
-    p = ht->_table[HHASH(ht, key)];
+    unsigned int h;
+    
+    h = HHASH(ht, key);
+    p = ht->_table[h];
     while(p) {
         if ((p->key == key) && (!p->free)) {
             return p;
@@ -174,6 +188,8 @@ hcount(_htab *ht)
 void
 hfree(_htab *ht, _hitem *item)
 {
-    item->free = 1;
-    ht->freecount++;
+    if (!item->free) {
+        item->free = 1;
+        ht->freecount++;
+    }
 }

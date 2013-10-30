@@ -70,8 +70,9 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         self.assertTrue(fsa1 is None)
         self.assertTrue(fsa2 is not None)
         self.assertTrue(fsa2.ttot > 0.1)
-        
+       
 class MultithreadedScenarios(test_utils.YappiUnitTestCase):
+
     def test_basic(self):
         import threading
         import time
@@ -96,7 +97,8 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         self.assertTrue(fsa2 is not None)
         self.assertTrue(fsa1.ttot > 0.2)
         self.assertTrue(fsa2.ttot > 0.1)
-        
+    
+    
     def test_producer_consumer_with_queues(self):
         # we currently just stress yappi, no functionality test is done here.
         yappi.start()
@@ -127,10 +129,14 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
     
     @unittest.skipIf(not test_utils.is_py3x(), "requires Python 3.x")
     def test_concurrent_futures(self):
+        yappi.start()
+        import time
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(max_workers=1) as executor:
             executor.submit(pow, 323, 1235)
-    
+        time.sleep(1.0)
+        yappi.stop()
+       
 class NonRecursiveFunctions(test_utils.YappiUnitTestCase):
     def test_abcd(self):
         _timings = {"a_1":6,"b_1":5,"c_1":3, "d_1":1}

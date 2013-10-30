@@ -10,10 +10,6 @@
 
 #define HSIZE(n) (1<<n)
 #define HMASK(n) (HSIZE(n)-1)
-#define HHASH(ht, a) ((a = (a ^ 61) ^ (a >> 16)), \
-                      (a = a + (a << 3)), (a = a ^ (a >> 4)),  (a = a * 0x27d4eb2d), \
-                      (a = a ^ (a >> 15)), ((unsigned int)(a & ht->mask)))
-//#define HHASH(ht, a) ((unsigned int)(a & ht->mask))
 #define HLOADFACTOR 0.75
 
 struct _hitem {
