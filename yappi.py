@@ -122,7 +122,7 @@ class YFuncStat(YStat):
         for other_child_stat in other.children:
             # all children point to a valid entry, and we shall have merged previous entries by here.
             cur_child_stat = self.find_child_by_full_name(other_child_stat.full_name)
-            if cur_child_stat is None:
+            if cur_child_stat is None: # TODO :if other_child_stat not in self.children?
                 self.children.append(other_child_stat)
             else:
                 cur_child_stat += other_child_stat
@@ -208,7 +208,22 @@ class YStats(object):
         
     def __getitem__(self, item):
         return self._stats[item]
-    
+        
+class YChildFuncStats(list):
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            for item in self:
+                if item.index == key:
+                    return item
+        elif isinstance(key, str):
+            for item in self:
+                if item.full_name == key:
+                    return item
+        elif isinstance(key, YFuncStat):
+            for item in self:
+                if item.index == key.index:
+                    return item
+        
 class YFuncStats(YStats):
 
     _idx_max = 0
@@ -220,7 +235,7 @@ class YFuncStats(YStats):
         
         # convert the children info from tuple to YChildFuncStat
         for stat in self._stats:
-            _childs = []
+            _childs = YChildFuncStats()
             for child_tpl in stat.children:
                 rstat = self.find_by_index(child_tpl[0])
                 
