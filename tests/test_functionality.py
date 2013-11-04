@@ -1,3 +1,5 @@
+import os
+import sys
 import yappi
 import _yappi
 import test_utils
@@ -72,7 +74,7 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         self.assertTrue(fsa2.ttot > 0.1)
        
 class MultithreadedScenarios(test_utils.YappiUnitTestCase):
-
+    
     def test_basic(self):
         import threading
         import time
@@ -102,12 +104,13 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
     def test_producer_consumer_with_queues(self):
         # we currently just stress yappi, no functionality test is done here.
         yappi.start()
+        import time
         if test_utils.is_py3x():
             from queue import Queue
         else:
             from Queue import Queue
         from threading import Thread
-        WORKER_THREAD_COUNT = 20
+        WORKER_THREAD_COUNT = 50
         WORK_ITEM_COUNT = 2000
         def worker():
             while True:
@@ -126,15 +129,66 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         q.join()# block until all tasks are done
         #yappi.get_func_stats().sort("callcount").print_all()
         yappi.stop()
-    
-    @unittest.skipIf(not test_utils.is_py3x(), "requires Python 3.x")
+        
+    def test_temporary_lock_waiting(self):
+        import threading
+        yappi.start()
+        
+        _lock = threading.Lock()
+        def worker():
+            import time
+            _lock.acquire()
+            try:
+                time.sleep(1.0)
+            finally:
+                _lock.release()
+        t1 = threading.Thread(target=worker)
+        t2 = threading.Thread(target=worker)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+        #yappi.get_func_stats().sort("callcount").print_all()
+        yappi.stop()
+
+    @unittest.skipIf(os.name != "posix", "requires Posix compliant OS")
+    def test_signals_with_blocking_calls(self):
+        # copied from Python Docs:
+        import signal, os
+        def handler(signum, frame):
+            raise Exception("Couldn't open device!")        
+        signal.signal(signal.SIGALRM, handler)
+        signal.alarm(5)
+        fd = os.open('/dev/ttyS0', os.O_RDWR) # This open() may hang indefinitely
+        signal.alarm(0)          # Disable the alarm
+            
+    @unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
     def test_concurrent_futures(self):
         yappi.start()
         import time
         from concurrent.futures import ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            executor.submit(pow, 323, 1235)
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            f = executor.submit(pow, 5, 2)
+            self.assertEqual(f.result(), 25)        
         time.sleep(1.0)
+        yappi.stop()
+        
+    @unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
+    def test_barrier(self):
+        yappi.start()
+        import threading
+        b = threading.Barrier(2, timeout=1)
+        def worker():
+            try:
+                b.wait()
+            except threading.BrokenBarrierError:
+                pass
+            except Exception:
+                raise Exception("BrokenBarrierError not raised")
+        t1 = threading.Thread(target=worker)
+        t1.start()        
+        #b.wait()
+        t1.join()
         yappi.stop()
        
 class NonRecursiveFunctions(test_utils.YappiUnitTestCase):
