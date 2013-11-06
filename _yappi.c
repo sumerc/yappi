@@ -962,7 +962,7 @@ _ctxenumstat(_hitem *item, void *arg)
     cumdiff = _calc_cumdiff(tickcount(), ctx->t0);
     
     exc = PyObject_CallFunction(efn, "((skOOkIfk))", tcname, ctx->id, last_func_name,
-        last_mod_name, last_line_no, last_builtin, _normt(cumdiff), ctx->sched_cnt);
+        last_mod_name, last_line_no, last_builtin, cumdiff * tickfactor(), ctx->sched_cnt);
     if (!exc) {
         PyErr_Print();
         return 1; // abort enumeration

@@ -7,9 +7,7 @@ import unittest
 
 """
 TODO: 
- - ctx stat correctness, 
- - some stat save/load test, 
- - write more tests for complex multithreaded scenarios, such as producer/consumers ...etc.
+ - some stat save/load test,
 """
 
 class BasicUsage(test_utils.YappiUnitTestCase):
@@ -34,8 +32,53 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         yappi.clear_stats()
                 
     def test_stat_sorting(self):
-        pass # TODO: with test_timings
-        
+        _timings = {"a_1":13,"b_1":10,"a_2":6,"b_2":1}
+        _yappi.set_test_timings(_timings)
+
+        self._ncall = 1
+        def a():
+            b()
+        def b():
+            if self._ncall == 2:
+                return
+            self._ncall += 1
+            a()
+            
+        stats = test_utils.run_and_get_func_stats(a)
+        stats = stats.sort("totaltime", "desc")
+        prev_stat = None
+        for stat in stats:
+            if prev_stat:
+                self.assertTrue(prev_stat.ttot >= stat.ttot)
+            prev_stat = stat
+        stats = stats.sort("totaltime", "asc")
+        prev_stat = None
+        for stat in stats:
+            if prev_stat:
+                self.assertTrue(prev_stat.ttot <= stat.ttot)
+            prev_stat = stat
+        stats = stats.sort("avgtime", "asc")
+        prev_stat = None
+        for stat in stats:
+            if prev_stat:
+                self.assertTrue(prev_stat.tavg <= stat.tavg)
+            prev_stat = stat
+        stats = stats.sort("name", "asc")
+        prev_stat = None
+        for stat in stats:
+            if prev_stat:
+                self.assertTrue(prev_stat.name <= stat.name)
+            prev_stat = stat
+        stats = stats.sort("subtime", "asc")
+        prev_stat = None
+        for stat in stats:
+            if prev_stat:
+                self.assertTrue(prev_stat.tsub <= stat.tsub)
+            prev_stat = stat
+          
+        self.assertRaises(yappi.YappiError, stats.sort, "invalid_func_sorttype_arg")
+        self.assertRaises(yappi.YappiError, stats.sort, "totaltime", "invalid_func_sortorder_arg")
+            
     def test_builtin_profiling(self):
         def a():
             import time
@@ -72,7 +115,7 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         self.assertTrue(fsa1 is None)
         self.assertTrue(fsa2 is not None)
         self.assertTrue(fsa2.ttot > 0.1)
-       
+   
 class MultithreadedScenarios(test_utils.YappiUnitTestCase):
     
     def test_basic(self):
@@ -100,7 +143,89 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         self.assertTrue(fsa1.ttot > 0.2)
         self.assertTrue(fsa2.ttot > 0.1)
     
-    
+    def test_ctx_stats(self):
+        from threading import Thread        
+        DUMMY_WORKER_COUNT = 5
+        yappi.start()       
+        class DummyThread(Thread): pass
+        
+        def dummy_worker():
+            pass
+        for i in range(DUMMY_WORKER_COUNT):
+            t = DummyThread(target=dummy_worker)
+            t.start()
+            t.join()        
+        yappi.stop()
+        stats = yappi.get_thread_stats()
+        tsa = test_utils.find_stat_by_name(stats, "DummyThread")
+        assert tsa is not None
+        yappi.clear_stats()        
+        import time
+        time.sleep(1.0)
+        _timings = {"a_1":6,"b_1":5,"c_1":3, "d_1":1, "a_2":4,"b_2":3,"c_2":2, "d_2":1}
+        _yappi.set_test_timings(_timings)
+        class Thread1(Thread): pass
+        class Thread2(Thread): pass
+        def a():
+            b()
+        def b():
+            c()
+        def c():
+            d()
+        def d():
+            time.sleep(0.6)
+        yappi.set_clock_type("wall")
+        yappi.start()
+        t1 = Thread1(target=a)
+        t1.start()
+        t2 = Thread2(target=a)
+        t2.start()
+        t1.join()
+        t2.join()        
+        stats = yappi.get_thread_stats()
+        
+        # the fist clear_stats clears the context table?
+        tsa = test_utils.find_stat_by_name(stats, "DummyThread") 
+        self.assertTrue(tsa is None)
+        
+        tst1 = test_utils.find_stat_by_name(stats, "Thread1")
+        tst2 = test_utils.find_stat_by_name(stats, "Thread2")
+        tsmain = test_utils.find_stat_by_name(stats, "_MainThread")
+        #stats.print_all()
+        self.assertTrue(tst1 is not None)
+        self.assertTrue(tst2 is not None)
+        self.assertTrue(tsmain is not None) # FIX: I see this fails sometimes?
+        self.assertTrue(1.0 > tst2.ttot >= 0.5)
+        self.assertTrue(1.0 > tst1.ttot >= 0.5)
+        
+        # test sorting of the ctx stats
+        stats = stats.sort("totaltime", "desc")
+        prev_stat = None
+        for stat in stats:
+            if prev_stat:
+                self.assertTrue(prev_stat.ttot >= stat.ttot)
+            prev_stat = stat
+        stats = stats.sort("totaltime", "asc")
+        prev_stat = None
+        for stat in stats:
+            if prev_stat:
+                self.assertTrue(prev_stat.ttot <= stat.ttot)
+            prev_stat = stat
+        stats = stats.sort("schedcount", "desc")
+        prev_stat = None
+        for stat in stats:
+            if prev_stat:
+                self.assertTrue(prev_stat.sched_count >= stat.sched_count)
+            prev_stat = stat
+        stats = stats.sort("name", "desc")
+        prev_stat = None
+        for stat in stats:
+            if prev_stat:
+                self.assertTrue(prev_stat.name >= stat.name)
+            prev_stat = stat
+        self.assertRaises(yappi.YappiError, stats.sort, "invalid_thread_sorttype_arg")
+        self.assertRaises(yappi.YappiError, stats.sort, "invalid_thread_sortorder_arg")
+        
     def test_producer_consumer_with_queues(self):
         # we currently just stress yappi, no functionality test is done here.
         yappi.start()
@@ -129,7 +254,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         q.join()# block until all tasks are done
         #yappi.get_func_stats().sort("callcount").print_all()
         yappi.stop()
-        
+     
     def test_temporary_lock_waiting(self):
         import threading
         import time
