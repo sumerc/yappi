@@ -132,11 +132,10 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         
     def test_temporary_lock_waiting(self):
         import threading
-        yappi.start()
-        
+        import time
+        yappi.start()        
         _lock = threading.Lock()
-        def worker():
-            import time
+        def worker():            
             _lock.acquire()
             try:
                 time.sleep(1.0)
