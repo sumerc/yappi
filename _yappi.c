@@ -1023,8 +1023,8 @@ _pitenumstat(_hitem *item, void * arg)
         if (pci->tsubtotal < 0) {
             pci->tsubtotal = 0;
         }        
-        PyList_Append(children, Py_BuildValue("Ikkff", pci->index, pci->callcount, pci->nonrecursive_callcount,
-                                              _normt(pci->ttotal), _normt(pci->tsubtotal) ));
+        PyList_Append(children, Py_BuildValue("Ikkff", pci->index, pci->callcount, 
+                pci->nonrecursive_callcount, _normt(pci->ttotal), _normt(pci->tsubtotal) ));
         pci = (_pit_children_info *)pci->next;
     }
     if (pt->tsubtotal < 0) {
