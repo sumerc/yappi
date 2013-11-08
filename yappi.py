@@ -11,6 +11,7 @@ import _yappi
 import pickle
 
 class YappiError(Exception): pass
+class YGlobs: pass
 
 __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
            'get_clock_type', 'set_clock_type',  'get_mem_usage']
@@ -118,14 +119,17 @@ class YFuncStat(YStat):
         self.nactualcall += other.nactualcall
         self.ttot += other.ttot
         self.tsub += other.tsub
-        self.tavg += other.tavg
+        self.tavg = self.ttot / self.ncall
+        
         for other_child_stat in other.children:
             # all children point to a valid entry, and we shall have merged previous entries by here.
             if other_child_stat not in self.children:
                 self.children.append(other_child_stat)
             else:
+                cur_child_stat = self.children[other_child_stat]
                 cur_child_stat += other_child_stat
-        
+        return self
+                   
     def is_recursive(self):
         # we have a known bug where call_leave not called for some thread functions(run() especially)
         # in that case ncalls will be updated in call_enter, however nactualcall will not. This is for
@@ -155,6 +159,7 @@ class YChildFuncStat(YStat):
         self.ncall += other.ncall
         self.ttot += other.ttot
         self.tsub += other.tsub
+        return self
     
     def __hash__(self):
         return self.index     
@@ -198,12 +203,9 @@ class YStats(object):
         
     def __len__(self):
         return len(self._stats)
-        
-    #def __getitem__(self, item):
-    #    return self._stats[item]
-        
+      
 class YChildFuncStats(list):
-    def __getitem__(self, key):
+    def __getitem__(self, key):        
         if isinstance(key, int):
             for item in self:
                 if item.index == key:
@@ -212,11 +214,11 @@ class YChildFuncStats(list):
             for item in self:
                 if item.full_name == key:
                     return item
-        elif isinstance(key, YFuncStat):
+        elif isinstance(key, YFuncStat) or isinstance(key, YChildFuncStat):
             for item in self:
                 if item.index == key.index:
                     return item
-        
+                
 class YFuncStats(YStats):
 
     _idx_max = 0
@@ -266,7 +268,7 @@ class YFuncStats(YStats):
         fstat = YFuncStat(stat_entry + (tavg,full_name))
         
         # do not show profile stats of yappi itself. 
-        if os.path.basename(fstat.module) == ("%s.py" % __name__) or fstat.module == "_yappi": 
+        if os.path.basename(fstat.module) == "yappi.py" or fstat.module == "_yappi": 
             return
         fstat.builtin = bool(fstat.builtin)
         self._stats.append(fstat)
@@ -281,14 +283,14 @@ class YFuncStats(YStats):
             raise YappiError("Clock type mismatch between current and saved profiler sessions.[%s,%s]" % \
                 (self._clock_type, saved_clock_type))
         self._clock_type = saved_clock_type
-        
+                
         # add 'not present' previous entries with unique indexes
         for saved_stat in saved_stats:
-            if saved_stat not in self._stats:
+            if saved_stat not in self._stats:                
                 self._idx_max += 1
                 saved_stat.index = self._idx_max
-                self._stats.append(saved_stat)                
-                
+                self._stats.append(saved_stat)
+                                
         # fix children's index values
         for saved_stat in saved_stats:
             for saved_child_stat in saved_stat.children:
@@ -296,12 +298,12 @@ class YFuncStats(YStats):
                 # so as saved_stat is already in sync. (in above loop), we can safely assume
                 # that we shall point to a valid stat in current_stats with the child's full_name
                 saved_child_stat.index = self[saved_child_stat.full_name].index
-                                
+                
         # merge stats
         for saved_stat in saved_stats:
-            saved_stat_in_curr = self[saved_stat.full_name]
+            saved_stat_in_curr = self[saved_stat.full_name]            
             saved_stat_in_curr += saved_stat
-    
+                        
     def _save_as_YSTAT(self, path):
         file = open(path, "wb")
         pickle.dump((self._stats, self._clock_type), file)
@@ -545,20 +547,35 @@ def start(builtins=False, profile_threads=True):
     """
     if profile_threads:
         threading.setprofile(_callback)
+    YGlobs._profile_builtins = builtins
+    YGlobs._profile_threads = profile_threads
     _yappi.start(builtins, profile_threads)
 
+def _pause():
+    YGlobs._is_previously_running = is_running()
+    if YGlobs._is_previously_running:
+        stop()
+    
+def _resume():
+    if YGlobs._is_previously_running:
+        start(YGlobs._profile_builtins, YGlobs._profile_threads)
+            
 def get_func_stats():
     """
     Gets the function profiler results with given filters and returns an iterable.
     """
+    _pause()
     stats = YFuncStats().get()
+    _resume()
     return stats
 
 def get_thread_stats():
     """
     Gets the thread profiler results with given filters and returns an iterable.
     """
+    _pause()
     stats = YThreadStats().get()
+    _resume()
     return stats
 
 def stop():
