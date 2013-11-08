@@ -693,30 +693,34 @@ static _ctx *
 _profile_thread(PyThreadState *ts)
 {
     _ctx *ctx;
+    _hitem *it;
 
     ctx = _create_ctx();
     if (!ctx) {
         return NULL;
     }
-
+    
     // Use thread_id instead of ts pointer, because when we create/delete many threads, some
     // of them do not show up in the thread_stats, because ts pointers are recycled in the VM.
     // Also, we do not want to delete thread stats unless clear_stats() is called explicitly.
     // We rely on the OS to give us unique thread ids, this time.
     // thread_id -> long
-    if (!hadd(contexts, (uintptr_t)ts->thread_id, (uintptr_t)ctx)) {
-        _del_ctx(ctx);
-        if (!flput(flctx, ctx)) {
-            _log_err(10);
+    it = hfind(contexts, (uintptr_t)ts->thread_id);
+    if (!it) {
+        if (!hadd(contexts, (uintptr_t)ts->thread_id, (uintptr_t)ctx)) {
+            _del_ctx(ctx);
+            if (!flput(flctx, ctx)) {
+                _log_err(10);
+            }
+            _log_err(11);
+            return NULL;
         }
-        ydprintf("Context add failed. Already added?(%p, %ld)", ts,
-                PyThreadState_GET()->thread_id);
-        return NULL;
     }
 
     ts->use_tracing = 1;
     ts->c_profilefunc = _yapp_callback;
     ctx->id = ts->thread_id;
+    
     return ctx;
 }
 
@@ -744,7 +748,6 @@ static void
 _enum_threads(_ctx* (*f) (PyThreadState *))
 {
     PyThreadState *p = NULL;
-
     for (p=PyThreadState_GET()->interp->tstate_head ; p != NULL; p = p->next) {
         f(p);
     }
@@ -830,12 +833,12 @@ start(PyObject *self, PyObject *args)
     } else {
         _ensure_thread_profiled(PyThreadState_GET());
     }
-
+    
     yapprunning = 1;
     yapphavestats = 1;
     time (&yappstarttime);
     yappstarttick = tickcount();
-
+    
     Py_INCREF(Py_None);
     return Py_None;
 }
