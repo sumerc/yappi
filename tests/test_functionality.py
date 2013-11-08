@@ -115,7 +115,80 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         self.assertTrue(fsa1 is None)
         self.assertTrue(fsa2 is not None)
         self.assertTrue(fsa2.ttot > 0.1)
-   
+       
+class StatSaveScenarios(test_utils.YappiUnitTestCase):
+    def test_merge_aabab_aabb(self):
+        pass
+    def test_merge_stats(self):
+        _timings = {"a_1":15,"b_1":14,"c_1":12,"d_1":10,"e_1":9,"f_1":7,"g_1":6,"h_1":5,"i_1":1}
+        _yappi.set_test_timings(_timings)
+        def a():
+            b()
+        def b():
+            c()
+        def c():
+            d()
+        def d():
+            e()
+        def e():
+            f()
+        def f():
+            g()
+        def g():
+            h()
+        def h():
+            i()
+        def i():
+            pass     
+        yappi.start()
+        a()
+        a()
+        yappi.stop()
+        stats = yappi.get_func_stats()
+        self.assertRaises(NotImplementedError, stats.save, "", "INVALID_SAVE_TYPE")
+        stats.save("stats1.ys")
+        yappi.clear_stats()
+        _yappi.set_test_timings(_timings)
+        yappi.start()
+        a()        
+        stats = yappi.get_func_stats().add("stats1.ys")
+        fsa = test_utils.find_stat_by_name(stats, "a")
+        fsb = test_utils.find_stat_by_name(stats, "b")
+        fsc = test_utils.find_stat_by_name(stats, "c")
+        fsd = test_utils.find_stat_by_name(stats, "d")
+        fse = test_utils.find_stat_by_name(stats, "e")
+        fsf = test_utils.find_stat_by_name(stats, "f")
+        fsg = test_utils.find_stat_by_name(stats, "g")
+        fsh = test_utils.find_stat_by_name(stats, "h")
+        fsi = test_utils.find_stat_by_name(stats, "i")
+        self.assertEqual(fsa.ttot, 45)
+        self.assertEqual(fsa.ncall, 3)
+        self.assertEqual(fsa.nactualcall, 3)
+        self.assertEqual(fsa.tsub, 3)
+        self.assertEqual(fsa.children[fsb].ttot, fsb.ttot)
+        self.assertEqual(fsa.children[fsb].tsub, fsb.tsub)
+        self.assertEqual(fsb.children[fsc].ttot, fsc.ttot)
+        self.assertEqual(fsb.children[fsc].tsub, fsc.tsub)
+        self.assertEqual(fsc.tsub, 6)
+        self.assertEqual(fsc.children[fsd].ttot, fsd.ttot)
+        self.assertEqual(fsc.children[fsd].tsub, fsd.tsub)        
+        self.assertEqual(fsd.children[fse].ttot, fse.ttot)
+        self.assertEqual(fsd.children[fse].tsub, fse.tsub) 
+        self.assertEqual(fse.children[fsf].ttot, fsf.ttot)
+        self.assertEqual(fse.children[fsf].tsub, fsf.tsub) 
+        self.assertEqual(fsf.children[fsg].ttot, fsg.ttot)
+        self.assertEqual(fsf.children[fsg].tsub, fsg.tsub) 
+        self.assertEqual(fsg.ttot, 18)
+        self.assertEqual(fsg.tsub, 3)
+        self.assertEqual(fsg.children[fsh].ttot, fsh.ttot)
+        self.assertEqual(fsg.children[fsh].tsub, fsh.tsub)
+        self.assertEqual(fsh.ttot, 15)
+        self.assertEqual(fsh.tsub, 12)
+        self.assertEqual(fsh.tavg, 5)
+        self.assertEqual(fsh.children[fsi].ttot, fsi.ttot)
+        self.assertEqual(fsh.children[fsi].tsub, fsi.tsub) 
+        #stats.debug_print()
+       
 class MultithreadedScenarios(test_utils.YappiUnitTestCase):
     
     def test_basic(self):
