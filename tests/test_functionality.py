@@ -316,8 +316,14 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         def c(): pass
         
         _timings = {"a_1":3,"b_1":2,"c_1":1,}
+        
+        yappi.start()
+        def g(): pass
+        g()
+        yappi.stop()
+        yappi.clear_stats()
         _yappi._set_test_timings(_timings)
-        yappi.start(builtins=True)
+        yappi.start()
         
         _dummy = []
         for i in range(WORKER_COUNT):
@@ -337,10 +343,23 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
             t = threading.Thread(target=c)
             t.start()
             t.join()    
-            
-        #yappi.get_func_stats().print_all()
-        # TODO: assert
-   
+        yappi.stop()    
+        yappi.start()
+        def f():
+            pass
+        f() 
+        stats = yappi.get_func_stats()
+        self.assertEqual(len(stats), 4)
+        fsa = test_utils.find_stat_by_name(stats, 'a')
+        fsb = test_utils.find_stat_by_name(stats, 'b')
+        fsc = test_utils.find_stat_by_name(stats, 'c')
+        self.assertEqual(fsa.ncall, 10)
+        self.assertEqual(fsb.ncall, 5)
+        self.assertEqual(fsc.ncall, 5)
+        self.assertEqual(fsa.ttot, fsa.tsub, 30)
+        self.assertEqual(fsb.ttot, fsb.tsub, 10)
+        self.assertEqual(fsc.ttot, fsc.tsub, 5)
+           
     def test_basic(self):
         import threading
         import time
