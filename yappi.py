@@ -11,7 +11,6 @@ import _yappi
 import pickle
 
 class YappiError(Exception): pass
-class YGlobs: pass
 
 __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
            'get_clock_type', 'set_clock_type',  'get_mem_usage']
@@ -51,7 +50,7 @@ def _validate_sortorder(sort_order):
  structure. This is an internal function please don't mess with it.
 '''
 def _callback(frame, event, arg):
-    _yappi.profile_event(frame, event, arg)
+    _yappi._profile_event(frame, event, arg)
     return _callback
     
 class StatString(object):
@@ -265,11 +264,15 @@ class YFuncStats(YStats):
             full_name = "%s:%d %s" % (stat_entry[1], stat_entry[2], stat_entry[0])       
             
         tavg = stat_entry[6]/stat_entry[3]
-        fstat = YFuncStat(stat_entry + (tavg,full_name))
+        fstat = YFuncStat(stat_entry + (tavg, full_name))
+        
+        # if builtin is False, then do not profile functions from the Python std. lib.
+        if not _yappi.get_start_flags()["profile_builtins"]:
+            _py_path = os.path.dirname(sys.executable)
+            if fstat.module.startswith(_py_path):
+                return
         
         # do not show profile stats of yappi itself.
-        # TODO: if builtin is False, then do not also profile Python Lib functions, too.
-        # can use sys.executable to retrieve Python path.
         if os.path.basename(fstat.module) == "yappi.py" or fstat.module == "_yappi":
             return
         fstat.builtin = bool(fstat.builtin)
@@ -549,35 +552,24 @@ def start(builtins=False, profile_threads=True):
     """
     if profile_threads:
         threading.setprofile(_callback)
-    YGlobs._profile_builtins = builtins
-    YGlobs._profile_threads = profile_threads
     _yappi.start(builtins, profile_threads)
 
-def _pause():
-    YGlobs._is_previously_running = is_running()
-    if YGlobs._is_previously_running:
-        stop()
-    
-def _resume():
-    if YGlobs._is_previously_running:
-        start(YGlobs._profile_builtins, YGlobs._profile_threads)
-            
 def get_func_stats():
     """
     Gets the function profiler results with given filters and returns an iterable.
     """
-    _pause()
+    _yappi._pause()
     stats = YFuncStats().get()
-    _resume()
+    _yappi._resume()
     return stats
 
 def get_thread_stats():
     """
     Gets the thread profiler results with given filters and returns an iterable.
     """
-    _pause()
+    _yappi._pause()
     stats = YThreadStats().get()
-    _resume()
+    _yappi._resume()
     return stats
 
 def stop():

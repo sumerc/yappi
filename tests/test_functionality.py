@@ -8,6 +8,8 @@ import unittest
 class BasicUsage(test_utils.YappiUnitTestCase):
     
     def test_subsequent_profile(self):
+        _timings = {"a_1":1, "b_1":1}
+        _yappi._set_test_timings(_timings)
         def a(): pass
         def b(): pass
         
@@ -22,7 +24,9 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         fsb = test_utils.find_stat_by_name(stats, 'b')
         self.assertTrue(fsa is not None)
         self.assertTrue(fsb is not None)
-     
+        self.assertEqual(fsa.ttot, 1)
+        self.assertEqual(fsb.ttot, 1)
+             
     def test_lambda(self):
         import time
         f = lambda : time.sleep(0.3)
@@ -54,7 +58,7 @@ class BasicUsage(test_utils.YappiUnitTestCase):
                 
     def test_stat_sorting(self):
         _timings = {"a_1":13,"b_1":10,"a_2":6,"b_2":1}
-        _yappi.set_test_timings(_timings)
+        _yappi._set_test_timings(_timings)
 
         self._ncall = 1
         def a():
@@ -99,8 +103,22 @@ class BasicUsage(test_utils.YappiUnitTestCase):
           
         self.assertRaises(yappi.YappiError, stats.sort, "invalid_func_sorttype_arg")
         self.assertRaises(yappi.YappiError, stats.sort, "totaltime", "invalid_func_sortorder_arg")
-            
+
+    def test_start_flags(self):
+        self.assertEqual(_yappi.get_start_flags(), None)
+        yappi.start()
+        def a(): pass
+        a()
+        self.assertEqual(_yappi.get_start_flags()["profile_builtins"], 0)
+        self.assertEqual(_yappi.get_start_flags()["profile_multithread"], 1)
+        self.assertEqual(len(yappi.get_func_stats()), 1)
+        
+        # this is not true sometimes, as even though the thread is gone, Python does not immediately frees the thread info
+        # from threading module, so we still enumerate some threads even though we have cleared stats for them:
+        self.assertEqual(len(yappi.get_thread_stats()), 1) # TODO: fix, if clear_stats called then this _shall_ work.
+        
     def test_builtin_profiling(self):
+        import threading
         def a():
             import time
             time.sleep(0.4) # is a builtin function
@@ -112,6 +130,17 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         fsa = test_utils.find_stat_by_name(stats, 'sleep')
         self.assertTrue(fsa is not None)
         self.assertTrue(fsa.ttot > 0.3)
+        yappi.stop()
+        yappi.clear_stats()
+        
+        def a():
+            pass
+        yappi.start()
+        t = threading.Thread(target=a)
+        t.start()
+        t.join()
+        stats = yappi.get_func_stats()
+        self.assertEqual(len(stats), 1)
         
     def test_singlethread_profiling(self):
         import threading
@@ -140,7 +169,7 @@ class BasicUsage(test_utils.YappiUnitTestCase):
 class StatSaveScenarios(test_utils.YappiUnitTestCase):
     def test_merge_aabab_aabbc(self):
         _timings = {"a_1":15,"a_2":14,"b_1":12,"a_3":10,"b_2":9, "c_1":4}
-        _yappi.set_test_timings(_timings)
+        _yappi._set_test_timings(_timings)
         
         def a():
             if self._ncall == 1:
@@ -169,26 +198,48 @@ class StatSaveScenarios(test_utils.YappiUnitTestCase):
         stats = test_utils.run_and_get_func_stats(a,)
         stats.save("stats1.ys")
         yappi.clear_stats()
-        _yappi.set_test_timings(_timings)
-        stats.print_all()
+        _yappi._set_test_timings(_timings)
+        #stats.print_all()
                
         self._ncall = 5
         stats = test_utils.run_and_get_func_stats(a,)
         stats.save("stats2.ys")
-        stats.print_all()
+        #stats.print_all()
         
         def a(): # same name but another function(code object)
             pass
         yappi.start()
         a()
         stats = yappi.get_func_stats().add("stats1.ys").add("stats2.ys")
-        #stats.print_all()
-        # we have stats1 + 2 * stats2 + last stat (a)
-        # TODO: assert
+        #stats.print_all()        
+        self.assertEqual(len(stats), 4)
+        
+        fsa = None
+        for stat in stats:
+            if stat.name == "a" and stat.ttot == 45:
+                fsa = stat
+                break
+        self.assertTrue(fsa is not None)
+        
+        self.assertEqual(fsa.ncall, 7)
+        self.assertEqual(fsa.nactualcall, 3)
+        self.assertEqual(fsa.ttot, 45)
+        self.assertEqual(fsa.tsub, 10)
+        fsb = test_utils.find_stat_by_name(stats, "b")
+        fsc = test_utils.find_stat_by_name(stats, "c")
+        self.assertEqual(fsb.ncall, 6)
+        self.assertEqual(fsb.nactualcall, 3)
+        self.assertEqual(fsb.ttot, 36)
+        self.assertEqual(fsb.tsub, 27)
+        self.assertEqual(fsb.tavg, 6)
+        self.assertEqual(fsc.ttot, 8)
+        self.assertEqual(fsc.tsub, 8)
+        self.assertEqual(fsc.tavg, 4)
+        self.assertEqual(fsc.nactualcall, fsc.ncall, 2)  
         
     def test_merge_stats(self):
         _timings = {"a_1":15,"b_1":14,"c_1":12,"d_1":10,"e_1":9,"f_1":7,"g_1":6,"h_1":5,"i_1":1}
-        _yappi.set_test_timings(_timings)
+        _yappi._set_test_timings(_timings)
         def a():
             b()
         def b():
@@ -215,7 +266,7 @@ class StatSaveScenarios(test_utils.YappiUnitTestCase):
         self.assertRaises(NotImplementedError, stats.save, "", "INVALID_SAVE_TYPE")
         stats.save("stats2.ys")
         yappi.clear_stats()
-        _yappi.set_test_timings(_timings)
+        _yappi._set_test_timings(_timings)
         yappi.start()
         a()        
         stats = yappi.get_func_stats().add("stats2.ys")
@@ -265,8 +316,8 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         def c(): pass
         
         _timings = {"a_1":3,"b_1":2,"c_1":1,}
-        _yappi.set_test_timings(_timings)
-        yappi.start()
+        _yappi._set_test_timings(_timings)
+        yappi.start(builtins=True)
         
         _dummy = []
         for i in range(WORKER_COUNT):
@@ -335,7 +386,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         import time
         time.sleep(1.0)
         _timings = {"a_1":6,"b_1":5,"c_1":3, "d_1":1, "a_2":4,"b_2":3,"c_2":2, "d_2":1}
-        _yappi.set_test_timings(_timings)
+        _yappi._set_test_timings(_timings)
         class Thread1(Thread): pass
         class Thread2(Thread): pass
         def a():
@@ -490,7 +541,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
 class NonRecursiveFunctions(test_utils.YappiUnitTestCase):
     def test_abcd(self):
         _timings = {"a_1":6,"b_1":5,"c_1":3, "d_1":1}
-        _yappi.set_test_timings(_timings)
+        _yappi._set_test_timings(_timings)
 
         def a():
             b()
@@ -527,7 +578,7 @@ class NonRecursiveFunctions(test_utils.YappiUnitTestCase):
     def test_stop_in_middle(self):
         import time
         _timings = {"a_1":6,"b_1":4}
-        _yappi.set_test_timings(_timings)
+        _yappi._set_test_timings(_timings)
 
         def a():
             b()
@@ -562,7 +613,7 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
         
     def test_abcadc(self):
         _timings = {"a_1":20,"b_1":19,"c_1":17, "a_2":13, "d_1":12, "c_2":10, "a_3":5}
-        _yappi.set_test_timings(_timings)
+        _yappi._set_test_timings(_timings)
             
         def a(n):
             if n == 3:
@@ -600,7 +651,7 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
         
     def test_aaaa(self):
         _timings = {"d_1":9, "d_2":7, "d_3":3, "d_4":2}
-        _yappi.set_test_timings(_timings)
+        _yappi._set_test_timings(_timings)
         def d(n):
             if n == 3:
                 return
@@ -619,7 +670,7 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
         
     def test_abcabc(self):
         _timings = {"a_1":20,"b_1":19,"c_1":17, "a_2":13, "b_2":11, "c_2":9, "a_3":6}
-        _yappi.set_test_timings(_timings)
+        _yappi._set_test_timings(_timings)
             
         def a(n):
             if n == 3:
@@ -655,7 +706,7 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
         
     def test_abcbca(self):
         _timings = {"a_1":10,"b_1":9,"c_1":7,"b_2":4,"c_2":2,"a_2":1}
-        _yappi.set_test_timings(_timings)
+        _yappi._set_test_timings(_timings)
         self._ncall = 1
         def a():
             if self._ncall == 1:
@@ -694,7 +745,7 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
 
     def test_aabccb(self):
         _timings = {"a_1":13,"a_2":11,"b_1":9,"c_1":5,"c_2":3,"b_2":1}
-        _yappi.set_test_timings(_timings)
+        _yappi._set_test_timings(_timings)
         self._ncall = 1
         def a():
             if self._ncall == 1:
@@ -738,7 +789,7 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
 
     def test_abaa(self):
         _timings = {"a_1":13,"b_1":10,"a_2":9,"a_3":5}
-        _yappi.set_test_timings(_timings)
+        _yappi._set_test_timings(_timings)
 
         self._ncall = 1
         def a():
@@ -769,7 +820,7 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
     
     def test_aabb(self):
         _timings = {"a_1":13,"a_2":10,"b_1":9,"b_2":5}
-        _yappi.set_test_timings(_timings)
+        _yappi._set_test_timings(_timings)
 
         self._ncall = 1
         def a():
@@ -806,7 +857,7 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
 
     def test_abbb(self):
         _timings = {"a_1":13,"b_1":10,"b_2":6,"b_3":1}
-        _yappi.set_test_timings(_timings)
+        _yappi._set_test_timings(_timings)
 
         self._ncall = 1
         def a():
@@ -838,7 +889,7 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
     
     def test_aaab(self):
         _timings = {"a_1":13,"a_2":10,"a_3":6,"b_1":1}
-        _yappi.set_test_timings(_timings)
+        _yappi._set_test_timings(_timings)
 
         self._ncall = 1
         def a():
@@ -866,7 +917,7 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
     
     def test_abab(self):
         _timings = {"a_1":13,"b_1":10,"a_2":6,"b_2":1}
-        _yappi.set_test_timings(_timings)
+        _yappi._set_test_timings(_timings)
 
         self._ncall = 1
         def a():

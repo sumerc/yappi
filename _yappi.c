@@ -81,6 +81,7 @@ static int yappinitialized;
 static unsigned int ycurfuncindex; // used for providing unique index for functions
 static int yapphavestats;	// start() called at least once or stats cleared?
 static int yapprunning;
+static int paused;
 static time_t yappstarttime;
 static long long yappstarttick;
 static long long yappstoptick;
@@ -1171,6 +1172,49 @@ get_clock_type(PyObject *self, PyObject *args)
     return result;
 }
 
+static PyObject*
+get_start_flags(PyObject *self, PyObject *args)
+{
+    PyObject *result;
+    
+    if (!yapphavestats) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+
+    result = PyDict_New();
+    PyDict_SetItemString(result, "profile_builtins", Py_BuildValue("i", flags.builtins));
+    PyDict_SetItemString(result, "profile_multithread", Py_BuildValue("i", flags.multithreaded));
+    
+    return result;
+}
+
+static PyObject*
+pause(PyObject *self, PyObject *args)
+{
+    if (yapprunning)
+    {
+        paused = 1;
+        stop(self, NULL);
+    }
+    
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject*
+resume(PyObject *self, PyObject *args)
+{
+    if (paused)
+    {
+        paused = 0;        
+        start(self, Py_BuildValue("ii", &flags.builtins, &flags.multithreaded));
+    }
+    
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
 static PyMethodDef yappi_methods[] = {
     {"start", start, METH_VARARGS, NULL},
     {"stop", stop, METH_VARARGS, NULL},
@@ -1181,8 +1225,11 @@ static PyMethodDef yappi_methods[] = {
     {"get_clock_type", get_clock_type, METH_VARARGS, NULL},
     {"set_clock_type", set_clock_type, METH_VARARGS, NULL},
     {"get_mem_usage", get_mem_usage, METH_VARARGS, NULL},
-    {"set_test_timings", set_test_timings, METH_VARARGS, NULL}, // for test usage. do not call this directly.
-    {"profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage. do not call this.
+    {"get_start_flags", get_start_flags, METH_VARARGS, NULL},
+    {"_set_test_timings", set_test_timings, METH_VARARGS, NULL}, // for internal usage.
+    {"_profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage.
+    {"_pause", pause, METH_VARARGS, NULL}, // for internal usage.
+    {"_resume", resume, METH_VARARGS, NULL}, // for internal usage.
     {NULL, NULL}      /* sentinel */
 };
 
@@ -1227,6 +1274,9 @@ init_yappi(void)
     yappinitialized = 0;
     yapphavestats = 0;
     yapprunning = 0;
+    paused = 0;
+    flags.builtins = 0;
+    flags.multithreaded = 0;
     test_timings = NULL;
     
     if (!_init_profiler()) {
