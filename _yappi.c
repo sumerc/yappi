@@ -1211,7 +1211,7 @@ resume(PyObject *self, PyObject *args)
     if (paused)
     {
         paused = 0;        
-        start(self, Py_BuildValue("ii", &flags.builtins, &flags.multithreaded));
+        start(self, Py_BuildValue("ii", flags.builtins, flags.multithreaded));
     }
     
     Py_INCREF(Py_None);

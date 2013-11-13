@@ -275,6 +275,7 @@ class YFuncStats(YStats):
         # do not show profile stats of yappi itself.
         if os.path.basename(fstat.module) == "yappi.py" or fstat.module == "_yappi":
             return
+            
         fstat.builtin = bool(fstat.builtin)
         self._stats.append(fstat)
         
@@ -583,8 +584,10 @@ def clear_stats():
     """
     Clears all of the profile results.
     """
+    _yappi._pause()
     _yappi.clear_stats()
-
+    _yappi._resume()
+    
 def get_clock_type():
     """
     Returns the OS api used for timing plus the precision and the clock type information in a dict.
