@@ -1193,7 +1193,7 @@ get_start_flags(PyObject *self, PyObject *args)
 }
 
 static PyObject*
-pause(PyObject *self, PyObject *args)
+_pause(PyObject *self, PyObject *args)
 {
     if (yapprunning)
     {
@@ -1206,7 +1206,7 @@ pause(PyObject *self, PyObject *args)
 }
 
 static PyObject*
-resume(PyObject *self, PyObject *args)
+_resume(PyObject *self, PyObject *args)
 {
     if (paused)
     {
@@ -1231,8 +1231,8 @@ static PyMethodDef yappi_methods[] = {
     {"get_start_flags", get_start_flags, METH_VARARGS, NULL},
     {"_set_test_timings", set_test_timings, METH_VARARGS, NULL}, // for internal usage.
     {"_profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage.
-    {"_pause", pause, METH_VARARGS, NULL}, // for internal usage.
-    {"_resume", resume, METH_VARARGS, NULL}, // for internal usage.
+    {"_pause", _pause, METH_VARARGS, NULL}, // for internal usage.
+    {"_resume", _resume, METH_VARARGS, NULL}, // for internal usage.
     {NULL, NULL}      /* sentinel */
 };
 
