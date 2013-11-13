@@ -112,10 +112,7 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         self.assertEqual(_yappi.get_start_flags()["profile_builtins"], 0)
         self.assertEqual(_yappi.get_start_flags()["profile_multithread"], 1)
         self.assertEqual(len(yappi.get_func_stats()), 1)
-        
-        # this is not true sometimes, as even though the thread is gone, Python does not immediately frees the thread info
-        # from threading module, so we still enumerate some threads even though we have cleared stats for them:
-        self.assertEqual(len(yappi.get_thread_stats()), 1) # TODO: fix, if clear_stats called then this _shall_ work.
+        self.assertEqual(len(yappi.get_thread_stats()), 1) 
         
     def test_builtin_profiling(self):
         import threading
@@ -359,6 +356,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         self.assertEqual(fsa.ttot, fsa.tsub, 30)
         self.assertEqual(fsb.ttot, fsb.tsub, 10)
         self.assertEqual(fsc.ttot, fsc.tsub, 5)
+        self.assertEqual(len(yappi.get_thread_stats()), 21)
            
     def test_basic(self):
         import threading
@@ -384,7 +382,13 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         self.assertTrue(fsa2 is not None)
         self.assertTrue(fsa1.ttot > 0.2)
         self.assertTrue(fsa2.ttot > 0.1)
-    
+        tstats = yappi.get_thread_stats()
+        self.assertEqual(len(tstats), 2)
+        tsa = test_utils.find_stat_by_name(tstats, 'Worker1')
+        tsm = test_utils.find_stat_by_name(tstats, '_MainThread')
+        self.assertTrue(tsa is not None)
+        self.assertTrue(tsm is not None)
+        
     def test_ctx_stats(self):
         from threading import Thread        
         DUMMY_WORKER_COUNT = 5
@@ -400,7 +404,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         yappi.stop()
         stats = yappi.get_thread_stats()
         tsa = test_utils.find_stat_by_name(stats, "DummyThread")
-        assert tsa is not None
+        self.assertTrue(tsa is not None)
         yappi.clear_stats()        
         import time
         time.sleep(1.0)
@@ -434,6 +438,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         tst2 = test_utils.find_stat_by_name(stats, "Thread2")
         tsmain = test_utils.find_stat_by_name(stats, "_MainThread")
         #stats.print_all()
+        self.assertTrue(len(stats) == 3)
         self.assertTrue(tst1 is not None)
         self.assertTrue(tst2 is not None)
         self.assertTrue(tsmain is not None) # FIX: I see this fails sometimes?

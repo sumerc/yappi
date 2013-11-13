@@ -945,18 +945,21 @@ _ctxenumstat(_hitem *item, void *arg)
     unsigned int last_builtin;
 
     ctx = (_ctx *)item->val;
-
-    if(ctx->last_pit) {
-        last_func_name = ctx->last_pit->name;
-        last_mod_name = ctx->last_pit->modname;
-        last_line_no = ctx->last_pit->lineno;
-        last_builtin = ctx->last_pit->builtin;
-    } else {
-        last_func_name = PyStr_FromString(UNINITIALIZED_STRING_VAL);
-        last_mod_name = PyStr_FromString(UNINITIALIZED_STRING_VAL);
-        last_line_no = 0;
-        last_builtin = 0;
+    
+    if(!ctx->last_pit) {
+        // we return here because if last_pit is not assigned, then this means not any single function
+        // executed in the context of this thread. We do not want to show any thread stats for this case especially
+        // because of the following case: start()/lots of MT calls/stop()/clear_stats()/start()/get_thread_stats()
+        // still returns the threads from the previous cleared session. That is because Python VM does not free them
+        // in the second start() call, we enumerate the active threads from the threading module and they are still there.
+        // second invocation of test_start_flags() generates this situation.
+        return 0;
     }
+    
+    last_func_name = ctx->last_pit->name;
+    last_mod_name = ctx->last_pit->modname;
+    last_line_no = ctx->last_pit->lineno;
+    last_builtin = ctx->last_pit->builtin;    
 
     tcname = ctx->class_name;
     if (tcname == NULL)
