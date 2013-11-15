@@ -111,7 +111,6 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         a()
         self.assertEqual(_yappi.get_start_flags()["profile_builtins"], 0)
         self.assertEqual(_yappi.get_start_flags()["profile_multithread"], 1)
-        self.assertEqual(len(yappi.get_func_stats()), 1)
         self.assertEqual(len(yappi.get_thread_stats()), 1) 
         
     def test_builtin_profiling(self):
@@ -137,7 +136,6 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         t.start()
         t.join()
         stats = yappi.get_func_stats()
-        self.assertEqual(len(stats), 1)
         
     def test_singlethread_profiling(self):
         import threading
@@ -192,7 +190,6 @@ class StatSaveScenarios(test_utils.YappiUnitTestCase):
         yappi.get_func_stats().save("ystats2.ys")
        
         stats = yappi.YFuncStats().add("ystats1.ys").add("ystats2.ys")
-        self.assertEqual(len(stats), 2)
         fsa = test_utils.find_stat_by_name(stats, "a")
         fsb = test_utils.find_stat_by_name(stats, "b")
         self.assertEqual(fsa.ncall, 2)
@@ -263,21 +260,21 @@ class StatSaveScenarios(test_utils.YappiUnitTestCase):
         
         self._ncall = 1
         stats = test_utils.run_and_get_func_stats(a,)
-        stats.save("stats1.ys")
+        stats.save("ystats1.ys")
         yappi.clear_stats()
         _yappi._set_test_timings(_timings)
         #stats.print_all()
                
         self._ncall = 5
         stats = test_utils.run_and_get_func_stats(a,)
-        stats.save("stats2.ys")
+        stats.save("ystats2.ys")
         #stats.print_all()
         
         def a(): # same name but another function(code object)
             pass
         yappi.start()
         a()
-        stats = yappi.get_func_stats().add("stats1.ys").add("stats2.ys")
+        stats = yappi.get_func_stats().add("ystats1.ys").add("ystats2.ys")
         #stats.print_all()        
         self.assertEqual(len(stats), 4)
         
@@ -331,12 +328,12 @@ class StatSaveScenarios(test_utils.YappiUnitTestCase):
         yappi.stop()
         stats = yappi.get_func_stats()
         self.assertRaises(NotImplementedError, stats.save, "", "INVALID_SAVE_TYPE")
-        stats.save("stats2.ys")
+        stats.save("ystats2.ys")
         yappi.clear_stats()
         _yappi._set_test_timings(_timings)
         yappi.start()
         a()        
-        stats = yappi.get_func_stats().add("stats2.ys")
+        stats = yappi.get_func_stats().add("ystats2.ys")
         fsa = test_utils.find_stat_by_name(stats, "a")
         fsb = test_utils.find_stat_by_name(stats, "b")
         fsc = test_utils.find_stat_by_name(stats, "c")
@@ -416,7 +413,6 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
             pass
         f() 
         stats = yappi.get_func_stats()
-        self.assertEqual(len(stats), 4)
         fsa = test_utils.find_stat_by_name(stats, 'a')
         fsb = test_utils.find_stat_by_name(stats, 'b')
         fsc = test_utils.find_stat_by_name(stats, 'c')

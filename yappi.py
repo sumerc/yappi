@@ -266,12 +266,6 @@ class YFuncStats(YStats):
         tavg = stat_entry[6]/stat_entry[3]
         fstat = YFuncStat(stat_entry + (tavg, full_name))
         
-        # if builtin is False, then do not profile functions from the Python std. lib.
-        if not _yappi.get_start_flags()["profile_builtins"]:
-            _py_path = os.path.dirname(sys.executable)
-            if fstat.module.startswith(_py_path):
-                return
-        
         # do not show profile stats of yappi itself.
         if os.path.basename(fstat.module) == "yappi.py" or fstat.module == "_yappi":
             return
