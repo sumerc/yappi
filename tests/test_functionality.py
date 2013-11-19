@@ -105,12 +105,12 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         self.assertRaises(yappi.YappiError, stats.sort, "totaltime", "invalid_func_sortorder_arg")
 
     def test_start_flags(self):
-        self.assertEqual(_yappi.get_start_flags(), None)
+        self.assertEqual(_yappi._get_start_flags(), None)
         yappi.start()
         def a(): pass
         a()
-        self.assertEqual(_yappi.get_start_flags()["profile_builtins"], 0)
-        self.assertEqual(_yappi.get_start_flags()["profile_multithread"], 1)
+        self.assertEqual(_yappi._get_start_flags()["profile_builtins"], 0)
+        self.assertEqual(_yappi._get_start_flags()["profile_multithread"], 1)
         self.assertEqual(len(yappi.get_thread_stats()), 1) 
         
     def test_builtin_profiling(self):
@@ -185,8 +185,8 @@ class StatSaveScenarios(test_utils.YappiUnitTestCase):
         t.start()
         t.join()
         
-        self.assertEqual(_yappi.get_start_flags()["profile_builtins"], 0)
-        self.assertEqual(_yappi.get_start_flags()["profile_multithread"], 1)
+        self.assertEqual(_yappi._get_start_flags()["profile_builtins"], 0)
+        self.assertEqual(_yappi._get_start_flags()["profile_multithread"], 1)
         yappi.get_func_stats().save("ystats2.ys")
        
         stats = yappi.YFuncStats().add("ystats1.ys").add("ystats2.ys")

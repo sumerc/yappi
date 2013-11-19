@@ -278,7 +278,10 @@ class YFuncStats(YStats):
             self._idx_max = fstat.index
         
     def _add_from_YSTAT(self, file):
-        saved_stats, saved_clock_type = pickle.load(file)
+        try:
+            saved_stats, saved_clock_type = pickle.load(file)
+        except:
+            raise YappiError("Unable to load the saved profile information from %s." % (file.name))
         if self._clock_type != saved_clock_type and self._clock_type is not None:
             raise YappiError("Clock type mismatch between current and saved profiler sessions.[%s,%s]" % \
                 (self._clock_type, saved_clock_type))
@@ -307,7 +310,7 @@ class YFuncStats(YStats):
     def _save_as_YSTAT(self, path):
         file = open(path, "wb")
         pickle.dump((self._stats, self._clock_type), file)
-        
+                
     def _save_as_PSTAT(self, path):
         """
         Save the profiling information as PSTAT. For this, we first need to convert our internal
@@ -349,11 +352,14 @@ class YFuncStats(YStats):
         for fs in self:
             if not fs in _callers:
                 _callers[fs] = {}
+                
             for ct in fs.children:
                 if not ct in _callers:
                     _callers[ct] = {}
                 _callers[ct][pstat_id(fs)] = (ct.ncall, ct.nactualcall, ct.tsub ,ct.ttot)
-                        
+        
+        
+        
         # populate the pstat dict.
         for fs in self:
             _pstat_dict[pstat_id(fs)] = (fs.ncall, fs.nactualcall, fs.tsub, fs.ttot, _callers[fs], )
@@ -606,15 +612,15 @@ def get_mem_usage():
  
 def main():
     from optparse import OptionParser
-    usage = "yappi.py [-b] [scriptfile] args ..."
+    usage = "yappi.py [-b] [-s] [scriptfile] args ..."
     parser = OptionParser(usage=usage)
     parser.allow_interspersed_args = False
     parser.add_option("-b", "--builtins",
                   action="store_true", dest="profile_builtins", default=False,
                   help="Profiles builtin functions when set. [default: False]")
-    parser.add_option("-m", "--profile_threads",
-                  action="store_true", dest="profile_threads", default=True,
-                  help="Profiles all of the threads. [default: True]")
+    parser.add_option("-s", "--single_thread",
+                  action="store_true", dest="profile_single_thread", default=False,
+                  help="Profiles only the thread that calls start(). [default: False]")
     if not sys.argv[1:]:
         parser.print_usage()
         sys.exit(2)
@@ -624,7 +630,7 @@ def main():
 
     if (len(sys.argv) > 0):
         sys.path.insert(0, os.path.dirname(sys.argv[0]))
-        start(options.profile_builtins, options.profile_multithreaded)
+        start(options.profile_builtins, not options.profile_single_thread)
         if sys.version_info >= (3, 0):
             exec(compile(open(sys.argv[0]).read(), sys.argv[0], 'exec'),
                sys._getframe(1).f_globals, sys._getframe(1).f_locals)
