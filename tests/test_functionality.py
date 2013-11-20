@@ -509,7 +509,9 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         self.assertTrue(len(stats) == 3)
         self.assertTrue(tst1 is not None)
         self.assertTrue(tst2 is not None)
-        self.assertTrue(tsmain is not None) # FIX: I see this fails sometimes?
+        self.assertTrue(tsmain is not None) # I see this fails sometimes, probably 
+        # because Py_ImportNoBlock() fails to import and get the thread class name 
+        # sometimes.
         self.assertTrue(1.0 > tst2.ttot >= 0.5)
         self.assertTrue(1.0 > tst1.ttot >= 0.5)
         
