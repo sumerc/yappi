@@ -593,15 +593,16 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         yappi.stop()
 
     @unittest.skipIf(os.name != "posix", "requires Posix compliant OS")
-    def test_signals_with_blocking_calls(self):
-        # copied from Python Docs:
-        import signal, os
-        def handler(signum, frame):
-            raise Exception("Couldn't open device!")        
-        signal.signal(signal.SIGALRM, handler)
-        signal.alarm(5)
-        # TODO: find a *nix blocking call
-        signal.alarm(0)          # Disable the alarm
+    def test_signals_with_blocking_calls(self): 
+        import signal, os, time 
+        # just to verify if signal is handled correctly and stats/yappi are not corrupted.
+        def handler(signum, frame): 
+            raise Exception("Signal handler executed!")
+        yappi.start()    
+        signal.signal(signal.SIGALRM, handler) 
+        signal.alarm(1)
+        self.assertRaises(Exception, time.sleep, 2)
+        self.assertEqual(len(yappi.get_func_stats()), 2)
             
     @unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
     def test_concurrent_futures(self):
