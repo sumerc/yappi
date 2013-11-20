@@ -2,7 +2,7 @@
  yappi.py
  Yet Another Python Profiler
 
- Sumer Cip 2013
+ Sumer Cip 2014
 '''
 import os
 import sys
@@ -449,11 +449,11 @@ class YFuncStats(YStats):
             else:
                 out.write(StatString(stat.ncall).rtrim(CALLCOUNT_LEN))
             out.write(" " * COLUMN_GAP)
-            out.write(StatString("%0.6f" % stat.tsub).rtrim(TIME_COLUMN_LEN))
+            out.write(StatString("%0.5f" % stat.tsub).rtrim(TIME_COLUMN_LEN))
             out.write(" " * COLUMN_GAP)
-            out.write(StatString("%0.6f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
+            out.write(StatString("%0.5f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
             out.write(" " * COLUMN_GAP)
-            out.write(StatString("%0.6f" % stat.tavg).rtrim(TIME_COLUMN_LEN))
+            out.write(StatString("%0.5f" % stat.tavg).rtrim(TIME_COLUMN_LEN))
             out.write(CRLF)
             
     def sort(self, sort_type, sort_order="desc"):
@@ -472,9 +472,9 @@ class YFuncStats(YStats):
             console.write(CRLF)
             console.write("ncall: %d/%d" % (stat.ncall, stat.nactualcall))
             console.write(CRLF)
-            console.write("ttot: %0.6f" % stat.ttot)
+            console.write("ttot: %0.5f" % stat.ttot)
             console.write(CRLF)
-            console.write("tsub: %0.6f" % stat.tsub)
+            console.write("tsub: %0.5f" % stat.tsub)
             console.write(CRLF)
             console.write("children: ")
             console.write(CRLF)
@@ -490,10 +490,10 @@ class YFuncStats(YStats):
                 console.write("ncall: %d/%d" % (child_stat.ncall, child_stat.nactualcall))
                 console.write(CRLF)
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
-                console.write("ttot: %0.6f" % child_stat.ttot)
+                console.write("ttot: %0.5f" % child_stat.ttot)
                 console.write(CRLF)      
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
-                console.write("tsub: %0.6f" % child_stat.tsub)
+                console.write("tsub: %0.5f" % child_stat.tsub)
                 console.write(CRLF) 
             console.write(CRLF)
         
@@ -539,7 +539,7 @@ class YThreadStats(YStats):
             out.write(" " * COLUMN_GAP)
             out.write(StatString(stat.last_func_full_name).ltrim(THREAD_FUNC_NAME_LEN))
             out.write(" " * COLUMN_GAP)
-            out.write(StatString("%0.6f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
+            out.write(StatString("%0.5f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
             out.write(" " * COLUMN_GAP)
             out.write(StatString(stat.sched_count).rtrim(THREAD_SCHED_CNT_LEN))
             out.write(CRLF)
