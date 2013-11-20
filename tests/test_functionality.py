@@ -602,7 +602,9 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         signal.signal(signal.SIGALRM, handler) 
         signal.alarm(1)
         self.assertRaises(Exception, time.sleep, 2)
-        self.assertEqual(len(yappi.get_func_stats()), 2)
+        stats = yappi.get_func_stats()
+        fsh = test_utils.find_stat_by_name(stats, "handler")
+        self.assertTrue(fsh is not None)
             
     @unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
     def test_concurrent_futures(self):
