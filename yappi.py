@@ -2,7 +2,7 @@
  yappi.py
  Yet Another Python Profiler
 
- Sumer Cip 2014
+ Sumer Cip 2013
 '''
 import os
 import sys
@@ -19,10 +19,14 @@ CRLF = '\n'
 COLUMN_GAP = 2
 TIME_COLUMN_LEN = 8 # 0.000000, 12345.98, precision is microsecs
 
-SORT_TYPES_FUNCSTATS = {"name":0, "callcount":3, "totaltime":6, "subtime":7, "avgtime":10}
-SORT_TYPES_THREADSTATS = {"name":0, "id":1, "totaltime":6, "schedcount":7}
+SORT_TYPES_FUNCSTATS = {"name":0, "callcount":3, "totaltime":6, "subtime":7, "avgtime":10,
+                        "ncall":3, "ttot":6, "tsub":7, "tavg":10}
+SORT_TYPES_THREADSTATS = {"name":0, "id":1, "totaltime":6, "schedcount":7,
+                          "ttot":6, "scnt":7}
 SORT_ORDERS = {"ascending":0, "asc":0, "descending":1, "desc":1}
 SHOW_ALL = 0
+DEFAULT_SORT_TYPE = "totaltime"
+DEFAULT_SORT_ORDER = "desc"
 
 CLOCK_TYPES = {"WALL":0, "CPU":1}
 
@@ -52,6 +56,19 @@ def _validate_sortorder(sort_order):
 def _callback(frame, event, arg):
     _yappi._profile_event(frame, event, arg)
     return _callback
+    
+'''
+function to prettify time columns in stats.
+'''
+def _fft(x):
+    _rprecision = 6
+    while(_rprecision > 0):
+        _fmt = "%0." + "%d" % (_rprecision) + "f"
+        s = _fmt % (x)
+        if len(s) <= TIME_COLUMN_LEN:
+            break
+        _rprecision -= 1
+    return s
     
 class StatString(object):
     """
@@ -179,7 +196,7 @@ class YStats(object):
         
     def get(self):
         self._clock_type = _yappi.get_clock_type()["type"]
-        return self
+        return self.sort(DEFAULT_SORT_TYPE, DEFAULT_SORT_ORDER)
         
     def sort(self, sort_type, sort_order):
         self._stats.sort(key=lambda stat: stat[sort_type], reverse=(sort_order==SORT_ORDERS["desc"]))
@@ -221,6 +238,8 @@ class YChildFuncStats(list):
 class YFuncStats(YStats):
 
     _idx_max = 0
+    _sort_type = None
+    _sort_order = None
     _SUPPORTED_LOAD_FORMATS = ['YSTAT']
     _SUPPORTED_SAVE_FORMATS = ['YSTAT', 'CALLGRIND', 'PSTAT']
     
@@ -419,7 +438,8 @@ class YFuncStats(YStats):
         finally:
             f.close()
             
-        return self
+        return self.sort(DEFAULT_SORT_TYPE, DEFAULT_SORT_ORDER)
+    
         
     def save(self, path, type="ystat"):
         type = type.upper()
@@ -433,9 +453,16 @@ class YFuncStats(YStats):
         """
         Prints all of the function profiler results to a given file. (stdout by default)
         """
+        if len(self) == 0:
+            return
+        
         FUNC_NAME_LEN = 38
         CALLCOUNT_LEN = 9
-        
+        out.write(CRLF)
+        out.write("Clock type: %s" % (self._clock_type))
+        out.write(CRLF)
+        out.write("Ordered by: %s, %s" % (self._sort_type, self._sort_order))
+        out.write(CRLF)
         out.write(CRLF)
         out.write("name                                    #n         tsub      ttot      tavg")
         out.write(CRLF)
@@ -449,16 +476,19 @@ class YFuncStats(YStats):
             else:
                 out.write(StatString(stat.ncall).rtrim(CALLCOUNT_LEN))
             out.write(" " * COLUMN_GAP)
-            out.write(StatString("%0.5f" % stat.tsub).rtrim(TIME_COLUMN_LEN))
+            out.write(StatString(_fft(stat.tsub)).rtrim(TIME_COLUMN_LEN))
             out.write(" " * COLUMN_GAP)
-            out.write(StatString("%0.5f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
+            out.write(StatString(_fft(stat.ttot)).rtrim(TIME_COLUMN_LEN))
             out.write(" " * COLUMN_GAP)
-            out.write(StatString("%0.5f" % stat.tavg).rtrim(TIME_COLUMN_LEN))
+            out.write(StatString(_fft(stat.tavg)).rtrim(TIME_COLUMN_LEN))
             out.write(CRLF)
             
     def sort(self, sort_type, sort_order="desc"):
         sort_type = _validate_func_sorttype(sort_type)
         sort_order = _validate_sortorder(sort_order)
+        
+        self._sort_type = sort_type
+        self._sort_order = sort_order
         
         return super(YFuncStats, self).sort(SORT_TYPES_FUNCSTATS[sort_type], SORT_ORDERS[sort_order])
         
@@ -472,9 +502,9 @@ class YFuncStats(YStats):
             console.write(CRLF)
             console.write("ncall: %d/%d" % (stat.ncall, stat.nactualcall))
             console.write(CRLF)
-            console.write("ttot: %0.5f" % stat.ttot)
+            console.write("ttot: %s" % _fft(stat.ttot))
             console.write(CRLF)
-            console.write("tsub: %0.5f" % stat.tsub)
+            console.write("tsub: %s" % _fft(stat.tsub))
             console.write(CRLF)
             console.write("children: ")
             console.write(CRLF)
@@ -490,10 +520,10 @@ class YFuncStats(YStats):
                 console.write("ncall: %d/%d" % (child_stat.ncall, child_stat.nactualcall))
                 console.write(CRLF)
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
-                console.write("ttot: %0.5f" % child_stat.ttot)
+                console.write("ttot: %s" % _fft(child_stat.ttot))
                 console.write(CRLF)      
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
-                console.write("tsub: %0.5f" % child_stat.tsub)
+                console.write("tsub: %s" % _fft(child_stat.tsub))
                 console.write(CRLF) 
             console.write(CRLF)
         
@@ -539,7 +569,7 @@ class YThreadStats(YStats):
             out.write(" " * COLUMN_GAP)
             out.write(StatString(stat.last_func_full_name).ltrim(THREAD_FUNC_NAME_LEN))
             out.write(" " * COLUMN_GAP)
-            out.write(StatString("%0.5f" % stat.ttot).rtrim(TIME_COLUMN_LEN))
+            out.write(StatString(_fft(stat.ttot)).rtrim(TIME_COLUMN_LEN))
             out.write(" " * COLUMN_GAP)
             out.write(StatString(stat.sched_count).rtrim(THREAD_SCHED_CNT_LEN))
             out.write(CRLF)
