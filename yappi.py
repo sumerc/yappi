@@ -18,6 +18,7 @@ __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats',
 CRLF = '\n'
 COLUMN_GAP = 2
 TIME_COLUMN_LEN = 8 # 0.000000, 12345.98, precision is microsecs
+YPICKLE_PROTOCOL = 2
 
 SORT_TYPES_FUNCSTATS = {"name":0, "callcount":3, "totaltime":6, "subtime":7, "avgtime":10,
                         "ncall":3, "ttot":6, "tsub":7, "tavg":10}
@@ -254,24 +255,27 @@ class YFuncStats(YStats):
                     return item
         
     def get(self):
-        _yappi.enum_func_stats(self._enumerator)
-        
-        # convert the children info from tuple to YChildFuncStat
-        for stat in self._stats:
-            _childs = YChildFuncStats()
-            for child_tpl in stat.children:
-                rstat = self[child_tpl[0]]
-                
-                # sometimes even the profile results does not contain the result because of filtering 
-                # or timing(call_leave called but call_enter is not), with this we ensure that the children
-                # index always point to a valid stat.
-                if rstat is None:
-                    continue 
+        _yappi._pause()
+        try:        
+            _yappi.enum_func_stats(self._enumerator)
+            
+            # convert the children info from tuple to YChildFuncStat
+            for stat in self._stats:
+                _childs = YChildFuncStats()
+                for child_tpl in stat.children:
+                    rstat = self[child_tpl[0]]
                     
-                cfstat = YChildFuncStat(child_tpl+(rstat.full_name,))
-                _childs.append(cfstat)
-            stat.children = _childs
-        
+                    # sometimes even the profile results does not contain the result because of filtering 
+                    # or timing(call_leave called but call_enter is not), with this we ensure that the children
+                    # index always point to a valid stat.
+                    if rstat is None:
+                        continue 
+                        
+                    cfstat = YChildFuncStat(child_tpl+(rstat.full_name,))
+                    _childs.append(cfstat)
+                stat.children = _childs
+        finally:
+            _yappi._resume()
         return super(YFuncStats, self).get()
     
     def _enumerator(self, stat_entry):
@@ -328,7 +332,7 @@ class YFuncStats(YStats):
                         
     def _save_as_YSTAT(self, path):
         file = open(path, "wb")
-        pickle.dump((self._stats, self._clock_type), file)
+        pickle.dump((self._stats, self._clock_type), file, YPICKLE_PROTOCOL)
                 
     def _save_as_PSTAT(self, path):
         """
@@ -530,8 +534,11 @@ class YFuncStats(YStats):
 class YThreadStats(YStats):
         
     def get(self):
-        _yappi.enum_thread_stats(self._enumerator)
-        
+        _yappi._pause()
+        try:
+            _yappi.enum_thread_stats(self._enumerator)
+        finally:
+            _yappi._resume()
         return super(YThreadStats, self).get()
         
     def _enumerator(self, stat_entry):
@@ -588,10 +595,8 @@ def start(builtins=False, profile_threads=True):
 def get_func_stats():
     """
     Gets the function profiler results with given filters and returns an iterable.
-    """
-    _yappi._pause()
+    """    
     stats = YFuncStats().get()
-    _yappi._resume()
     return stats
 
 def get_thread_stats():

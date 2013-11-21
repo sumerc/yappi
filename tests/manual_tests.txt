@@ -1,6 +1,5 @@
 
-- auto tests on MACOSx.                     [OK]  
-- auto tests on Solaris.                    [-]
+- auto tests on MACOSx.                     [OK]
 - auto tests on Python 2.6.9 DEBUG build.   [OK]
 - test callgrind/pstats manually.
   Scenario:
@@ -16,5 +15,5 @@
   1) Invoke with different start params.
   
   Windows Python 3.3                        [OK] 
-  Windows Python 2.7                        [-] 
+  Windows Python 2.7                        [OK] 
 
