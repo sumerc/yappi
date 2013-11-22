@@ -11,7 +11,7 @@ def profile(func):
         result = func(*args, **kwargs)
         yappi.stop()
         prof_file = "%s.%s" % (func.__name__, time.time())
-        yappi.get_func_stats().save(prof_file, "ystat")
+        yappi.get_func_stats().save(prof_file, "pstat")
         return result
     return wrapped
 

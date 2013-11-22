@@ -9,7 +9,8 @@ import sys
 import threading
 import _yappi
 import pickle
-
+import marshal
+        
 class YappiError(Exception): pass
 
 __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
@@ -332,8 +333,11 @@ class YFuncStats(YStats):
                         
     def _save_as_YSTAT(self, path):
         file = open(path, "wb")
-        pickle.dump((self._stats, self._clock_type), file, YPICKLE_PROTOCOL)
-                
+        try:
+            pickle.dump((self._stats, self._clock_type), file, YPICKLE_PROTOCOL)
+        finally:
+            file.close()
+            
     def _save_as_PSTAT(self, path):
         """
         Save the profiling information as PSTAT. For this, we first need to convert our internal
@@ -388,15 +392,16 @@ class YFuncStats(YStats):
             _pstat_dict[pstat_id(fs)] = (fs.ncall, fs.nactualcall, fs.tsub, fs.ttot, _callers[fs], )
         
         file = open(path, "wb")
-        import marshal
-        marshal.dump(_pstat_dict, file)
-        
+        try:
+            marshal.dump(_pstat_dict, file)
+        finally:
+            file.close()
+            
     def _save_as_CALLGRIND(self, path):
         """
         Writes all the function stats in a callgrind-style format to the given
         file. (stdout by default)
         """
-        file = open(path, "w")
             
         header = """version: 1\ncreator: %s\npid: %d\ncmd:  %s\npart: 1\n\nevents: Ticks""" % \
             ('yappi', os.getpid(), ' '.join(sys.argv))
@@ -427,8 +432,12 @@ class YFuncStats(YStats):
                                 '0 %d' % int(child.ttot * 1e6)
                                 ]
             lines += func_stats
-        file.write('\n'.join(lines))                
-      
+            
+        file = open(path, "w")
+        try:
+            file.write('\n'.join(lines))                
+        finally:
+            file.close()
     def add(self, path, type="ystat"):
     
         type = type.upper()
