@@ -3,9 +3,10 @@
 - auto tests on Python 2.6.9 DEBUG build.   [OK]
 - test callgrind/pstats manually.
   Scenario:
-  1) save three different stats as ystats.
-  2) merge them.
-  3) save them as callgrind and pstats.
+  1) save three different stats as ystats.(Py2X)
+  2) save two different stats as ystats.(Py3X)
+  3) merge them.
+  4) save them as callgrind/pstats and verify.
   
   Windows Python 3.3                        [OK] 
   Windows Python 2.7                        [OK] 

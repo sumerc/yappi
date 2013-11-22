@@ -1,21 +1,30 @@
-'''
+"""
  yappi.py
  Yet Another Python Profiler
 
  Sumer Cip 2013
-'''
+"""
 import os
 import sys
-import threading
 import _yappi
 import pickle
+import pstats
 import marshal
+import threading
         
 class YappiError(Exception): pass
 
 __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
            'get_clock_type', 'set_clock_type',  'get_mem_usage']
 
+"""
+TODO: 
+- Some YThread/YFunc Stats objects can be called from outside. What will happen if we call .save() without
+  having stats? Handle those and write test cases.
+- Implement a strip_dirs() function for YThread/YFunc Stats.
+- more manual testing while playing with stats....
+"""
+           
 CRLF = '\n'
 COLUMN_GAP = 2
 TIME_COLUMN_LEN = 8 # 0.000000, 12345.98, precision is microsecs
@@ -50,18 +59,18 @@ def _validate_sortorder(sort_order):
         raise YappiError("Invalid SortOrder parameter.[%s]" % (sort_order))
     return sort_order
         
-'''
+"""
  _callback will only be called once per-thread. _yappi will detect
  the new thread and changes the profilefunc param of the ThreadState
  structure. This is an internal function please don't mess with it.
-'''
+"""
 def _callback(frame, event, arg):
     _yappi._profile_event(frame, event, arg)
     return _callback
     
-'''
+"""
 function to prettify time columns in stats.
-'''
+"""
 def _fft(x):
     _rprecision = 6
     while(_rprecision > 0):
@@ -254,7 +263,7 @@ class YFuncStats(YStats):
             for item in self:
                 if item.full_name == key:
                     return item
-        
+    
     def get(self):
         _yappi._pause()
         try:        
@@ -338,11 +347,19 @@ class YFuncStats(YStats):
         finally:
             file.close()
             
-    def _save_as_PSTAT(self, path):
+    def as_PSTAT(self):
+        class _PStatHolder:
+            def __init__(self, d):
+                self.stats = d
+            def create_stats(self):
+                pass
+        _pdict = self._as_pstat_dict()
+        return pstats.Stats(_PStatHolder(_pdict))
+    
+    def _as_pstat_dict(self):
         """
-        Save the profiling information as PSTAT. For this, we first need to convert our internal
-        self._stats list (YSTAT type) to PSTAT. So there are some differences between the 
-        statistics parameters. The PSTAT format is as following:
+        We need to convert our internal self._stats list (YSTAT type) to PSTAT. So there are 
+        some differences between the statistics parameters. The PSTAT format is as following:
         
         PSTAT expects a dict. entry as following:
         
@@ -372,7 +389,7 @@ class YFuncStats(YStats):
         def pstat_id(fs):
             return (fs.module, fs.lineno, fs.name)
         
-        _pstat_dict = {}
+        result = {}
         
         # convert callees to callers
         _callers = {}
@@ -385,17 +402,18 @@ class YFuncStats(YStats):
                     _callers[ct] = {}
                 _callers[ct][pstat_id(fs)] = (ct.ncall, ct.nactualcall, ct.tsub ,ct.ttot)
         
-        
-        
         # populate the pstat dict.
         for fs in self:
-            _pstat_dict[pstat_id(fs)] = (fs.ncall, fs.nactualcall, fs.tsub, fs.ttot, _callers[fs], )
+            result[pstat_id(fs)] = (fs.ncall, fs.nactualcall, fs.tsub, fs.ttot, _callers[fs], )
         
-        file = open(path, "wb")
-        try:
-            marshal.dump(_pstat_dict, file)
-        finally:
-            file.close()
+        return result
+        
+    def _save_as_PSTAT(self, path):   
+        """
+        Save the profiling information as PSTAT.
+        """
+        _pstat = self._as_PSTAT()
+        _pstat.dump_stats(path)
             
     def _save_as_CALLGRIND(self, path):
         """
@@ -438,6 +456,7 @@ class YFuncStats(YStats):
             file.write('\n'.join(lines))                
         finally:
             file.close()
+            
     def add(self, path, type="ystat"):
     
         type = type.upper()
@@ -452,13 +471,12 @@ class YFuncStats(YStats):
             f.close()
             
         return self.sort(DEFAULT_SORT_TYPE, DEFAULT_SORT_ORDER)
-    
-        
+            
     def save(self, path, type="ystat"):
         type = type.upper()
         if type not in self._SUPPORTED_SAVE_FORMATS:
             raise NotImplementedError('Saving in "%s" format is not possible currently.' % (type))
-    
+        
         save_func = getattr(self, "_save_as_%s" % (type))
         save_func(path=path)
         
