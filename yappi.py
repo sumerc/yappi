@@ -633,9 +633,7 @@ def get_thread_stats():
     """
     Gets the thread profiler results with given filters and returns an iterable.
     """
-    _yappi._pause()
     stats = YThreadStats().get()
-    _yappi._resume()
     return stats
 
 def stop():
@@ -650,8 +648,10 @@ def clear_stats():
     Clears all of the profile results.
     """
     _yappi._pause()
-    _yappi.clear_stats()
-    _yappi._resume()
+    try:
+        _yappi.clear_stats()
+    finally:
+        _yappi._resume()
     
 def get_clock_type():
     """
@@ -667,6 +667,7 @@ def set_clock_type(type):
     type = type.upper()
     if type not in CLOCK_TYPES:
         raise YappiError("Invalid clock type:%s" % (type))
+        
     _yappi.set_clock_type(CLOCK_TYPES[type])
 
 def get_mem_usage():
