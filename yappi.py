@@ -8,7 +8,6 @@ import os
 import sys
 import _yappi
 import pickle
-import pstats
 import marshal
 import threading
         
@@ -19,8 +18,7 @@ __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats',
 
 """
 TODO: 
-- Some YThread/YFunc Stats objects can be called from outside. What will happen if we call .save() without
-  having stats? Handle those and write test cases.
+- YFuncStats constructor and add() function shall accept a list of file names like pstats.
 - Implement a strip_dirs() function for YThread/YFunc Stats.
 - more manual testing while playing with stats....
 """
@@ -80,6 +78,68 @@ def _fft(x):
             break
         _rprecision -= 1
     return s
+    
+"""
+Converts our internal yappi's YFuncStats (YSTAT type) to PSTAT. So there are 
+some differences between the statistics parameters. The PSTAT format is as following:
+
+PSTAT expects a dict. entry as following:
+
+stats[("mod_name", line_no, "func_name")] = \
+    ( total_call_count, actual_call_count, total_time, cumulative_time, 
+    {
+        ("mod_name", line_no, "func_name") : 
+        (total_call_count, --> total count caller called the callee
+        actual_call_count, --> total count caller called the callee - (recursive calls)
+        total_time,        --> total time caller spent _only_ for this function (not further subcalls)
+        cumulative_time)   --> total time caller spent for this function
+    } --> callers dict
+    )
+    
+Note that in PSTAT the total time spent in the function is called as cumulative_time and 
+the time spent _only_ in the function as total_time. From Yappi's perspective, this means:
+
+total_time (inline time) = tsub
+cumulative_time (total time) = ttot
+
+Other than that we hold called functions in a profile entry as named 'children'. On the
+other hand, PSTAT expects to have a dict of callers of the function. So we also need to 
+convert the information to that.       
+
+PSTAT only expects to have the above dict to be saved.
+"""
+def convert2pstats(stats):
+    if not isinstance(stats, YFuncStats):
+        raise YappiError("Source stats must be derived from YFuncStats.")
+    
+    import pstats
+    class _PStatHolder:
+        def __init__(self, d):
+            self.stats = d
+        def create_stats(self):
+            pass                
+    def pstat_id(fs):
+        return (fs.module, fs.lineno, fs.name)
+    
+    _pdict = {}
+    
+    # convert callees to callers
+    _callers = {}
+    for fs in stats:
+        if not fs in _callers:
+            _callers[fs] = {}
+            
+        for ct in fs.children:
+            if not ct in _callers:
+                _callers[ct] = {}
+            _callers[ct][pstat_id(fs)] = (ct.ncall, ct.nactualcall, ct.tsub ,ct.ttot)
+    
+    # populate the pstat dict.
+    for fs in stats:
+        _pdict[pstat_id(fs)] = (fs.ncall, fs.nactualcall, fs.tsub, fs.ttot, _callers[fs], )        
+     
+    return pstats.Stats(_PStatHolder(_pdict))
+    
     
 class StatString(object):
     """
@@ -219,7 +279,7 @@ class YStats(object):
         return self
         
     def clear(self):
-        self._stats.clear()
+        self._stats = []
     
     def __iter__(self):
         for stat in self._stats:
@@ -253,7 +313,7 @@ class YFuncStats(YStats):
     _sort_order = None
     _SUPPORTED_LOAD_FORMATS = ['YSTAT']
     _SUPPORTED_SAVE_FORMATS = ['YSTAT', 'CALLGRIND', 'PSTAT']
-    
+        
     def __getitem__(self, key):
         if isinstance(key, int):
             for item in self:
@@ -264,8 +324,9 @@ class YFuncStats(YStats):
                 if item.full_name == key:
                     return item
     
-    def get(self):
+    def get(self):        
         _yappi._pause()
+        self.clear()
         try:        
             _yappi.enum_func_stats(self._enumerator)
             
@@ -286,6 +347,7 @@ class YFuncStats(YStats):
                 stat.children = _childs
         finally:
             _yappi._resume()
+            
         return super(YFuncStats, self).get()
     
     def _enumerator(self, stat_entry):
@@ -347,73 +409,12 @@ class YFuncStats(YStats):
         finally:
             file.close()
             
-    def as_PSTAT(self):
-        class _PStatHolder:
-            def __init__(self, d):
-                self.stats = d
-            def create_stats(self):
-                pass
-        _pdict = self._as_pstat_dict()
-        return pstats.Stats(_PStatHolder(_pdict))
-    
-    def _as_pstat_dict(self):
-        """
-        We need to convert our internal self._stats list (YSTAT type) to PSTAT. So there are 
-        some differences between the statistics parameters. The PSTAT format is as following:
-        
-        PSTAT expects a dict. entry as following:
-        
-        stats[("mod_name", line_no, "func_name")] = \
-            ( total_call_count, actual_call_count, total_time, cumulative_time, 
-            {
-                ("mod_name", line_no, "func_name") : 
-                (total_call_count, --> total count caller called the callee
-                actual_call_count, --> total count caller called the callee - (recursive calls)
-                total_time,        --> total time caller spent _only_ for this function (not further subcalls)
-                cumulative_time)   --> total time caller spent for this function
-            } --> callers dict
-            )
-            
-        Note that in PSTAT the total time spent in the function is called as cumulative_time and 
-        the time spent _only_ in the function as total_time. From Yappi's perspective, this means:
-        
-        total_time (inline time) = tsub
-        cumulative_time (total time) = ttot
-        
-        Other than that we hold called functions in a profile entry as named 'children'. On the
-        other hand, PSTAT expects to have a dict of callers of the function. So we also need to 
-        convert the information to that.       
-
-        PSTAT only expects to have the above dict to be saved.
-        """
-        def pstat_id(fs):
-            return (fs.module, fs.lineno, fs.name)
-        
-        result = {}
-        
-        # convert callees to callers
-        _callers = {}
-        for fs in self:
-            if not fs in _callers:
-                _callers[fs] = {}
-                
-            for ct in fs.children:
-                if not ct in _callers:
-                    _callers[ct] = {}
-                _callers[ct][pstat_id(fs)] = (ct.ncall, ct.nactualcall, ct.tsub ,ct.ttot)
-        
-        # populate the pstat dict.
-        for fs in self:
-            result[pstat_id(fs)] = (fs.ncall, fs.nactualcall, fs.tsub, fs.ttot, _callers[fs], )
-        
-        return result
-        
     def _save_as_PSTAT(self, path):   
         """
         Save the profiling information as PSTAT.
         """
-        _pstat = self._as_PSTAT()
-        _pstat.dump_stats(path)
+        _stats = convert2pstats(self)
+        _stats.dump_stats(path)
             
     def _save_as_CALLGRIND(self, path):
         """
@@ -457,8 +458,7 @@ class YFuncStats(YStats):
         finally:
             file.close()
             
-    def add(self, path, type="ystat"):
-    
+    def add(self, path, type="ystat"):    
         type = type.upper()
         if type not in self._SUPPORTED_LOAD_FORMATS:
             raise NotImplementedError('Loading from (%s) format is not possible currently.')
@@ -476,7 +476,7 @@ class YFuncStats(YStats):
         type = type.upper()
         if type not in self._SUPPORTED_SAVE_FORMATS:
             raise NotImplementedError('Saving in "%s" format is not possible currently.' % (type))
-        
+                    
         save_func = getattr(self, "_save_as_%s" % (type))
         save_func(path=path)
         
@@ -524,6 +524,8 @@ class YFuncStats(YStats):
         return super(YFuncStats, self).sort(SORT_TYPES_FUNCSTATS[sort_type], SORT_ORDERS[sort_order])
         
     def debug_print(self):
+        if len(self) == 0:
+            return
         console = sys.stdout
         CHILD_STATS_LEFT_MARGIN = 5
         for stat in self:
@@ -562,6 +564,7 @@ class YThreadStats(YStats):
         
     def get(self):
         _yappi._pause()
+        self.clear()
         try:
             _yappi.enum_thread_stats(self._enumerator)
         finally:
