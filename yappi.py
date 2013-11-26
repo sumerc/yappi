@@ -21,6 +21,7 @@ TODO:
 - YFuncStats constructor and add() function shall accept a list of file names like pstats.
 - Implement a strip_dirs() function for YThread/YFunc Stats.
 - more manual testing while playing with stats....
+- implement a slice op for YStats and write a TC for it.
 """
            
 CRLF = '\n'
@@ -33,7 +34,6 @@ SORT_TYPES_FUNCSTATS = {"name":0, "callcount":3, "totaltime":6, "subtime":7, "av
 SORT_TYPES_THREADSTATS = {"name":0, "id":1, "totaltime":6, "schedcount":7,
                           "ttot":6, "scnt":7}
 SORT_ORDERS = {"ascending":0, "asc":0, "descending":1, "desc":1}
-SHOW_ALL = 0
 DEFAULT_SORT_TYPE = "totaltime"
 DEFAULT_SORT_ORDER = "desc"
 
@@ -271,11 +271,6 @@ class YStats(object):
         
     def sort(self, sort_type, sort_order):
         self._stats.sort(key=lambda stat: stat[sort_type], reverse=(sort_order==SORT_ORDERS["desc"]))
-        return self
-        
-    def limit(self, limit):
-        if limit != SHOW_ALL:
-            self._stats = self._stats[:limit]
         return self
         
     def clear(self):
