@@ -6,7 +6,21 @@ import test_utils
 import unittest
 
 class BasicUsage(test_utils.YappiUnitTestCase):
-           
+
+    def test_no_stats_different_clock_type_load(self):
+        def a(): pass
+        yappi.start()
+        a()
+        yappi.stop()
+        yappi.get_func_stats().save("ystats1.ys")
+        yappi.clear_stats()
+        yappi.set_clock_type("WALL")
+        yappi.start()
+        yappi.stop()
+        stats = yappi.get_func_stats().add("ystats1.ys")
+        fsa = test_utils.find_stat_by_name(stats, 'a')
+        self.assertTrue(fsa is not None)
+      
     def test_subsequent_profile(self):
         _timings = {"a_1":1, "b_1":1}
         _yappi._set_test_timings(_timings)
@@ -1040,4 +1054,4 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
         self.assertEqual(cfsab.nactualcall , 1)
         self.assertEqual(cfsba.ttot , 6)
         self.assertEqual(cfsba.tsub , 5)
-        
+     
