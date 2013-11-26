@@ -1034,6 +1034,7 @@ _pitenumstat(_hitem *item, void * arg)
                 pci->nonrecursive_callcount, _normt(pci->ttotal), _normt(pci->tsubtotal) ));
         pci = (_pit_children_info *)pci->next;
     }
+    // normalize tsubtotal. tsubtotal being negative is an expected situation.
     if (pt->tsubtotal < 0) {
         pt->tsubtotal = 0;
     }

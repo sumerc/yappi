@@ -281,6 +281,9 @@ class YStats(object):
     def clear(self):
         self._stats = []
     
+    def empty(self):
+        return (len(self._stats) == 0)
+        
     def __iter__(self):
         for stat in self._stats:
             yield stat
@@ -377,9 +380,13 @@ class YFuncStats(YStats):
             saved_stats, saved_clock_type = pickle.load(file)
         except:
             raise YappiError("Unable to load the saved profile information from %s." % (file.name))
-        if self._clock_type != saved_clock_type and self._clock_type is not None:
-            raise YappiError("Clock type mismatch between current and saved profiler sessions.[%s,%s]" % \
-                (self._clock_type, saved_clock_type))
+        
+        # check if we really have some stats to be merged?
+        if not self.empty():
+            if self._clock_type != saved_clock_type and self._clock_type is not None:
+                raise YappiError("Clock type mismatch between current and saved profiler sessions.[%s,%s]" % \
+                    (self._clock_type, saved_clock_type))
+                    
         self._clock_type = saved_clock_type
                 
         # add 'not present' previous entries with unique indexes
@@ -484,7 +491,7 @@ class YFuncStats(YStats):
         """
         Prints all of the function profiler results to a given file. (stdout by default)
         """
-        if len(self) == 0:
+        if self.empty():
             return
         
         FUNC_NAME_LEN = 38
@@ -524,8 +531,9 @@ class YFuncStats(YStats):
         return super(YFuncStats, self).sort(SORT_TYPES_FUNCSTATS[sort_type], SORT_ORDERS[sort_order])
         
     def debug_print(self):
-        if len(self) == 0:
+        if self.empty():
             return
+            
         console = sys.stdout
         CHILD_STATS_LEFT_MARGIN = 5
         for stat in self:
