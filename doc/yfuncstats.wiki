@@ -8,7 +8,7 @@
 
 
 <b>get()</b>
-    This method retrieves the current profiling stats.      yappi.get_func_stats() is actually just a wrapper for this function. YFuncStats holds the stat items as a list of _YFuncStat_ object. 
+    This method retrieves the current profiling stats. _yappi.get_func_stats()_ is actually just a wrapper for this function. YFuncStats holds the stat items as a list of _YFuncStat_ object. 
 
     A _YFuncStat_ object holds the following information:
 || *Key* || *Description* ||

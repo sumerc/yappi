@@ -1,0 +1,21 @@
+#summary yappi.YChildFuncStats
+
+= class YChildFuncStats (v0.82)=
+
+<font face='Courier New'>
+
+<b><i>class</i></b> yappi.<b>YChildFuncStats</b>
+
+    _YChildFuncStat.children_ holds a list of child functions called from the main executed function as a _YChildFuncStats_ object. _YChildFuncStats_ class holds a list of _YChildFuncStat_ objects.
+
+    A _YChildFuncStat_ object holds the following information:
+|| *Key* || *Description* ||
+|| index || A unique number for the stat (used internally) ||
+|| full_name || - ||
+|| ncall || Module name of the executed function ||
+|| nactualcall || Line number of the executed function || 
+|| ttot || Name of the executed function || 
+|| tsub || module:lineno name - unique full name of the executed function || 
+
+
+</font>

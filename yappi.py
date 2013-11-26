@@ -21,7 +21,8 @@ TODO:
 - YFuncStats constructor and add() function shall accept a list of file names like pstats.
 - Implement a strip_dirs() function for YThread/YFunc Stats.
 - more manual testing while playing with stats....
-- implement a slice op for YStats and write a TC for it.
+- Implement a slice op for YStats and write a TC for it.
+- YChildFuncStats.print_all()
 """
            
 CRLF = '\n'
@@ -211,7 +212,7 @@ class YFuncStat(YStat):
         for other_child_stat in other.children:
             # all children point to a valid entry, and we shall have merged previous entries by here.
             if other_child_stat not in self.children:
-                self.children.append(other_child_stat)
+                self.children._stats.append(other_child_stat)
             else:
                 cur_child_stat = self.children[other_child_stat]
                 cur_child_stat += other_child_stat
@@ -288,8 +289,14 @@ class YStats(object):
         
     def __len__(self):
         return len(self._stats)
-      
-class YChildFuncStats(list):
+        
+    def __getitem__(self, key):
+        try:
+            result = self._stats[key]
+        except IndexError:
+            return None
+            
+class YChildFuncStats(YStats):
     def __getitem__(self, key):        
         if isinstance(key, int):
             for item in self:
@@ -303,6 +310,9 @@ class YChildFuncStats(list):
             for item in self:
                 if item.index == key.index:
                     return item
+                    
+        return super(YChildFuncStats, self).__getitem__(key)            
+        
                 
 class YFuncStats(YStats):
 
@@ -321,7 +331,9 @@ class YFuncStats(YStats):
             for item in self:
                 if item.full_name == key:
                     return item
-    
+                    
+        return super(YFuncStats, self).__getitem__(key)
+        
     def get(self):        
         _yappi._pause()
         self.clear()
@@ -329,7 +341,7 @@ class YFuncStats(YStats):
             _yappi.enum_func_stats(self._enumerator)
             
             # convert the children info from tuple to YChildFuncStat
-            for stat in self._stats:
+            for stat in self:
                 _childs = YChildFuncStats()
                 for child_tpl in stat.children:
                     rstat = self[child_tpl[0]]
@@ -341,7 +353,7 @@ class YFuncStats(YStats):
                         continue 
                         
                     cfstat = YChildFuncStat(child_tpl+(rstat.full_name,))
-                    _childs.append(cfstat)
+                    _childs._stats.append(cfstat)
                 stat.children = _childs
         finally:
             _yappi._resume()
@@ -386,7 +398,7 @@ class YFuncStats(YStats):
                 
         # add 'not present' previous entries with unique indexes
         for saved_stat in saved_stats:
-            if saved_stat not in self._stats:                
+            if saved_stat not in self:                
                 self._idx_max += 1
                 saved_stat.index = self._idx_max
                 self._stats.append(saved_stat)
@@ -574,9 +586,8 @@ class YThreadStats(YStats):
             _yappi._resume()
         return super(YThreadStats, self).get()
         
-    def _enumerator(self, stat_entry):
-        # builtin?
-        if stat_entry[5] == 1:
+    def _enumerator(self, stat_entry):        
+        if stat_entry[5] == 1: # builtin?
             last_func_full_name = "%s:%d %s" % (stat_entry[3], stat_entry[4], stat_entry[2])
         else:
             last_func_full_name = "%s.%s" % (stat_entry[3], stat_entry[2])
