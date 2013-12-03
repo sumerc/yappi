@@ -107,6 +107,10 @@ convert the information to that.
 PSTAT only expects to have the above dict to be saved.
 """
 def convert2pstats(stats):
+    """
+    Converts the internal stat type of yappi(which is returned by a call to YFuncStats.get())
+    as pstats object.
+    """
     if not isinstance(stats, YFuncStats):
         raise YappiError("Source stats must be derived from YFuncStats.")
     
@@ -650,6 +654,9 @@ class YThreadStats(YStats):
             out.write(CRLF)
 
 def is_running():
+    """
+    Returns true if the profiler is running, false otherwise.
+    """
     return bool(_yappi.is_running())
 
 def start(builtins=False, profile_threads=True):
