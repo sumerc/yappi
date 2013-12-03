@@ -58,7 +58,6 @@ typedef struct {
 typedef struct {
     _cstack *cs;
     _htab *rec_levels;
-    _pit *last_pit;
     long id;
     char *class_name;
     long long t0;                           // profiling start CPU time
@@ -169,7 +168,6 @@ _create_ctx(void)
     ctx->cs = screate(100);
     if (!ctx->cs)
         return NULL;
-    ctx->last_pit = NULL;
     ctx->sched_cnt = 0;
     ctx->id = 0;
     ctx->class_name = NULL;
@@ -494,7 +492,7 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     }
     
     // create/update children info if we have a valid parent
-    pp = _get_frame();
+    pp = _get_frame();    
     if (pp) {
         pci = _get_child_info(pp, cp);    
         if(!pci)
@@ -515,19 +513,10 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     cp->callcount++;
     incr_rec_level((uintptr_t)cp);
     
-    // do not show builtin pits if specified even in last_pit of the context.
-    if  ((!flags.builtins) && (cp->builtin))
-        ;
-    else {
-        current_ctx->last_pit = cp;
-    }
-    
     PyErr_Restore(last_type, last_value, last_tb);
 
 err:
-
     PyErr_Restore(last_type, last_value, last_tb);
-
 }
 
 long long
@@ -652,11 +641,17 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         return 0; // defensive
     }
     
+    // update ctx stats
+    if (prev_ctx != current_ctx) {
+        current_ctx->sched_cnt++;
+    }
+    prev_ctx = current_ctx;
     if (!current_ctx->class_name)
     {
         current_ctx->class_name = _get_current_thread_class_name();
     }
-
+    
+        
     switch (what) {
     case PyTrace_CALL:
         _call_enter(self, frame, arg, 0);
@@ -681,11 +676,6 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         break;
     }
 
-    // update ctx statistics
-    if (prev_ctx != current_ctx) {
-        current_ctx->sched_cnt++;
-    }
-    prev_ctx = current_ctx;
     return 0;
 }
 
@@ -939,15 +929,11 @@ _ctxenumstat(_hitem *item, void *arg)
     _ctx *ctx;
     long long cumdiff;
     PyObject *exc;
-    PyObject *last_func_name;
-    PyObject *last_mod_name;
-    unsigned long last_line_no;
-    unsigned int last_builtin;
-
+    
     ctx = (_ctx *)item->val;
     
-    if(!ctx->last_pit) {
-        // we return here because if last_pit is not assigned, then this means not any single function
+    if(ctx->sched_cnt == 0) {
+        // we return here because if sched_cnt is zero, then this means not any single function
         // executed in the context of this thread. We do not want to show any thread stats for this case especially
         // because of the following case: start()/lots of MT calls/stop()/clear_stats()/start()/get_thread_stats()
         // still returns the threads from the previous cleared session. That is because Python VM does not free them
@@ -956,11 +942,6 @@ _ctxenumstat(_hitem *item, void *arg)
         return 0;
     }
     
-    last_func_name = ctx->last_pit->name;
-    last_mod_name = ctx->last_pit->modname;
-    last_line_no = ctx->last_pit->lineno;
-    last_builtin = ctx->last_pit->builtin;    
-
     tcname = ctx->class_name;
     if (tcname == NULL)
         tcname = UNINITIALIZED_STRING_VAL;
@@ -968,15 +949,14 @@ _ctxenumstat(_hitem *item, void *arg)
 
     cumdiff = _calc_cumdiff(tickcount(), ctx->t0);
     
-    exc = PyObject_CallFunction(efn, "((skOOkIfk))", tcname, ctx->id, last_func_name,
-        last_mod_name, last_line_no, last_builtin, cumdiff * tickfactor(), ctx->sched_cnt);
+    exc = PyObject_CallFunction(efn, "((skfk))", tcname, ctx->id, 
+        cumdiff * tickfactor(), ctx->sched_cnt);
     if (!exc) {
         PyErr_Print();
         return 1; // abort enumeration
     }
 
     return 0;
-
 }
 
 static PyObject*

@@ -29,8 +29,8 @@ YPICKLE_PROTOCOL = 2
 
 SORT_TYPES_FUNCSTATS = {"name":0, "callcount":3, "totaltime":6, "subtime":7, "avgtime":10,
                         "ncall":3, "ttot":6, "tsub":7, "tavg":10}
-SORT_TYPES_THREADSTATS = {"name":0, "id":1, "totaltime":6, "schedcount":7,
-                          "ttot":6, "scnt":7}
+SORT_TYPES_THREADSTATS = {"name":0, "id":1, "totaltime":2, "schedcount":3,
+                          "ttot":2, "scnt":3}
 SORT_ORDERS = {"ascending":0, "asc":0, "descending":1, "desc":1}
 DEFAULT_SORT_TYPE = "totaltime"
 DEFAULT_SORT_ORDER = "desc"
@@ -261,12 +261,7 @@ class YThreadStat(YStat):
     """
     Class holding information for thread stats.
     """
-    _KEYS = ('name', 'id', 'last_func_name', 'last_func_mod', 'last_line_no', 'last_builtin', 'ttot','sched_count', 'last_func_full_name')
-
-    def strip_dirs(self):
-        self.last_func_full_name = _func_fullname(self.last_builtin, os.path.basename(self.last_func_mod), 
-            self.last_line_no, self.last_func_name)
-        return self
+    _KEYS = ('name', 'id', 'ttot','sched_count',)
 
 class YStats(object):
     """
@@ -418,8 +413,8 @@ class YFuncStats(YStats):
         fstat = YFuncStat(stat_entry + (tavg, full_name))
         
         # do not show profile stats of yappi itself.
-        if os.path.basename(fstat.module) == "yappi.py" or fstat.module == "_yappi":
-            return
+        #if os.path.basename(fstat.module) == "yappi.py" or fstat.module == "_yappi":
+        #    return
             
         fstat.builtin = bool(fstat.builtin)
         self._stats.append(fstat)
@@ -635,10 +630,8 @@ class YThreadStats(YStats):
             _yappi._resume()
         return result
         
-    def _enumerator(self, stat_entry):
-        last_func_full_name = _func_fullname(bool(stat_entry[5]), stat_entry[3], 
-            stat_entry[4], stat_entry[2])            
-        tstat = YThreadStat(stat_entry + (last_func_full_name, ))
+    def _enumerator(self, stat_entry):        
+        tstat = YThreadStat(stat_entry)
         self._stats.append(tstat)
         
     def sort(self, sort_type, sort_order="desc"):
@@ -657,14 +650,12 @@ class YThreadStats(YStats):
         THREAD_SCHED_CNT_LEN = 10
 
         out.write(CRLF)
-        out.write("name           tid              fname                      ttot      scnt")
+        out.write("name           tid              ttot      scnt")
         out.write(CRLF)
         for stat in self:
             out.write(StatString(stat.name).ltrim(THREAD_NAME_LEN))
             out.write(" " * COLUMN_GAP)
-            out.write(StatString(stat.id).rtrim(THREAD_ID_LEN))
-            out.write(" " * COLUMN_GAP)
-            out.write(StatString(stat.last_func_full_name).ltrim(THREAD_FUNC_NAME_LEN))
+            out.write(StatString(stat.id).rtrim(THREAD_ID_LEN))            
             out.write(" " * COLUMN_GAP)
             out.write(StatString(_fft(stat.ttot)).rtrim(TIME_COLUMN_LEN))
             out.write(" " * COLUMN_GAP)
@@ -688,15 +679,25 @@ def start(builtins=False, profile_threads=True):
 def get_func_stats():
     """
     Gets the function profiler results with given filters and returns an iterable.
-    """    
-    stats = YFuncStats().get()
+    """
+    # multiple invocation pause/resume is allowed. This is needed because
+    # not only get() is executed here.
+    _yappi._pause()
+    try:
+        stats = YFuncStats().get()
+    finally:
+        _yappi._resume()    
     return stats
 
 def get_thread_stats():
     """
     Gets the thread profiler results with given filters and returns an iterable.
     """
-    stats = YThreadStats().get()
+    _yappi._pause()
+    try:
+        stats = YThreadStats().get()
+    finally:
+        _yappi._resume()
     return stats
 
 def stop():
