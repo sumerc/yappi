@@ -8,15 +8,22 @@ import unittest
 class BasicUsage(test_utils.YappiUnitTestCase):
     
     def test_slice_child_stats(self):
-        def b(): pass
+        def b(): 
+            for i in range(10000000): pass
         def a():
             b()
-        yappi.start()
+        yappi.start(builtins=True)
         a()
         stats = yappi.get_func_stats()
         fsa = test_utils.find_stat_by_name(stats, 'a')
         self.assertTrue(fsa.children[0:1] is not None)
-        #fsa.children.print_all()
+        #stats.strip_dirs().print_all()
+        #fsa.children.strip_dirs().print_all()
+        
+        #tstats = yappi.get_thread_stats()
+        #tstats.print_all()
+        #tstats.strip_dirs().print_all()        
+        
     
     def test_no_stats_different_clock_type_load(self):
         def a(): pass

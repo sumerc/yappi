@@ -1,20 +1,22 @@
 
-- auto tests on MACOSx.                     [OK]
-- auto tests on Python 2.6.9 DEBUG build.   [OK]
-- test callgrind/pstats manually.
-  Scenario:
-  1) save three different stats as ystats.(Py2X)
-  2) save two different stats as ystats.(Py3X)
-  3) merge them.
-  4) save them as callgrind/pstats and verify.
-  
-  Windows Python 3.3                        [OK] 
-  Windows Python 2.7                        [OK] 
+[+] auto tests on MACOSx.                     
+[+] auto tests on Python 2.6.9 DEBUG build.   
+[+] test callgrind/pstats manually.
+    Scenario:
+    1) save three different stats as ystats.(Py2X)
+    2) save two different stats as ystats.(Py3X)
+    3) merge them.
+    4) save them as callgrind/pstats and verify.
 
-- Invoke yappi from command line.
-  Scenario:
-  1) Invoke with different start params.
-  
-  Windows Python 3.3                        [OK] 
-  Windows Python 2.7                        [OK] 
+    Windows Python 3.3                         
+    Windows Python 2.7                        
+
+[+] Invoke yappi from command line.
+    Scenario:
+    1) Invoke with different start params.
+
+    Windows Python 3.3                        
+    Windows Python 2.7                        
+
+[+] Check any TODO is left in the code        
 

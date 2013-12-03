@@ -18,7 +18,7 @@ __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats',
 
 """
 TODO:
-- Implement a strip_dirs() function for YThread/YFunc Stats.
+- Context ttot for CPU/Wall time?
 - More manual testing while playing with Stats in different formats....
 """
            
@@ -76,6 +76,12 @@ def _fft(x):
             break
         _rprecision -= 1
     return s
+    
+def _func_fullname(builtin, module, lineno, name):
+    if builtin: 
+        return "%s.%s" % (module, name)
+    else:
+        return "%s:%d %s" % (module, lineno, name)
     
 """
 Converts our internal yappi's YFuncStats (YSTAT type) to PSTAT. So there are 
@@ -218,6 +224,9 @@ class YFuncStat(YStat):
                 cur_child_stat = self.children[other_child_stat]
                 cur_child_stat += other_child_stat
         return self
+    
+    def __hash__(self):
+        return self.index
                    
     def is_recursive(self):
         # we have a known bug where call_leave not called for some thread functions(run() especially)
@@ -226,15 +235,18 @@ class YFuncStat(YStat):
         if self.nactualcall == 0:
             return False
         return self.ncall != self.nactualcall
-        
-    def __hash__(self):
-        return self.index
+
+    def strip_dirs(self):
+        self.full_name = _func_fullname(self.builtin, os.path.basename(self.module), 
+            self.lineno, self.name)
+        return self    
         
 class YChildFuncStat(YFuncStat):
     """
     Class holding information for children function stats.
     """
-    _KEYS = ('index', 'ncall', 'nactualcall', 'ttot', 'tsub', 'full_name')
+    _KEYS = ('index', 'ncall', 'nactualcall', 'ttot', 'tsub', 'builtin', 'full_name', 
+        'module', 'lineno', 'name')
 
     def __add__(self, other):
         if other is None:
@@ -250,7 +262,12 @@ class YThreadStat(YStat):
     Class holding information for thread stats.
     """
     _KEYS = ('name', 'id', 'last_func_name', 'last_func_mod', 'last_line_no', 'last_builtin', 'ttot','sched_count', 'last_func_full_name')
-            
+
+    def strip_dirs(self):
+        self.last_func_full_name = _func_fullname(self.last_builtin, os.path.basename(self.last_func_mod), 
+            self.last_line_no, self.last_func_name)
+        return self
+
 class YStats(object):
     """
     Main Stats class where we collect the information from _yappi and apply the user filters.
@@ -287,7 +304,13 @@ class YStats(object):
         try:
             return self._stats[key]
         except IndexError:
-            return None        
+            return None
+
+    def strip_dirs(self):
+        for stat in self._stats:
+            # TODO: Assuming stat in derived from YStat object
+            stat.strip_dirs()
+        return self
             
 class YChildFuncStats(YStats):
     def __getitem__(self, key):        
@@ -335,7 +358,7 @@ class YChildFuncStats(YStats):
             tavg = stat.ttot / stat.ncall
             out.write(StatString(_fft(tavg)).rtrim(TIME_COLUMN_LEN))
             out.write(CRLF)
-                
+    
 class YFuncStats(YStats):
 
     _idx_max = 0
@@ -378,22 +401,19 @@ class YFuncStats(YStats):
                     if rstat is None:
                         continue 
                         
-                    cfstat = YChildFuncStat(child_tpl+(rstat.full_name,))
+                    cfstat = YChildFuncStat(child_tpl+(rstat.builtin, rstat.full_name, rstat.module, 
+                        rstat.lineno, rstat.name,))
                     _childs._stats.append(cfstat)
-                stat.children = _childs
+                stat.children = _childs            
+            result = super(YFuncStats, self).get()            
         finally:
-            _yappi._resume()
-            
-        return super(YFuncStats, self).get()
+            _yappi._resume()            
+        return result
     
     def _enumerator(self, stat_entry):
         
         # builtin function?
-        if stat_entry[5] == 1: 
-            full_name = "%s.%s" % (stat_entry[1], stat_entry[0])
-        else:
-            full_name = "%s:%d %s" % (stat_entry[1], stat_entry[2], stat_entry[0])       
-            
+        full_name = _func_fullname(bool(stat_entry[5]), stat_entry[1], stat_entry[2], stat_entry[0])                    
         tavg = stat_entry[6]/stat_entry[3]
         fstat = YFuncStat(stat_entry + (tavg, full_name))
         
@@ -610,16 +630,14 @@ class YThreadStats(YStats):
         self.clear()
         try:
             _yappi.enum_thread_stats(self._enumerator)
+            result = super(YThreadStats, self).get()
         finally:
             _yappi._resume()
-        return super(YThreadStats, self).get()
+        return result
         
-    def _enumerator(self, stat_entry):        
-        if stat_entry[5] == 1: # builtin?
-            last_func_full_name = "%s:%d %s" % (stat_entry[3], stat_entry[4], stat_entry[2])
-        else:
-            last_func_full_name = "%s.%s" % (stat_entry[3], stat_entry[2])
-            
+    def _enumerator(self, stat_entry):
+        last_func_full_name = _func_fullname(bool(stat_entry[5]), stat_entry[3], 
+            stat_entry[4], stat_entry[2])            
         tstat = YThreadStat(stat_entry + (last_func_full_name, ))
         self._stats.append(tstat)
         
