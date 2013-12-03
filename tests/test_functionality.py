@@ -6,7 +6,18 @@ import test_utils
 import unittest
 
 class BasicUsage(test_utils.YappiUnitTestCase):
-
+    
+    def test_slice_child_stats(self):
+        def b(): pass
+        def a():
+            b()
+        yappi.start()
+        a()
+        stats = yappi.get_func_stats()
+        fsa = test_utils.find_stat_by_name(stats, 'a')
+        self.assertTrue(fsa.children[0:1] is not None)
+        #fsa.children.print_all()
+    
     def test_no_stats_different_clock_type_load(self):
         def a(): pass
         yappi.start()
@@ -174,147 +185,8 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         self.assertTrue(fsa1 is None)
         self.assertTrue(fsa2 is not None)
         self.assertTrue(fsa2.ttot > 0.1)
-      
+     
 class StatSaveScenarios(test_utils.YappiUnitTestCase):
-    def test_merge_multithreaded_stats(self):
-        import threading
-        import _yappi
-        timings = {"a_1":2, "b_1":1}
-        _yappi._set_test_timings(timings)
-        def a(): pass
-        def b(): pass
-        yappi.start()
-        t = threading.Thread(target=a)
-        t.start()
-        t.join()
-        t = threading.Thread(target=b)
-        t.start()
-        t.join()
-        yappi.get_func_stats().save("ystats1.ys")
-        yappi.clear_stats()
-        _yappi._set_test_timings(timings)
-        self.assertEqual(len(yappi.get_func_stats()), 0)
-        self.assertEqual(len(yappi.get_thread_stats()), 1)
-        t = threading.Thread(target=a)
-        t.start()
-        t.join()
-        
-        self.assertEqual(_yappi._get_start_flags()["profile_builtins"], 0)
-        self.assertEqual(_yappi._get_start_flags()["profile_multithread"], 1)
-        yappi.get_func_stats().save("ystats2.ys")
-       
-        stats = yappi.YFuncStats().add("ystats1.ys").add("ystats2.ys")
-        fsa = test_utils.find_stat_by_name(stats, "a")
-        fsb = test_utils.find_stat_by_name(stats, "b")
-        self.assertEqual(fsa.ncall, 2)
-        self.assertEqual(fsb.ncall, 1)
-        self.assertEqual(fsa.tsub, fsa.ttot, 4)
-        self.assertEqual(fsb.tsub, fsb.ttot, 1)
-        
-    def test_merge_load_different_clock_types(self):
-        import threading
-        yappi.start(builtins=True)
-        def a(): b()
-        def b(): c()
-        def c(): pass
-        t = threading.Thread(target=a)
-        t.start()
-        t.join()
-        yappi.get_func_stats().sort("name", "asc").save("ystats1.ys")
-        yappi.stop()
-        yappi.clear_stats()
-        yappi.start(builtins=False)
-        t = threading.Thread(target=a)
-        t.start()
-        t.join()
-        yappi.get_func_stats().save("ystats2.ys")
-        yappi.stop()
-        self.assertRaises(_yappi.error, yappi.set_clock_type, "wall")
-        yappi.clear_stats()
-        yappi.set_clock_type("wall")
-        yappi.start()
-        t = threading.Thread(target=a)
-        t.start()
-        t.join()
-        yappi.get_func_stats().save("ystats3.ys")
-        self.assertRaises(yappi.YappiError, yappi.YFuncStats().add("ystats1.ys").add, "ystats3.ys")
-        stats = yappi.YFuncStats().add("ystats1.ys").add("ystats2.ys").sort("name")
-        fsa = test_utils.find_stat_by_name(stats, "a")
-        fsb = test_utils.find_stat_by_name(stats, "b")
-        fsc = test_utils.find_stat_by_name(stats, "c")
-        self.assertEqual(fsa.ncall, 2)
-        self.assertEqual(fsa.ncall, fsb.ncall, fsc.ncall)
-              
-    def test_merge_aabab_aabbc(self):
-        _timings = {"a_1":15,"a_2":14,"b_1":12,"a_3":10,"b_2":9, "c_1":4}
-        _yappi._set_test_timings(_timings)
-        
-        def a():
-            if self._ncall == 1:
-                self._ncall += 1
-                a()
-            elif self._ncall == 5:
-                self._ncall += 1
-                a()
-            else:
-                b()
-        def b():
-            if self._ncall == 2:
-                self._ncall += 1
-                a()
-            elif self._ncall == 6:
-                self._ncall += 1
-                b()
-            elif self._ncall == 7:
-                c()
-            else:
-                return
-        def c():
-            pass
-        
-        self._ncall = 1
-        stats = test_utils.run_and_get_func_stats(a,)
-        stats.save("ystats1.ys")
-        yappi.clear_stats()
-        _yappi._set_test_timings(_timings)
-        #stats.print_all()
-               
-        self._ncall = 5
-        stats = test_utils.run_and_get_func_stats(a,)
-        stats.save("ystats2.ys")
-        #stats.print_all()
-        
-        def a(): # same name but another function(code object)
-            pass
-        yappi.start()
-        a()
-        stats = yappi.get_func_stats().add("ystats1.ys").add("ystats2.ys")
-        #stats.print_all()        
-        self.assertEqual(len(stats), 4)
-        
-        fsa = None
-        for stat in stats:
-            if stat.name == "a" and stat.ttot == 45:
-                fsa = stat
-                break
-        self.assertTrue(fsa is not None)
-        
-        self.assertEqual(fsa.ncall, 7)
-        self.assertEqual(fsa.nactualcall, 3)
-        self.assertEqual(fsa.ttot, 45)
-        self.assertEqual(fsa.tsub, 10)
-        fsb = test_utils.find_stat_by_name(stats, "b")
-        fsc = test_utils.find_stat_by_name(stats, "c")
-        self.assertEqual(fsb.ncall, 6)
-        self.assertEqual(fsb.nactualcall, 3)
-        self.assertEqual(fsb.ttot, 36)
-        self.assertEqual(fsb.tsub, 27)
-        self.assertEqual(fsb.tavg, 6)
-        self.assertEqual(fsc.ttot, 8)
-        self.assertEqual(fsc.tsub, 8)
-        self.assertEqual(fsc.tavg, 4)
-        self.assertEqual(fsc.nactualcall, fsc.ncall, 2)  
-        
     def test_merge_stats(self):
         _timings = {"a_1":15,"b_1":14,"c_1":12,"d_1":10,"e_1":9,"f_1":7,"g_1":6,"h_1":5,"i_1":1}
         _yappi._set_test_timings(_timings)
@@ -384,7 +256,146 @@ class StatSaveScenarios(test_utils.YappiUnitTestCase):
         self.assertEqual(fsh.children[fsi].ttot, fsi.ttot)
         self.assertEqual(fsh.children[fsi].tsub, fsi.tsub) 
         #stats.debug_print()
+
+    def test_merge_multithreaded_stats(self):
+        import threading
+        import _yappi
+        timings = {"a_1":2, "b_1":1}
+        _yappi._set_test_timings(timings)
+        def a(): pass
+        def b(): pass
+        yappi.start()
+        t = threading.Thread(target=a)
+        t.start()
+        t.join()
+        t = threading.Thread(target=b)
+        t.start()
+        t.join()
+        yappi.get_func_stats().save("ystats1.ys")
+        yappi.clear_stats()
+        _yappi._set_test_timings(timings)
+        self.assertEqual(len(yappi.get_func_stats()), 0)
+        self.assertEqual(len(yappi.get_thread_stats()), 1)
+        t = threading.Thread(target=a)
+        t.start()
+        t.join()
         
+        self.assertEqual(_yappi._get_start_flags()["profile_builtins"], 0)
+        self.assertEqual(_yappi._get_start_flags()["profile_multithread"], 1)
+        yappi.get_func_stats().save("ystats2.ys")
+       
+        stats = yappi.YFuncStats(["ystats1.ys", "ystats2.ys",])
+        fsa = test_utils.find_stat_by_name(stats, "a")
+        fsb = test_utils.find_stat_by_name(stats, "b")
+        self.assertEqual(fsa.ncall, 2)
+        self.assertEqual(fsb.ncall, 1)
+        self.assertEqual(fsa.tsub, fsa.ttot, 4)
+        self.assertEqual(fsb.tsub, fsb.ttot, 1)
+        
+    def test_merge_load_different_clock_types(self):
+        import threading
+        yappi.start(builtins=True)
+        def a(): b()
+        def b(): c()
+        def c(): pass
+        t = threading.Thread(target=a)
+        t.start()
+        t.join()
+        yappi.get_func_stats().sort("name", "asc").save("ystats1.ys")
+        yappi.stop()
+        yappi.clear_stats()
+        yappi.start(builtins=False)
+        t = threading.Thread(target=a)
+        t.start()
+        t.join()
+        yappi.get_func_stats().save("ystats2.ys")
+        yappi.stop()
+        self.assertRaises(_yappi.error, yappi.set_clock_type, "wall")
+        yappi.clear_stats()
+        yappi.set_clock_type("wall")
+        yappi.start()
+        t = threading.Thread(target=a)
+        t.start()
+        t.join()
+        yappi.get_func_stats().save("ystats3.ys")
+        self.assertRaises(yappi.YappiError, yappi.YFuncStats().add("ystats1.ys").add, "ystats3.ys")
+        stats = yappi.YFuncStats(["ystats1.ys", "ystats2.ys"]).sort("name")
+        fsa = test_utils.find_stat_by_name(stats, "a")
+        fsb = test_utils.find_stat_by_name(stats, "b")
+        fsc = test_utils.find_stat_by_name(stats, "c")
+        self.assertEqual(fsa.ncall, 2)
+        self.assertEqual(fsa.ncall, fsb.ncall, fsc.ncall)
+              
+    def test_merge_aabab_aabbc(self):
+        _timings = {"a_1":15,"a_2":14,"b_1":12,"a_3":10,"b_2":9, "c_1":4}
+        _yappi._set_test_timings(_timings)
+        
+        def a():
+            if self._ncall == 1:
+                self._ncall += 1
+                a()
+            elif self._ncall == 5:
+                self._ncall += 1
+                a()
+            else:
+                b()
+        def b():
+            if self._ncall == 2:
+                self._ncall += 1
+                a()
+            elif self._ncall == 6:
+                self._ncall += 1
+                b()
+            elif self._ncall == 7:
+                c()
+            else:
+                return
+        def c():
+            pass
+        
+        self._ncall = 1
+        stats = test_utils.run_and_get_func_stats(a,)
+        stats.save("ystats1.ys")
+        yappi.clear_stats()
+        _yappi._set_test_timings(_timings)
+        #stats.print_all()
+               
+        self._ncall = 5
+        stats = test_utils.run_and_get_func_stats(a,)
+        stats.save("ystats2.ys")
+        #stats.print_all()
+        
+        def a(): # same name but another function(code object)
+            pass
+        yappi.start()
+        a()
+        stats = yappi.get_func_stats().add(["ystats1.ys", "ystats2.ys"])
+        #stats.print_all()        
+        self.assertEqual(len(stats), 4)
+        
+        fsa = None
+        for stat in stats:
+            if stat.name == "a" and stat.ttot == 45:
+                fsa = stat
+                break
+        self.assertTrue(fsa is not None)
+        
+        self.assertEqual(fsa.ncall, 7)
+        self.assertEqual(fsa.nactualcall, 3)
+        self.assertEqual(fsa.ttot, 45)
+        self.assertEqual(fsa.tsub, 10)
+        fsb = test_utils.find_stat_by_name(stats, "b")
+        fsc = test_utils.find_stat_by_name(stats, "c")
+        self.assertEqual(fsb.ncall, 6)
+        self.assertEqual(fsb.nactualcall, 3)
+        self.assertEqual(fsb.ttot, 36)
+        self.assertEqual(fsb.tsub, 27)
+        self.assertEqual(fsb.tavg, 6)
+        self.assertEqual(fsc.ttot, 8)
+        self.assertEqual(fsc.tsub, 8)
+        self.assertEqual(fsc.tavg, 4)
+        self.assertEqual(fsc.nactualcall, fsc.ncall, 2)  
+    
 class MultithreadedScenarios(test_utils.YappiUnitTestCase):
     def test_subsequent_profile(self):
         import threading
@@ -605,7 +616,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         t2.join()
         #yappi.get_func_stats().sort("callcount").print_all()
         yappi.stop()
-
+    
     @unittest.skipIf(os.name != "posix", "requires Posix compliant OS")
     def test_signals_with_blocking_calls(self): 
         import signal, os, time 
@@ -619,7 +630,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         stats = yappi.get_func_stats()
         fsh = test_utils.find_stat_by_name(stats, "handler")
         self.assertTrue(fsh is not None)
-            
+           
     @unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
     def test_concurrent_futures(self):
         yappi.start()
@@ -648,7 +659,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         #b.wait()
         t1.join()
         yappi.stop()
-       
+      
 class NonRecursiveFunctions(test_utils.YappiUnitTestCase):
     def test_abcd(self):
         _timings = {"a_1":6,"b_1":5,"c_1":3, "d_1":1}
@@ -1054,4 +1065,4 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
         self.assertEqual(cfsab.nactualcall , 1)
         self.assertEqual(cfsba.ttot , 6)
         self.assertEqual(cfsba.tsub , 5)
-     
+

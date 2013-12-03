@@ -17,12 +17,9 @@ __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats',
            'get_clock_type', 'set_clock_type',  'get_mem_usage']
 
 """
-TODO: 
-- YFuncStats constructor and add() function shall accept a list of file names like pstats.
+TODO:
 - Implement a strip_dirs() function for YThread/YFunc Stats.
-- more manual testing while playing with stats....
-- Implement a slice op for YStats and write a TC for it.
-- YChildFuncStats.print_all()
+- More manual testing while playing with Stats in different formats....
 """
            
 CRLF = '\n'
@@ -229,17 +226,12 @@ class YFuncStat(YStat):
     def __hash__(self):
         return self.index
         
-class YChildFuncStat(YStat):
+class YChildFuncStat(YFuncStat):
     """
     Class holding information for children function stats.
     """
     _KEYS = ('index', 'ncall', 'nactualcall', 'ttot', 'tsub', 'full_name')
-    
-    def __eq__(self, other):
-        if other is None:
-            return False
-        return self.full_name == other.full_name
-        
+
     def __add__(self, other):
         if other is None:
             return self
@@ -248,10 +240,7 @@ class YChildFuncStat(YStat):
         self.ttot += other.ttot
         self.tsub += other.tsub
         return self
-    
-    def __hash__(self):
-        return self.index     
-             
+                 
 class YThreadStat(YStat):
     """
     Class holding information for thread stats.
@@ -292,9 +281,9 @@ class YStats(object):
         
     def __getitem__(self, key):
         try:
-            result = self._stats[key]
+            return self._stats[key]
         except IndexError:
-            return None
+            return None        
             
 class YChildFuncStats(YStats):
     def __getitem__(self, key):        
@@ -311,8 +300,37 @@ class YChildFuncStats(YStats):
                 if item.index == key.index:
                     return item
                     
-        return super(YChildFuncStats, self).__getitem__(key)            
+        return super(YChildFuncStats, self).__getitem__(key)
         
+    def print_all(self, out=sys.stdout):
+        """
+        Prints all of the child function profiler results to a given file. (stdout by default)
+        """
+        if self.empty():
+            return
+        
+        FUNC_NAME_LEN = 38
+        CALLCOUNT_LEN = 9        
+        out.write(CRLF)
+        out.write("name                                    #n         tsub      ttot      tavg")
+        out.write(CRLF)
+        for stat in self:
+            out.write(StatString(stat.full_name).ltrim(FUNC_NAME_LEN))
+            out.write(" " * COLUMN_GAP)
+            
+            # the function is recursive?
+            if stat.is_recursive():
+                out.write(StatString("%d/%d" % (stat.ncall, stat.nactualcall)).rtrim(CALLCOUNT_LEN))
+            else:
+                out.write(StatString(stat.ncall).rtrim(CALLCOUNT_LEN))
+            out.write(" " * COLUMN_GAP)
+            out.write(StatString(_fft(stat.tsub)).rtrim(TIME_COLUMN_LEN))
+            out.write(" " * COLUMN_GAP)
+            out.write(StatString(_fft(stat.ttot)).rtrim(TIME_COLUMN_LEN))
+            out.write(" " * COLUMN_GAP)            
+            tavg = stat.ttot / stat.ncall
+            out.write(StatString(_fft(tavg)).rtrim(TIME_COLUMN_LEN))
+            out.write(CRLF)
                 
 class YFuncStats(YStats):
 
@@ -321,6 +339,10 @@ class YFuncStats(YStats):
     _sort_order = None
     _SUPPORTED_LOAD_FORMATS = ['YSTAT']
     _SUPPORTED_SAVE_FORMATS = ['YSTAT', 'CALLGRIND', 'PSTAT']
+    
+    def __init__(self, files=[]):
+        super(YFuncStats, self).__init__()
+        self.add(files)
         
     def __getitem__(self, key):
         if isinstance(key, int):
@@ -472,17 +494,19 @@ class YFuncStats(YStats):
         finally:
             file.close()
             
-    def add(self, path, type="ystat"):    
+    def add(self, files, type="ystat"):    
         type = type.upper()
         if type not in self._SUPPORTED_LOAD_FORMATS:
             raise NotImplementedError('Loading from (%s) format is not possible currently.')
-        
-        f = open(path, "rb")
-        try:
-            add_func = getattr(self, "_add_from_%s" % (type))
-            add_func(file=f)
-        finally:
-            f.close()
+        if isinstance(files, str):
+            files = [files, ]
+        for fd in files:
+            f = open(fd, "rb")
+            try:
+                add_func = getattr(self, "_add_from_%s" % (type))
+                add_func(file=f)
+            finally:
+                f.close()
             
         return self.sort(DEFAULT_SORT_TYPE, DEFAULT_SORT_ORDER)
             
