@@ -413,8 +413,8 @@ class YFuncStats(YStats):
         fstat = YFuncStat(stat_entry + (tavg, full_name))
         
         # do not show profile stats of yappi itself.
-        #if os.path.basename(fstat.module) == "yappi.py" or fstat.module == "_yappi":
-        #    return
+        if os.path.basename(fstat.module) == "yappi.py" or fstat.module == "_yappi":
+            return
             
         fstat.builtin = bool(fstat.builtin)
         self._stats.append(fstat)
