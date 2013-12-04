@@ -8,11 +8,11 @@
 
 
 <b>get()</b>
-    This method retrieves the current profiling stats. _yappi.get_func_stats()_ is actually just a wrapper for this function. YFuncStats holds the stat items as a list of _YFuncStat_ object. 
+    This method retrieves the current profiling stats.      yappi.get_func_stats() is actually just a wrapper for this function. YFuncStats holds the stat items as a list of _YFuncStat_ object. 
 
     A _YFuncStat_ object holds the following information:
 || *Key* || *Description* ||
-|| index || A unique number for the stat (used internally) ||
+|| index || A unique number for the stat ||
 || module || Module name of the executed function ||
 || lineno || Line number of the executed function || 
 || name || Name of the executed function || 
@@ -66,6 +66,9 @@
 
 <b>empty()</b>
     Returns a boolean indicating whether we have any stats available or not. 
+
+<b>strip_dirs()</b>
+    Strip the directory information from the results. Affects the child function stats, too.
 
 <b>debug_print()</b>
     This method _debug_ prints the current profile stats to <i>"stdout". Debug print prints out callee functions and more detailed info than the _print_all()_ function call.</i> 
