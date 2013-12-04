@@ -7,7 +7,7 @@ import unittest
 
 class BasicUsage(test_utils.YappiUnitTestCase):
     
-    def test_slice_child_stats(self):
+    def test_slice_child_stats_and_strip_dirs(self):
         def b(): 
             for i in range(10000000): pass
         def a():
@@ -16,15 +16,14 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         a()
         stats = yappi.get_func_stats()
         fsa = test_utils.find_stat_by_name(stats, 'a')
+        fsb = test_utils.find_stat_by_name(stats, 'b')
         self.assertTrue(fsa.children[0:1] is not None)
-        #stats.strip_dirs().print_all()
-        #fsa.children.strip_dirs().print_all()
-        
-        #tstats = yappi.get_thread_stats()
-        #tstats.print_all()
-        #tstats.strip_dirs().print_all()        
-        
-    
+        prev_afullname = fsa.full_name
+        prev_bchildfullname = fsa.children[fsb].full_name
+        stats.strip_dirs()
+        self.assertTrue(len(prev_afullname) > len(fsa.full_name))
+        self.assertTrue(len(prev_bchildfullname) > len(fsa.children[fsb].full_name))
+               
     def test_no_stats_different_clock_type_load(self):
         def a(): pass
         yappi.start()
@@ -1072,4 +1071,3 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
         self.assertEqual(cfsab.nactualcall , 1)
         self.assertEqual(cfsba.ttot , 6)
         self.assertEqual(cfsba.tsub , 5)
-

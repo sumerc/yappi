@@ -15,12 +15,6 @@ class YappiError(Exception): pass
 
 __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
            'get_clock_type', 'set_clock_type',  'get_mem_usage']
-
-"""
-TODO:
-- Context ttot for CPU/Wall time?
-- More manual testing while playing with Stats in different formats....
-"""
            
 CRLF = '\n'
 COLUMN_GAP = 2
@@ -303,8 +297,7 @@ class YStats(object):
 
     def strip_dirs(self):
         for stat in self._stats:
-            # TODO: Assuming stat in derived from YStat object
-            stat.strip_dirs()
+            stat.strip_dirs() # assuming stat in derived from YStat object
         return self
             
 class YChildFuncStats(YStats):
@@ -377,6 +370,11 @@ class YFuncStats(YStats):
                     return item
                     
         return super(YFuncStats, self).__getitem__(key)
+        
+    def strip_dirs(self):
+        for stat in self:
+            stat.children.strip_dirs()
+        super(YFuncStats, self).strip_dirs()
         
     def get(self):        
         _yappi._pause()

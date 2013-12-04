@@ -7,8 +7,6 @@
 
 */
 
-// TODO: Any more place to put _log_err(x)'s???
-
 #include "config.h"
 
 #if !defined(HAVE_LONG_LONG)
@@ -205,7 +203,7 @@ err:
     Py_XDECREF(cthr);
     Py_XDECREF(tattr1);
     Py_XDECREF(tattr2);
-    return NULL; //continue enumeration on err.
+    return NULL;
 }
 
 static _ctx *
