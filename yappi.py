@@ -23,6 +23,8 @@ YPICKLE_PROTOCOL = 2
 
 SORT_TYPES_FUNCSTATS = {"name":0, "callcount":3, "totaltime":6, "subtime":7, "avgtime":10,
                         "ncall":3, "ttot":6, "tsub":7, "tavg":10}
+SORT_TYPES_CHILDFUNCSTATS = {"name":10, "callcount":1, "totaltime":3, "subtime":4, "avgtime":5,
+                        "ncall":1, "ttot":3, "tsub":4, "tavg":5}
 SORT_TYPES_THREADSTATS = {"name":0, "id":1, "totaltime":2, "schedcount":3,
                           "ttot":2, "scnt":3}
 SORT_ORDERS = {"ascending":0, "asc":0, "descending":1, "desc":1}
@@ -31,18 +33,12 @@ DEFAULT_SORT_ORDER = "desc"
 
 CLOCK_TYPES = {"WALL":0, "CPU":1}
 
-def _validate_func_sorttype(sort_type):
+def _validate_sorttype(sort_type, list):
     sort_type = sort_type.lower()
-    if sort_type not in SORT_TYPES_FUNCSTATS:
+    if sort_type not in list:
         raise YappiError("Invalid SortType parameter.[%s]" % (sort_type))
     return sort_type
-
-def _validate_thread_sorttype(sort_type):
-    sort_type = sort_type.lower()
-    if sort_type not in SORT_TYPES_THREADSTATS:
-        raise YappiError("Invalid SortType parameter.[%s]" % (sort_type))
-    return sort_type
-        
+       
 def _validate_sortorder(sort_order):
     sort_order = sort_order.lower()
     if sort_order not in SORT_ORDERS:
@@ -239,7 +235,7 @@ class YChildFuncStat(YFuncStat):
     """
     Class holding information for children function stats.
     """
-    _KEYS = ('index', 'ncall', 'nactualcall', 'ttot', 'tsub', 'builtin', 'full_name', 
+    _KEYS = ('index', 'ncall', 'nactualcall', 'ttot', 'tsub', 'tavg', 'builtin', 'full_name',
         'module', 'lineno', 'name')
 
     def __add__(self, other):
@@ -249,6 +245,7 @@ class YChildFuncStat(YFuncStat):
         self.ncall += other.ncall
         self.ttot += other.ttot
         self.tsub += other.tsub
+        self.tavg = self.ttot / self.ncall
         return self
                  
 class YThreadStat(YStat):
@@ -317,6 +314,12 @@ class YChildFuncStats(YStats):
                     
         return super(YChildFuncStats, self).__getitem__(key)
         
+    def sort(self, sort_type, sort_order="desc"):
+        sort_type = _validate_sorttype(sort_type, SORT_TYPES_CHILDFUNCSTATS)
+        sort_order = _validate_sortorder(sort_order)
+        
+        return super(YChildFuncStats, self).sort(SORT_TYPES_CHILDFUNCSTATS[sort_type], SORT_ORDERS[sort_order])
+    
     def print_all(self, out=sys.stdout):
         """
         Prints all of the child function profiler results to a given file. (stdout by default)
@@ -342,9 +345,8 @@ class YChildFuncStats(YStats):
             out.write(StatString(_fft(stat.tsub)).rtrim(TIME_COLUMN_LEN))
             out.write(" " * COLUMN_GAP)
             out.write(StatString(_fft(stat.ttot)).rtrim(TIME_COLUMN_LEN))
-            out.write(" " * COLUMN_GAP)            
-            tavg = stat.ttot / stat.ncall
-            out.write(StatString(_fft(tavg)).rtrim(TIME_COLUMN_LEN))
+            out.write(" " * COLUMN_GAP)
+            out.write(StatString(_fft(stat.tavg)).rtrim(TIME_COLUMN_LEN))
             out.write(CRLF)
     
 class YFuncStats(YStats):
@@ -393,8 +395,8 @@ class YFuncStats(YStats):
                     # index always point to a valid stat.
                     if rstat is None:
                         continue 
-                        
-                    cfstat = YChildFuncStat(child_tpl+(rstat.builtin, rstat.full_name, rstat.module, 
+                    tavg = rstat.ttot / rstat.ncall
+                    cfstat = YChildFuncStat(child_tpl+(tavg, rstat.builtin, rstat.full_name, rstat.module, 
                         rstat.lineno, rstat.name,))
                     _childs._stats.append(cfstat)
                 stat.children = _childs            
@@ -407,7 +409,7 @@ class YFuncStats(YStats):
         
         # builtin function?
         full_name = _func_fullname(bool(stat_entry[5]), stat_entry[1], stat_entry[2], stat_entry[0])                    
-        tavg = stat_entry[6]/stat_entry[3]
+        tavg = stat_entry[6] / stat_entry[3]
         fstat = YFuncStat(stat_entry + (tavg, full_name))
         
         # do not show profile stats of yappi itself.
@@ -570,7 +572,7 @@ class YFuncStats(YStats):
             out.write(CRLF)
             
     def sort(self, sort_type, sort_order="desc"):
-        sort_type = _validate_func_sorttype(sort_type)
+        sort_type = _validate_sorttype(sort_type, SORT_TYPES_FUNCSTATS)
         sort_order = _validate_sortorder(sort_order)
         
         self._sort_type = sort_type
@@ -633,7 +635,7 @@ class YThreadStats(YStats):
         self._stats.append(tstat)
         
     def sort(self, sort_type, sort_order="desc"):
-        sort_type = _validate_thread_sorttype(sort_type)
+        sort_type = _validate_sorttype(sort_type, SORT_TYPES_THREADSTATS)
         sort_order = _validate_sortorder(sort_order)
 
         return super(YThreadStats, self).sort(SORT_TYPES_THREADSTATS[sort_type], SORT_ORDERS[sort_order])

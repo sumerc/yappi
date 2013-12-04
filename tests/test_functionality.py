@@ -23,7 +23,38 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         stats.strip_dirs()
         self.assertTrue(len(prev_afullname) > len(fsa.full_name))
         self.assertTrue(len(prev_bchildfullname) > len(fsa.children[fsb].full_name))
-               
+        
+    def test_children_stat_functions(self):
+        _timings = {"a_1":5, "b_1":3, "c_1":1}
+        _yappi._set_test_timings(_timings)
+        def b(): 
+            pass
+        def c():
+            pass
+        def a():
+            b()
+            c()
+        yappi.start()
+        a()
+        b() # non-child call
+        c() # non-child call
+        stats = yappi.get_func_stats()
+        fsa = test_utils.find_stat_by_name(stats, 'a')
+        childs_of_a = fsa.children.get().sort("tavg", "desc")
+        prev_item = None
+        for item in childs_of_a:
+            if prev_item:
+                self.assertTrue(prev_item.tavg > item.tavg)
+            prev_item = item
+        childs_of_a.sort("name", "desc")
+        prev_item = None
+        for item in childs_of_a:
+            if prev_item:
+                self.assertTrue(prev_item.name > item.name)
+            prev_item = item
+        childs_of_a.clear()
+        self.assertTrue(childs_of_a.empty())
+            
     def test_no_stats_different_clock_type_load(self):
         def a(): pass
         yappi.start()
