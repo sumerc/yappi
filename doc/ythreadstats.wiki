@@ -13,11 +13,6 @@
 || *Key* || *Description* ||
 || id || thread id given by the OS ||
 || name || class name of the current thread object which is derived from threading.Thread class ||
-|| last_func_mod || module name of the last executed function || 
-|| last_func_lineno || line number of the last executed function || 
-|| last_func_name || function name of the last executed function || 
-|| last_func_full_name || mod:line_no func_name - full name of the last executed function|| 
-|| last_builtin || boolean flag showing if the last executed function is a builtin ||
 || ttot || total time spent in the last executed function. See [https://code.google.com/p/yappi/wiki/ClockTypes_v082 Clock Types] to interpret this value correctly. || 
 || sched_count || number of times this thread is scheduled. || 
 

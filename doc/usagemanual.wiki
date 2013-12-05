@@ -24,8 +24,8 @@ Ordered by: totaltime, desc
 name                                    #n         tsub      ttot      tavg
 deneme.py:35 a                          1          0.296402  0.296402  0.296402
 
-name           tid              fname                      ttot      scnt
-_MainThread    6016             ..ppi.py.get_thread_stats  0.296402  1
+name           tid              ttot      scnt
+_MainThread    6016             0.296402  1
 }}}
 
 Let's inspect the results in detail. So, first line:
@@ -55,12 +55,11 @@ Let's explain the fields in detail:
 
 The next lines shows the thread stats. So, let see:
 {{{
-name           tid              fname                      ttot      scnt
-_MainThread    6016             ..ppi.py.get_thread_stats  0.296402  1
+name           tid              ttot      scnt
+_MainThread    6016             0.296402  1
 }}}
 || *Title* || *Description* ||
 || name || the class name of the Thread.(this is the name of the class inherits the threading.Thread class) ||
 || tid || the thread id. ||
-|| fname || the full unique name of the last called function in the releant thread. ||
 || ttot || how many time this thread has spent in total. See [https://code.google.com/p/yappi/wiki/ClockTypes_v082 Clock Types] to interpret this value correctly. ||
 || scnt || how many times this thread is scheduled. ||

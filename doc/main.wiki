@@ -1,4 +1,7 @@
 = Features =
+  * Profiler results can be saved in [http://valgrind.org/docs/manual/cl-format.html callgrind] and [http://docs.python.org/3.4/library/profile.html#pstats.Stats pstat] formats. (new in 0.82) 
+  * Profiler results can be merged from different sessions on-the-fly. (new in 0.82)
+  * Profiler results can be easily converted to pstats. (new in 0.82) 
   * Profiling of multithreaded Python applications transparently. 
   * Supports profiling per-thread [http://en.wikipedia.org/wiki/CPU_time CPU time](new in *0.62*)
   * Profiler can be started from any thread at any time.
@@ -10,8 +13,8 @@
 Can be installed via *easy_install yappi* , *pip install yappi* or from the source directly.
 
 =Documentation:=
-Please see [http://code.google.com/p/yappi/wiki/apiyappi API reference manual].
-For how to use the profiler and how to interpret statistics output, see [http://code.google.com/p/yappi/wiki/usageyappi usage reference manual].
+Please see [http://code.google.com/p/yappi/wiki/apiyappi_v082 API reference manual].
+For how to use the profiler and how to interpret statistics output, see [http://code.google.com/p/yappi/wiki/usageyappi_v082 usage reference manual].
 And finally, see [http://code.google.com/p/yappi/wiki/whyyappi requirements and techinal] section for why we have implemented yet another python profiler and some technical info about the internals.
 
 

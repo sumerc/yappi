@@ -661,7 +661,10 @@ class YThreadStats(YStats):
             out.write(" " * COLUMN_GAP)
             out.write(StatString(stat.sched_count).rtrim(THREAD_SCHED_CNT_LEN))
             out.write(CRLF)
-
+            
+    def strip_dirs(self):
+        pass # do nothing
+        
 def is_running():
     """
     Returns true if the profiler is running, false otherwise.

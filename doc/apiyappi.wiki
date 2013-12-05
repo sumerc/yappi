@@ -6,7 +6,7 @@
 <font face='Courier New'>
 yappi.<b>start</b>(builtins=False, profile_threads=True)
 
-    Starts profiling all threads in the current interpreter instance. This function can be called from any thread at any time. Yappi is per-interpreter resource, you cannot run more than one instance per-interpreter. A relevant exception will be raised if you do so. Resumes profiling if stop() is called previously.(Note: you can clear the profiling stats via clear_stats() between  start()/stop().)
+    Starts profiling all threads in the current interpreter instance. This function can be called from any thread at any time. Resumes profiling if stop() is called previously.
 
     Current parameters:
 || *Param* || *Description* ||
@@ -81,5 +81,11 @@ yappi.<b>get_mem_usage</b>()
 </font>
 
     Returns the internal memory usage of the profiler itself.
+
+<font face='Courier New'>
+yappi.<b>convert2pstats</b>(stats)
+</font>
+
+    Converts the internal stat type of yappi(which is returned by a call to YFuncStats.get()) as [http://docs.python.org/3.4/library/profile.html#module-pstats pstats] object.
 
 </font>
