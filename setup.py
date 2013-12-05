@@ -32,10 +32,12 @@ if os.name == 'posix' and sys.platform != 'darwin':
         user_libraries.append('rt')
         
 if _DEBUG:
-    compile_args.append('/Zi')
-    link_args.append('/DEBUG')
-    # TODO: Implement *nix side. Need -g AFAIR.
- 
+    if os.name == 'posix':
+        compile_args.append('-g')
+    elif os.name == 'nt':
+        compile_args.append('/Zi')
+        link_args.append('/DEBUG')
+    
 #user_macros.append(('DEBUG_MEM', '1')),
 #user_macros.append(('DEBUG_CALL', '1'))
 #user_macros.append(('YDEBUG', '1')),

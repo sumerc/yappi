@@ -19,4 +19,4 @@
     Windows Python 2.7                        
 
 [+] Check any TODO is left in the code        
-
+[+] Compile yappi as _DEBUG=True in setup.py
