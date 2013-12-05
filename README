@@ -19,7 +19,7 @@ powerful requirements.
 Features:
 ===================
 * Profiler results can be saved in callgrind and pstat formats. (new in 0.82) 
-* Profiler results can be merged from different sessions/computers/interpreters on-the-fly. (new in 0.82)
+* Profiler results can be merged from different sessions on-the-fly. (new in 0.82)
 * Profiler results can be easily converted to pstats. (new in 0.82) 
 * Supports profiling per-thread CPU time. See http://en.wikipedia.org/wiki/CPU_time for details. (new in 0.62)
 * Profiling of multithreaded Python applications transparently. 
