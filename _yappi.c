@@ -338,8 +338,10 @@ _code2pit(PyFrameObject *fobj)
                 PyObject* self = PyDict_GetItemString(locals, "self");
                 if (self) {
                     PyObject *as = PyObject_GetAttrString(self, "__class__");
-                    as = PyObject_GetAttrString(as, "__name__");                    
-                    pit->name = PyStr_FromFormat("%s.%s", PyStr_AS_CSTRING(as), PyStr_AS_CSTRING(cobj->co_name));
+                    if (as) {
+                        as = PyObject_GetAttrString(as, "__name__");                    
+                        pit->name = PyStr_FromFormat("%s.%s", PyStr_AS_CSTRING(as), PyStr_AS_CSTRING(cobj->co_name));
+                    }
                 }
             }
         }
