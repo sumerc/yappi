@@ -292,12 +292,7 @@ class YStats(object):
             return self._stats[key]
         except IndexError:
             return None
-
-    def strip_dirs(self):
-        for stat in self._stats:
-            stat.strip_dirs() # assuming stat in derived from YStat object
-        return self
-        
+    
     def append(self, item):
         # sometimes, we may have Stat object that seems to be unique, however
         # it may already be in the list.
@@ -370,6 +365,11 @@ class YChildFuncStats(YStats):
             out.write(StatString(_fft(stat.tavg)).rtrim(TIME_COLUMN_LEN))
             out.write(CRLF)
     
+    def strip_dirs(self):
+        for stat in self:
+            stat.strip_dirs()
+        return self
+    
 class YFuncStats(YStats):
 
     _idx_max = 0
@@ -396,8 +396,9 @@ class YFuncStats(YStats):
         
     def strip_dirs(self):
         for stat in self:
+            stat.strip_dirs()
             stat.children.strip_dirs()
-        super(YFuncStats, self).strip_dirs()
+        return self
         
     def get(self):        
         _yappi._pause()
