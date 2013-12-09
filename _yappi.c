@@ -468,58 +468,7 @@ decr_rec_level(uintptr_t key)
     return 1;
 }
 
-static void
-_call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
-{
-    _pit *cp,*pp;
-    PyObject *last_type, *last_value, *last_tb;
-    _cstackitem *ci;
-    _pit_children_info *pci;
-    
-    PyErr_Fetch(&last_type, &last_value, &last_tb);
-
-    if (ccall) {
-        cp = _ccode2pit((PyCFunctionObject *)arg);
-    } else {
-        cp = _code2pit(frame);
-    }
-
-    // something went wrong. No mem, or another error. we cannot find
-    // a corresponding pit. just run away:)
-    if (!cp) {
-        _log_err(4);
-        goto err;
-    }
-    
-    // create/update children info if we have a valid parent
-    pp = _get_frame();    
-    if (pp) {
-        pci = _get_child_info(pp, cp);    
-        if(!pci)
-        {
-            pci = _add_child_info(pp, cp);
-        }    
-        pci->callcount++;
-        incr_rec_level((uintptr_t)pci);
-    }
-    
-    ci = _push_frame(cp);
-    if (!ci) { // runaway! (defensive)
-        _log_err(5);
-        goto err;
-    }
-
-    ci->t0 = tickcount();
-    cp->callcount++;
-    incr_rec_level((uintptr_t)cp);
-    
-    PyErr_Restore(last_type, last_value, last_tb);
-
-err:
-    PyErr_Restore(last_type, last_value, last_tb);
-}
-
-long long
+static long long
 _get_frame_elapsed(void)
 {
     _cstackitem *ci;
@@ -551,19 +500,62 @@ _get_frame_elapsed(void)
 }
 
 static void
+_call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
+{
+    _pit *cp,*pp;    
+    _cstackitem *ci;
+    _pit_children_info *pci;
+    
+    if (ccall) {
+        cp = _ccode2pit((PyCFunctionObject *)arg);
+    } else {
+        cp = _code2pit(frame);
+    }
+
+    // something went wrong. No mem, or another error. we cannot find
+    // a corresponding pit. just run away:)
+    if (!cp) {
+        _log_err(4);
+        return;
+    }
+    
+    // create/update children info if we have a valid parent
+    pp = _get_frame();    
+    if (pp) {
+        pci = _get_child_info(pp, cp);    
+        if(!pci)
+        {
+            pci = _add_child_info(pp, cp);
+        }    
+        pci->callcount++;
+        incr_rec_level((uintptr_t)pci);
+    }
+    
+    ci = _push_frame(cp);
+    if (!ci) { // runaway! (defensive)
+        _log_err(5);
+        return;
+    }
+
+    ci->t0 = tickcount();
+    cp->callcount++;
+    incr_rec_level((uintptr_t)cp);
+}
+
+static void
 _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 {
-    _pit *cp, *pp, *ppp;
-    _pit_children_info *pci,*ppci;
     long long elapsed;    
-        
+    _pit *cp, *pp, *ppp;    
+    _pit_children_info *pci,*ppci;
+            
     elapsed = _get_frame_elapsed();    
     
     // leaving a frame while callstack is empty? 
     cp = _pop_frame();
     if (!cp)
     {
-        return; // return silently.
+        return;
     }
     
     // is this the last function in the callstack?
@@ -634,11 +626,15 @@ static int
 _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
                PyObject *arg)
 {
+    PyObject *last_type, *last_value, *last_tb;
+        
+    PyErr_Fetch(&last_type, &last_value, &last_tb);
+    
     // get current ctx
     current_ctx = _thread2ctx(frame->f_tstate);
     if (!current_ctx) {
         _log_err(9);
-        return 0; // defensive
+        goto finally;
     }
     
     // update ctx stats
@@ -676,6 +672,12 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         break;
     }
 
+    goto finally;
+    
+finally:
+    if (last_type) {
+        PyErr_Restore(last_type, last_value, last_tb);
+    }
     return 0;
 }
 

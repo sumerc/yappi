@@ -6,7 +6,17 @@ import test_utils
 import unittest
 
 class BasicUsage(test_utils.YappiUnitTestCase):
-    
+
+    def test_generator(self):
+        def _gen(n):
+            while(n > 0):
+                yield n
+                n -= 1
+        yappi.start()
+        for x in _gen(5):
+            pass
+        self.assertTrue(yappi.convert2pstats(yappi.get_func_stats()) is not None)
+        
     def test_slice_child_stats_and_strip_dirs(self):
         def b(): 
             for i in range(10000000): pass
