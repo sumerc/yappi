@@ -12,18 +12,16 @@ class YappiUnitTestCase(unittest.TestCase):
     def tearDown(self):
         fstats = yappi.get_func_stats()
         if not fstats._debug_check_sanity():
-            sys.stdout.write("ERR: Duplicates found in Func stats")
-            sys.stdout.write(CRLF)
+            sys.stdout.write("ERR: Duplicates found in Func stats\r\n")
+            
             fstats.debug_print()
         for fstat in fstats:
             if not fstat.children._debug_check_sanity():
-                sys.stdout.write("ERR: Duplicates found in ChildFunc stats")
-                sys.stdout.write(CRLF)
+                sys.stdout.write("ERR: Duplicates found in ChildFunc stats\r\n")
                 fstat.children.print_all()
         tstats = yappi.get_func_stats()
         if not tstats._debug_check_sanity():
-            sys.stdout.write("ERR: Duplicates found in Thread stats")
-            sys.stdout.write(CRLF)
+            sys.stdout.write("ERR: Duplicates found in Thread stats\r\n")
             tstats.print_all()
             
 def assert_raises_exception(func):

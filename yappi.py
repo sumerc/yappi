@@ -208,11 +208,7 @@ class YFuncStat(YStat):
         
         for other_child_stat in other.children:
             # all children point to a valid entry, and we shall have merged previous entries by here.
-            if other_child_stat not in self.children:
-                self.children._stats.append(other_child_stat)
-            else:
-                cur_child_stat = self.children[other_child_stat]
-                cur_child_stat += other_child_stat
+            self.children.append(other_child_stat)
         return self
     
     def __hash__(self):
@@ -280,7 +276,7 @@ class YStats(object):
     
     def empty(self):
         return (len(self._stats) == 0)
-        
+                
     def __iter__(self):
         for stat in self._stats:
             yield stat
@@ -302,12 +298,24 @@ class YStats(object):
             stat.strip_dirs() # assuming stat in derived from YStat object
         return self
         
+    def append(self, item):
+        # sometimes, we may have Stat object that seems to be unique, however
+        # it may already be in the list.
+        try:
+            idx = self._stats.index(item)
+            citem = self._stats[idx]
+        except ValueError:
+            self._stats.append(item)
+            return
+        citem += item
+    
     def _debug_check_sanity(self):
         """
         Check for basic sanity errors in stats. e.g: Check for duplicate stats.
         """
-        if len(self) != len(set(self)):
-            return False
+        for x in self:
+            if self._stats.count(x) > 1:
+                return False
         return True
             
 class YChildFuncStats(YStats):
@@ -412,7 +420,7 @@ class YFuncStats(YStats):
                     tavg = rstat.ttot / rstat.ncall
                     cfstat = YChildFuncStat(child_tpl+(tavg, rstat.builtin, rstat.full_name, rstat.module, 
                         rstat.lineno, rstat.name,))
-                    _childs._stats.append(cfstat)
+                    _childs.append(cfstat)
                 stat.children = _childs            
             result = super(YFuncStats, self).get()            
         finally:
@@ -430,8 +438,8 @@ class YFuncStats(YStats):
         if os.path.basename(fstat.module) == "yappi.py" or fstat.module == "_yappi":
             return
             
-        fstat.builtin = bool(fstat.builtin)
-        self._stats.append(fstat)
+        fstat.builtin = bool(fstat.builtin)                
+        self.append(fstat)
         
         # hold the max idx number for merging new entries(for making the merging entries indexes unique)
         if self._idx_max < fstat.index:
@@ -456,7 +464,7 @@ class YFuncStats(YStats):
             if saved_stat not in self:                
                 self._idx_max += 1
                 saved_stat.index = self._idx_max
-                self._stats.append(saved_stat)
+                self.append(saved_stat)
                                 
         # fix children's index values
         for saved_stat in saved_stats:
@@ -646,7 +654,7 @@ class YThreadStats(YStats):
         
     def _enumerator(self, stat_entry):        
         tstat = YThreadStat(stat_entry)
-        self._stats.append(tstat)
+        self.append(tstat)
         
     def sort(self, sort_type, sort_order="desc"):
         sort_type = _validate_sorttype(sort_type, SORT_TYPES_THREADSTATS)
