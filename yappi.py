@@ -237,7 +237,7 @@ class YChildFuncStat(YFuncStat):
     """
     _KEYS = ('index', 'ncall', 'nactualcall', 'ttot', 'tsub', 'tavg', 'builtin', 'full_name',
         'module', 'lineno', 'name')
-
+    
     def __add__(self, other):
         if other is None:
             return self
@@ -253,6 +253,11 @@ class YThreadStat(YStat):
     Class holding information for thread stats.
     """
     _KEYS = ('name', 'id', 'ttot','sched_count',)
+    
+    def __eq__(self, other):
+        if other is None:
+            return False
+        return self.id == other.id
 
 class YStats(object):
     """
@@ -296,6 +301,14 @@ class YStats(object):
         for stat in self._stats:
             stat.strip_dirs() # assuming stat in derived from YStat object
         return self
+        
+    def _debug_check_sanity(self):
+        """
+        Check for basic sanity errors in stats. e.g: Check for duplicate stats.
+        """
+        if len(self) != len(set(self)):
+            return False
+        return True
             
 class YChildFuncStats(YStats):
     def __getitem__(self, key):        
