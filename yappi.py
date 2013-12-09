@@ -394,7 +394,8 @@ class YFuncStats(YStats):
                     # or timing(call_leave called but call_enter is not), with this we ensure that the children
                     # index always point to a valid stat.
                     if rstat is None:
-                        continue 
+                        continue
+                        
                     tavg = rstat.ttot / rstat.ncall
                     cfstat = YChildFuncStat(child_tpl+(tavg, rstat.builtin, rstat.full_name, rstat.module, 
                         rstat.lineno, rstat.name,))
@@ -617,7 +618,7 @@ class YFuncStats(YStats):
                 console.write("tsub: %s" % _fft(child_stat.tsub))
                 console.write(CRLF) 
             console.write(CRLF)
-        
+         
 class YThreadStats(YStats):
         
     def get(self):

@@ -7,6 +7,17 @@ import unittest
 
 class BasicUsage(test_utils.YappiUnitTestCase):
 
+    def test_clear_stats_while_running(self):
+        def a():            
+            pass
+        yappi.start()
+        a()
+        yappi.clear_stats()
+        a()
+        stats = yappi.get_func_stats()
+        fsa = test_utils.find_stat_by_name(stats, 'a')
+        self.assertEqual(fsa.ncall, 1)
+        
     def test_generator(self):
         def _gen(n):
             while(n > 0):
@@ -110,8 +121,6 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         self.assertTrue(fsa.ttot > 0.1)
         
     def test_module_stress(self):
-        self.assertRaises(_yappi.error, yappi.get_func_stats)
-        self.assertRaises(_yappi.error, yappi.get_thread_stats)
         self.assertEqual(yappi.is_running(), False)
         
         yappi.start()
@@ -123,8 +132,6 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         yappi.set_clock_type("cpu")
         self.assertRaises(yappi.YappiError, yappi.set_clock_type, "dummy")
         self.assertEqual(yappi.is_running(), False)
-        self.assertRaises(_yappi.error, yappi.get_func_stats)
-        self.assertRaises(_yappi.error, yappi.get_thread_stats)
         yappi.clear_stats()
         yappi.clear_stats()
                 

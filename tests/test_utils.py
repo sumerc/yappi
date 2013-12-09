@@ -9,9 +9,13 @@ class YappiUnitTestCase(unittest.TestCase):
         yappi.clear_stats()
         yappi.set_clock_type('cpu') # reset to default clock type
 
-    def tearDown(self):
-        pass
-        
+    def tearDown(self):        
+        def all_unique(x):        
+            return len(x) == len(set(x))
+        stats = yappi.get_func_stats()
+        if not all_unique(stats):
+            stats.debug_print()
+            
 def assert_raises_exception(func):
     try:
         _run(func)

@@ -881,12 +881,7 @@ stop(PyObject *self, PyObject *args)
 
 static PyObject*
 clear_stats(PyObject *self, PyObject *args)
-{
-    if (yapprunning) {
-        PyErr_SetString(YappiProfileError, "clear_stats cannot be called while profiler is running.");
-        return NULL;
-    }
-    
+{    
     if (!yapphavestats) {
         Py_INCREF(Py_None);
         return Py_None;
@@ -967,8 +962,8 @@ enum_thread_stats(PyObject *self, PyObject *args)
     PyObject *enumfn;
 
     if (!yapphavestats) {
-        PyErr_SetString(YappiProfileError, "profiler not started?");
-        return NULL;
+        Py_INCREF(Py_None);
+        return Py_None;
     }
 
     if (!PyArg_ParseTuple(args, "O", &enumfn)) {
@@ -1036,8 +1031,8 @@ enum_func_stats(PyObject *self, PyObject *args)
     PyObject *enumfn;
 
     if (!yapphavestats) {
-        PyErr_SetString(YappiProfileError, "profiler not started?");
-        return NULL;
+        Py_INCREF(Py_None);
+        return Py_None;
     }
 
     if (!PyArg_ParseTuple(args, "O", &enumfn)) {
