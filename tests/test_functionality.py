@@ -7,6 +7,35 @@ import unittest
 
 class BasicUsage(test_utils.YappiUnitTestCase):
 
+    def test_yappi_overhead(self):  
+        import time
+        LOOP_COUNT = 10000
+        def a(): pass
+        def b():
+            for i in range(LOOP_COUNT): a()
+        t0 = time.time()
+        yappi.start()
+        b()
+        yappi.stop()
+        time_with_yappi = time.time() - t0
+        t0 = time.time()
+        b()
+        time_without_yappi = time.time() - t0
+        if time_without_yappi == 0:
+            time_without_yappi = 0.000001
+            
+        # in latest v0.82, I calculated this as close to "7.0" in my machine.
+        # however, %83 of this overhead is coming from tickcount(). The other %17
+        # seems to have been evenly distributed to the internal bookkeeping 
+        # structures/algorithms which seems acceptable. Note that our test only 
+        # tests one function being profiled at-a-time in a short interval. 
+        # profiling high number of functions in a small time
+        # is a different beast, (which is pretty unlikely in most applications)
+        # So as a conclusion: I cannot see any optimization window for Yappi that
+        # is worth implementing as we will only optimize %17 of the time.
+        sys.stdout.write("\r\nYappi puts %0.1f times overhead to the profiled application in average.\r\n" % \
+            (time_with_yappi / time_without_yappi))        
+        
     def test_clear_stats_while_running(self):
         def a():            
             pass
