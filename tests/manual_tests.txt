@@ -21,4 +21,6 @@
 [+] Check any TODO is left in the code        
 [+] Compile yappi as _DEBUG=True in setup.py
 [+] Run SciPy/NumPy full tests with yappi. (scipy.test('full'))
+    with _debug_check_sanity() to check for duplicates.
 [+] Run python regression tests. (python -m test.regrtest)
+    with _debug_check_sanity() to check for duplicates.
