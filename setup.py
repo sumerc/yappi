@@ -74,7 +74,7 @@ setup(name=NAME,
         extra_compile_args = compile_args,
         extra_link_args = link_args,
         )],
-    py_modules =  ["yappi"],
+    py_modules =  ["yappi", "distribute_setup", "ez_setup"],
     entry_points = {
     'console_scripts': [
         'yappi = yappi:main',
