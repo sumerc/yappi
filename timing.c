@@ -79,6 +79,7 @@ tickcount(void)
 {
     long long rc;
     
+    rc = 0;
     if (g_clock_type == CPU_CLOCK) {
         kern_return_t kr;
         thread_basic_info_t tinfo_b;
@@ -88,8 +89,7 @@ tickcount(void)
         tinfo_cnt = THREAD_INFO_MAX;
         kr = thread_info(mach_thread_self(), THREAD_BASIC_INFO, (thread_info_t)tinfo_d, &tinfo_cnt);
         tinfo_b = (thread_basic_info_t)tinfo_d;
-        
-        rc = 0;
+                
         if (!(tinfo_b->flags & TH_FLAGS_IDLE))
         {
             rc = (tinfo_b->user_time.seconds + tinfo_b->system_time.seconds);
