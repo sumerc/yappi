@@ -138,6 +138,21 @@ def convert2pstats(stats):
      
     return pstats.Stats(_PStatHolder(_pdict))
     
+def profile(clock_type="cpu", profile_builtins=False, complete_callback=None):
+    def _profile_dec(func):
+        def wrapper(*args, **kwargs):
+            clear_stats()
+            set_clock_type(clock_type)
+            start(profile_builtins, profile_threads=False)
+            func(*args, **kwargs)
+            stop()
+            if complete_callback is None:
+                get_func_stats().print_all()
+            else:
+                complete_callback(func, get_func_stats())
+            clear_stats()
+        return wrapper
+    return _profile_dec    
     
 class StatString(object):
     """
