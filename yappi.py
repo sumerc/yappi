@@ -144,13 +144,14 @@ def profile(clock_type="cpu", profile_builtins=False, complete_callback=None):
             clear_stats()
             set_clock_type(clock_type)
             start(profile_builtins, profile_threads=False)
-            func(*args, **kwargs)
+            result = func(*args, **kwargs)
             stop()
             if complete_callback is None:
                 get_func_stats().print_all()
             else:
                 complete_callback(func, get_func_stats())
             clear_stats()
+            return result
         return wrapper
     return _profile_dec    
     
