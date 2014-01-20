@@ -86,5 +86,5 @@ setup(name=NAME,
     license = "MIT",
     url = HOMEPAGE,
     download_url = "%s/files/%s-%s.tar.gz" % (HOMEPAGE, NAME, VERSION),
-    test_suite = 'tests'
+    test_suite = 'nose.collector'
 )
