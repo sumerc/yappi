@@ -532,7 +532,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         self.assertEqual(fsc.ttot, fsc.tsub, 5)
         
         # MACOSx optimizes by only creating one worker thread
-        self.assertTrue(len(yappi.get_thread_stats()) > 2) 
+        self.assertTrue(len(yappi.get_thread_stats()) >= 2) 
            
     def test_basic(self):
         import threading
