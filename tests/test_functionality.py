@@ -3,9 +3,58 @@ import sys
 import yappi
 import _yappi
 import test_utils
-import unittest
+import multiprocessing # added to fix http://bugs.python.org/issue15881 for > Py2.6
+
+if sys.version_info < (2, 7): # use unittest2 for < Py2.7
+    import unittest2 as _unittest
+else:
+    import unittest as _unittest
 
 class BasicUsage(test_utils.YappiUnitTestCase):
+    
+    def test_profile_decorator(self):        
+        def aggregate(func, stats):
+            fname = "%s.profile" % (func.__name__)
+            try: 
+                stats.add(fname)
+            except IOError:
+                pass
+            stats.save(fname)
+            raise Exception("messing around")
+             
+        @yappi.profile(complete_callback=aggregate)
+        def a(x, y):
+            if x+y == 25:
+                raise Exception("")
+            return x+y
+        def b():
+            pass
+        try:
+            os.remove("a.profile") # remove the one from prev test, if available
+        except:
+            pass
+        
+        # global profile is on to mess things up
+        yappi.start()
+        b()
+        
+        # assert functionality and call function at same time
+        try:
+            self.assertEqual(a(1, 2), 3)            
+        except:
+            pass
+        try:
+            self.assertEqual(a(2, 5), 7)             
+        except:
+            pass          
+        try:    
+            a(4, 21)
+        except:
+            pass
+        stats = yappi.get_func_stats().add("a.profile")
+        fsa = test_utils.find_stat_by_name(stats, 'a')
+        self.assertEqual(fsa.ncall, 3)
+        self.assertEqual(len(stats), 1) # b() should be cleared out.
 
     def test_yappi_overhead(self):  
         import time
@@ -33,7 +82,7 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         # is a different beast, (which is pretty unlikely in most applications)
         # So as a conclusion: I cannot see any optimization window for Yappi that
         # is worth implementing as we will only optimize %17 of the time.
-        sys.stdout.write("\r\nYappi puts %0.1f times overhead to the profiled application in average.\r\n" % \
+        sys.stderr.write("\r\nYappi puts %0.1f times overhead to the profiled application in average.\r\n" % \
             (time_with_yappi / time_without_yappi))        
         
     def test_clear_stats_while_running(self):
@@ -700,7 +749,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         #yappi.get_func_stats().sort("callcount").print_all()
         yappi.stop()
     
-    @unittest.skipIf(os.name != "posix", "requires Posix compliant OS")
+    @_unittest.skipIf(os.name != "posix", "requires Posix compliant OS")
     def test_signals_with_blocking_calls(self): 
         import signal, os, time 
         # just to verify if signal is handled correctly and stats/yappi are not corrupted.
@@ -714,7 +763,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         fsh = test_utils.find_stat_by_name(stats, "handler")
         self.assertTrue(fsh is not None)
            
-    @unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
+    @_unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
     def test_concurrent_futures(self):
         yappi.start()
         import time
@@ -725,7 +774,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         time.sleep(1.0)
         yappi.stop()
         
-    @unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
+    @_unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
     def test_barrier(self):
         yappi.start()
         import threading
@@ -742,7 +791,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         #b.wait()
         t1.join()
         yappi.stop()
-      
+    
 class NonRecursiveFunctions(test_utils.YappiUnitTestCase):
     def test_abcd(self):
         _timings = {"a_1":6,"b_1":5,"c_1":3, "d_1":1}

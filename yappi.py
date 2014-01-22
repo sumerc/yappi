@@ -139,19 +139,32 @@ def convert2pstats(stats):
     return pstats.Stats(_PStatHolder(_pdict))
     
 def profile(clock_type="cpu", profile_builtins=False, complete_callback=None):
-    def _profile_dec(func):
+    """
+    A profile decorator that can be used to profile a single call.
+    
+    We need to clear_stats() on entry/exit of the function unfortunately. 
+    As yappi is a per-interpreter resource, we cannot simply resume profiling
+    session upon exit of the function, that is because we _may_ simply change
+    start() params which may differ from the paused session that may cause instable
+    results. So, if you use a decorator, then global profiling may return bogus 
+    results or no results at all.
+    """
+    def _profile_dec(func):            
         def wrapper(*args, **kwargs):
             clear_stats()
             set_clock_type(clock_type)
-            start(profile_builtins, profile_threads=False)
-            result = func(*args, **kwargs)
-            stop()
-            if complete_callback is None:
-                get_func_stats().print_all()
-            else:
-                complete_callback(func, get_func_stats())
-            clear_stats()
-            return result
+            start(profile_builtins, profile_threads=False)            
+            try:
+                return func(*args, **kwargs)
+            finally:
+                try:
+                    stop()
+                    if complete_callback is None:
+                        get_func_stats().print_all()
+                    else:
+                        complete_callback(func, get_func_stats())
+                finally:
+                    clear_stats()            
         return wrapper
     return _profile_dec    
     
