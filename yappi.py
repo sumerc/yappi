@@ -328,10 +328,10 @@ class YStats(object):
         try:
             idx = self._stats.index(item)
             citem = self._stats[idx]
+            citem += item
         except ValueError:
             self._stats.append(item)
             return
-        citem += item
     
     def _debug_check_sanity(self):
         """
@@ -454,7 +454,7 @@ class YFuncStats(YStats):
                 stat.children = _childs            
             result = super(YFuncStats, self).get()            
         finally:
-            _yappi._resume()            
+            _yappi._resume()
         return result
     
     def _enumerator(self, stat_entry):
@@ -510,12 +510,9 @@ class YFuncStats(YStats):
             saved_stat_in_curr += saved_stat
                         
     def _save_as_YSTAT(self, path):
-        file = open(path, "wb")
-        try:
-            pickle.dump((self._stats, self._clock_type), file, YPICKLE_PROTOCOL)
-        finally:
-            file.close()
-            
+        with open(path, "wb") as f:
+            pickle.dump((self._stats, self._clock_type), f, YPICKLE_PROTOCOL)
+        
     def _save_as_PSTAT(self, path):   
         """
         Save the profiling information as PSTAT.
@@ -559,11 +556,8 @@ class YFuncStats(YStats):
                                 ]
             lines += func_stats
             
-        file = open(path, "w")
-        try:
-            file.write('\n'.join(lines))                
-        finally:
-            file.close()
+        with open(path, "w") as f:
+            f.write('\n'.join(lines))                
             
     def add(self, files, type="ystat"):    
         type = type.upper()
@@ -572,12 +566,9 @@ class YFuncStats(YStats):
         if isinstance(files, str):
             files = [files, ]
         for fd in files:
-            f = open(fd, "rb")
-            try:
+            with open(fd, "rb") as f:
                 add_func = getattr(self, "_add_from_%s" % (type))
-                add_func(file=f)
-            finally:
-                f.close()
+                add_func(file=f)            
             
         return self.sort(DEFAULT_SORT_TYPE, DEFAULT_SORT_ORDER)
             
