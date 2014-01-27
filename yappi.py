@@ -201,8 +201,7 @@ class YStat(dict):
     
     def __init__(self, values):
         super(YStat, self).__init__()
-        
-        assert len(self._KEYS) == len(values)
+            
         for i in range(len(self._KEYS)):
             setattr(self, self._KEYS[i], values[i])
             
