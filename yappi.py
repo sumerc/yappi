@@ -284,61 +284,48 @@ class YThreadStat(YStat):
             return False
         return self.id == other.id
 
-class YStats(object):
+class YStats(list):
     """
     Main Stats class where we collect the information from _yappi and apply the user filters.
     """
     def __init__(self):
-        self._stats = []
         self._clock_type = None
         
     def get(self):
         self._clock_type = _yappi.get_clock_type()["type"]
         return self.sort(DEFAULT_SORT_TYPE, DEFAULT_SORT_ORDER)
         
-    def sort(self, sort_type, sort_order):
-        self._stats.sort(key=lambda stat: stat[sort_type], reverse=(sort_order==SORT_ORDERS["desc"]))
+    def sort(self, sort_type, sort_order):        
+        super(YStats, self).sort(key=lambda stat: stat[sort_type], reverse=(sort_order==SORT_ORDERS["desc"]))
         return self
         
     def clear(self):
-        self._stats = []
+        del self[:]
     
     def empty(self):
-        return (len(self._stats) == 0)
-                
-    def __iter__(self):
-        for stat in self._stats:
-            yield stat
-
-    def __repr__(self):
-        return str(self._stats)
-        
-    def __len__(self):
-        return len(self._stats)
+        return (len(self) == 0)
         
     def __getitem__(self, key):
         try:
-            return self._stats[key]
+            return super(YStats, self).__getitem__(key)
         except IndexError:
             return None
     
     def append(self, item):
         # sometimes, we may have Stat object that seems to be unique, however
         # it may already be in the list.
-        try:
-            idx = self._stats.index(item)
-            citem = self._stats[idx]
-            citem += item
-        except ValueError:
-            self._stats.append(item)
-            return
-    
+        for cstat in self:
+            if cstat == item: 
+                cstat += item
+                return        
+        super(YStats, self).append(item)
+                
     def _debug_check_sanity(self):
         """
         Check for basic sanity errors in stats. e.g: Check for duplicate stats.
         """
         for x in self:
-            if self._stats.count(x) > 1:
+            if self.count(x) > 1:
                 return False
         return True
             
@@ -511,7 +498,7 @@ class YFuncStats(YStats):
                         
     def _save_as_YSTAT(self, path):
         with open(path, "wb") as f:
-            pickle.dump((self._stats, self._clock_type), f, YPICKLE_PROTOCOL)
+            pickle.dump((self, self._clock_type), f, YPICKLE_PROTOCOL)
         
     def _save_as_PSTAT(self, path):   
         """
