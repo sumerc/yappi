@@ -19,8 +19,8 @@
 || full_name || module:lineno name - unique full name of the child function ||
 || ncall || number of times the child function is called. ||
 || nactualcall || number of times the child function is called, excluding the recursive calls. || 
-|| ttot || total time spent in the child function.Or in other words, total time parent spent in calling this child. See [https://code.google.com/p/yappi/wiki/ClockTypes_v082 Clock Types] to interpret this value correctly. || 
-|| tsub || total time spent in the child function.Or in other words, total time child spent in itself(subcalls excluded) when called by a specific parent. See [https://code.google.com/p/yappi/wiki/ClockTypes_v082 Clock Types] to interpret this value correctly. || 
+|| ttot || total time spent in the child function. Or in other words, total time parent spent in calling this child. See [https://code.google.com/p/yappi/wiki/ClockTypes_v082 Clock Types] to interpret this value correctly. || 
+|| tsub || total time spent in the child function. Or in other words, total time child spent in itself(subcalls excluded) when called by a specific parent. See [https://code.google.com/p/yappi/wiki/ClockTypes_v082 Clock Types] to interpret this value correctly. || 
 || builtin || boolean flag showing if the executed function is a builtin || 
 || tavg || per-call average total time spent in the child function. See [https://code.google.com/p/yappi/wiki/ClockTypes_v082 Clock Types] to interpret this value correctly. || 
 
@@ -31,17 +31,17 @@
     This method sorts the current profile stats according to the  <i>"sort_type"</i> param. 
 
     The following are the valid <i>"sort_type"</i> params:
-|| *Key* || *Abbreviation* ||
-|| name || function's name ||
-|| callcount || function's call count || 
-|| totaltime || function's spent total time  || 
-|| subtime || function's spent total time, excluding subcalls. || 
-|| avgtime || function's per-call average total time spent ||
+|| *Sort Types* ||
+|| name ||
+|| callcount/ncall || 
+|| totaltime/ttot  || 
+|| subtime/tsub || 
+|| avgtime/tavg ||
 
    The following are the valid <i>"sort_order"</i> params:
-|| *Key* || *Abbreviation* ||
-|| descending || desc ||
-|| ascending || asc || 
+|| *Sort Orders* ||
+|| descending/desc ||
+|| ascending/asc || 
 
 <b>clear()</b>
     Clears the retrieved stats. Note that this only clears the current object's stat list. You need to explicitly call _yappi.clear_stats()_ to clear the current profile stats.

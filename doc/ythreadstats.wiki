@@ -23,16 +23,16 @@
     This method sorts the current profile stats according to the  <i>"sort_type"</i> param. 
 
     The following are the valid <i>"sort_type"</i> params:
-|| *Key* || *Abbreviation* ||
-|| name || thread's class name ||
-|| id || thread's thread id  || 
-|| totaltime || thread's total time spent || 
-|| schedcount || thread's scheduled count || 
+|| *Sort Types* ||
+|| name ||
+|| id ||  
+|| totaltime/ttot || 
+|| schedcount/scnt || 
 
    The following are the valid <i>"sort_order"</i> params:
-|| *Key* || *Abbreviation* ||
-|| descending || desc ||
-|| ascending || asc || 
+|| *Sort Orders* ||
+|| descending/desc ||
+|| ascending/asc || 
 
 <b>clear()</b>
     Clears the retrieved stats. Note that this only clears the current object's stat list. You need to explicitly call _yappi.clear_stats()_ to clear the current profile stats.

@@ -40,7 +40,7 @@ So, what happened? The answer is that yappi supports CPU clock by default for ti
 Clock type: cpu
 }}}
 
-And as _time.sleep()_ is a blocking function(which means it actually block the calling thread, thread usually sleeps in the OS queue), the CPU clock cannot accumulate any timing data for the function a. In fact, there may be some very few CPU cycles involved before actually calling the _time.sleep_, however that kind of precision is not shown at all.
+And as _time.sleep()_ is a blocking function(which means it actually block the calling thread, thread usually sleeps in the OS queue), the CPU clock cannot accumulate any timing data for the function a. In fact, there may be some very few CPU cycles involved before actually calling the _time.sleep_, however that level of precision is not shown at all.
 
 Let's see what happens when change the clock_type to Wall Clock:
 {{{

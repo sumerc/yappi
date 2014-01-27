@@ -1,7 +1,8 @@
 #summary yappi Reference Manual
 
-= Reference Manual (v0.82) =
+_*Please note that current version of yappi (v0.82) is not compatible with the older versions. Lots of existing API have been changed.*_
 
+= Reference Manual (v0.82) =
 
 <font face='Courier New'>
 yappi.<b>start</b>(builtins=False, profile_threads=True)

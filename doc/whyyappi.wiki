@@ -3,15 +3,11 @@
 _CPython_ standart distribution is coming with three profilers. _cProfile_, _Profile_ and _hotshot_. _cProfile_ module is implemented as a C module based on _lsprof_, _Profile_ is in pure Python and the hotshot can be seen as a small subset of a cProfile. The motivation to implement a new profiler is that all of these profilers lacks the support of multi-threaded programs. If you want to profile a multi-threaded application, you must give an entry point to these profilers and then maybe merge the outputs. None of these profilers is designed to work on long-running multi-threaded application. While implementing a game server, it turns out that is is impossible to profile an application retrieve the statistics then stop and then start later on on the fly(without affecting the profiled application). With the experience of implementing a game server in Python, we have identified most of the problems, tricky parts regarding profiler usage and so, we have come up with simple but powerful requirements.
 
 =Requirements:=
-  * Profiler results can be saved in callgrind and pstat formats. (new in 0.82) 
-  * Profiler results can be merged from different sessions on-the-fly. (new in 0.82)
-  * Profiler results can be easily converted to pstats. (new in 0.82) 
-  * Supports profiling per-thread CPU time. See http://en.wikipedia.org/wiki/CPU_time for details. (new in 0.62)
-  * Profiling of multithreaded Python applications transparently. 
-  * Profiler can be started from any thread at any time.
-  * Ability to get statistics at any time without even stopping the profiler.
-  * Various flags to arrange/sort profiler results.
-
+  * Profiler should be started/stopped at any time from any thread in the application.
+  * Profile statistics should be obtained from any thread at any time.
+  * Profile statistics will be calculated from *per-thread CPU time*.(new in v0.62)
+  * "Profiler pollution"(effect on the application run-time) should be very minimal.
+  
 =Limitations:=
   * Threads must be derived from "threading" module's Thread object.
   * Latest version of Yappi supports Python 2.6.x <= x <= Python.3.4
