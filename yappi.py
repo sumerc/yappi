@@ -99,7 +99,17 @@ cumulative_time (total time) = ttot
 
 Other than that we hold called functions in a profile entry as named 'children'. On the
 other hand, PSTAT expects to have a dict of callers of the function. So we also need to 
-convert the information to that.       
+convert children to callers dict.
+From Python Docs:
+'''
+With cProfile, each caller is preceded by three numbers: 
+the number of times this specific call was made, and the total 
+and cumulative times spent in the current function while it was 
+invoked by this specific caller.
+'''
+That means we only need to assign ChildFuncStat's ttot/tsub values to the caller
+properly. Docs indicate that when b() is called by a() pstat holds the total time
+of b() when called by a, just like yappi.
 
 PSTAT only expects to have the above dict to be saved.
 """
@@ -125,12 +135,7 @@ def convert2pstats(stats):
     # convert callees to callers
     _callers = defaultdict(dict)
     for fs in stats:            
-        for ct in fs.children:
-            # From Python Docs:
-            # With cProfile, each caller is preceded by three numbers: 
-            # the number of times this specific call was made, and the total 
-            # and cumulative times spent in the current function while it was 
-            # invoked by this specific caller.
+        for ct in fs.children:            
             _callers[ct][pstat_id(fs)] = (ct.ncall, ct.nactualcall, ct.tsub ,ct.ttot)
     
     # populate the pstat dict.
