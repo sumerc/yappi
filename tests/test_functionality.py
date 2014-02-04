@@ -55,7 +55,15 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         fsa = test_utils.find_stat_by_name(stats, 'a')
         self.assertEqual(fsa.ncall, 3)
         self.assertEqual(len(stats), 1) # b() should be cleared out.
-
+        
+    def test_strip_dirs(self):
+        def a():
+            pass
+        stats = test_utils.run_and_get_func_stats(a,)
+        stats.strip_dirs()
+        fsa = test_utils.find_stat_by_name(stats, "a")        
+        self.assertEqual(fsa.module, os.path.basename(fsa.module))
+        
     def test_yappi_overhead(self):  
         import time
         LOOP_COUNT = 10000
@@ -319,6 +327,68 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         self.assertTrue(fsa2.ttot > 0.1)
      
 class StatSaveScenarios(test_utils.YappiUnitTestCase):
+
+    def test_pstats_conversion(self):
+        def pstat_id(fs):
+            return (fs.module, fs.lineno, fs.name)
+        
+        def a():
+            d()
+        def b():
+            d()
+        def c():
+            pass
+        def d():
+            pass
+            
+        _timings = {"a_1":12,"b_1":7,"c_1":5,"d_1":2}
+        _yappi._set_test_timings(_timings)            
+        stats = test_utils.run_and_get_func_stats(a,)
+        stats.strip_dirs()    
+        stats.save("a1.pstats", type="pstat")
+        fsa_pid = pstat_id(test_utils.find_stat_by_name(stats, "a"))
+        fsd_pid = pstat_id(test_utils.find_stat_by_name(stats, "d"))
+        yappi.clear_stats()
+        _yappi._set_test_timings(_timings)
+        stats = test_utils.run_and_get_func_stats(a,)
+        stats.strip_dirs()
+        stats.save("a2.pstats", type="pstat")
+        yappi.clear_stats()
+        _yappi._set_test_timings(_timings)
+        stats = test_utils.run_and_get_func_stats(b,)        
+        stats.strip_dirs()
+        stats.save("b1.pstats", type="pstat")
+        fsb_pid = pstat_id(test_utils.find_stat_by_name(stats, "b"))
+        yappi.clear_stats()
+        _yappi._set_test_timings(_timings)
+        stats = test_utils.run_and_get_func_stats(c,)
+        stats.strip_dirs()
+        stats.save("c1.pstats", type="pstat")
+        fsc_pid = pstat_id(test_utils.find_stat_by_name(stats, "c"))
+        
+        # merge saved stats and check pstats values are correct
+        import pstats
+        p = pstats.Stats('a1.pstats', 'a2.pstats', 'b1.pstats', 'c1.pstats')
+        p.strip_dirs()
+        # ct = ttot, tt = tsub
+        (cc, nc, tt, ct, callers) = p.stats[fsa_pid]
+        self.assertEqual(cc, nc, 2)
+        self.assertEqual(tt, 20)
+        self.assertEqual(ct, 24)
+        (cc, nc, tt, ct, callers) = p.stats[fsd_pid]
+        self.assertEqual(cc, nc, 3)
+        self.assertEqual(tt, 6)
+        self.assertEqual(ct, 6)        
+        self.assertEqual(len(callers), 2)
+        (cc, nc, tt, ct) = callers[fsa_pid]
+        self.assertEqual(cc, nc, 2)
+        self.assertEqual(tt, 4)
+        self.assertEqual(ct, 4)
+        (cc, nc, tt, ct) = callers[fsb_pid]
+        self.assertEqual(cc, nc, 1)
+        self.assertEqual(tt, 2)
+        self.assertEqual(ct, 2)        
+        
     def test_merge_stats(self):
         _timings = {"a_1":15,"b_1":14,"c_1":12,"d_1":10,"e_1":9,"f_1":7,"g_1":6,"h_1":5,"i_1":1}
         _yappi._set_test_timings(_timings)
@@ -526,8 +596,10 @@ class StatSaveScenarios(test_utils.YappiUnitTestCase):
         self.assertEqual(fsc.ttot, 8)
         self.assertEqual(fsc.tsub, 8)
         self.assertEqual(fsc.tavg, 4)
-        self.assertEqual(fsc.nactualcall, fsc.ncall, 2)  
+        self.assertEqual(fsc.nactualcall, fsc.ncall, 2)
+"""        
     
+"""  
 class MultithreadedScenarios(test_utils.YappiUnitTestCase):
     def test_subsequent_profile(self):
         import threading

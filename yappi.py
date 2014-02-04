@@ -2,7 +2,7 @@
  yappi.py
  Yet Another Python Profiler
 
- Sumer Cip 2013
+ Sumer Cip 2014
 """
 import os
 import sys
@@ -10,6 +10,7 @@ import _yappi
 import pickle
 import marshal
 import threading
+from collections import defaultdict
         
 class YappiError(Exception): pass
 
@@ -122,14 +123,14 @@ def convert2pstats(stats):
     _pdict = {}
     
     # convert callees to callers
-    _callers = {}
-    for fs in stats:
-        if not fs in _callers:
-            _callers[fs] = {}
-            
+    _callers = defaultdict(dict)
+    for fs in stats:            
         for ct in fs.children:
-            if not ct in _callers:
-                _callers[ct] = {}
+            # From Python Docs:
+            # With cProfile, each caller is preceded by three numbers: 
+            # the number of times this specific call was made, and the total 
+            # and cumulative times spent in the current function while it was 
+            # invoked by this specific caller.
             _callers[ct][pstat_id(fs)] = (ct.ncall, ct.nactualcall, ct.tsub ,ct.ttot)
     
     # populate the pstat dict.
@@ -172,25 +173,28 @@ class StatString(object):
     """
     Class to prettify/trim a profile result column.
     """
-    _s = ""
     _TRAIL_DOT = ".."
+    _LEFT = 1
+    _RIGHT = 2
 
     def __init__(self, s):
         self._s = str(s)
-
+    
+    def _trim(self, length, direction):        
+        if (len(self._s) > length):
+            if direction == self._LEFT:
+                self._s = self._s[-length:]
+                return self._TRAIL_DOT + self._s[len(self._TRAIL_DOT):]
+            elif direction == self._RIGHT:
+                self._s = self._s[:length]
+                return self._s[:-len(self._TRAIL_DOT)] + self._TRAIL_DOT
+        return self._s + (" " * (length - len(self._s)))
+    
     def ltrim(self, length):
-        if len(self._s) > length:
-            self._s = self._s[-length:]
-            return self._TRAIL_DOT + self._s[len(self._TRAIL_DOT):]
-        else:
-            return self._s + " " * (length - len(self._s))
-
+        return self._trim(length, self._LEFT)
+            
     def rtrim(self, length):
-        if len(self._s) > length:
-            self._s = self._s[:length]
-            return self._s[:-len(self._TRAIL_DOT)] + self._TRAIL_DOT
-        else:
-            return self._s + (" " * (length - len(self._s)))
+        return self._trim(length, self._RIGHT)
 
 class YStat(dict):
     """
@@ -202,8 +206,8 @@ class YStat(dict):
     def __init__(self, values):
         super(YStat, self).__init__()
             
-        for i in range(len(self._KEYS)):
-            setattr(self, self._KEYS[i], values[i])
+        for i, key in enumerate(self._KEYS):
+            setattr(self, key, values[i])
             
     def __setattr__(self, name, value):
         if name in self._KEYS:
@@ -251,8 +255,9 @@ class YFuncStat(YStat):
         return self.ncall != self.nactualcall
 
     def strip_dirs(self):
-        self.full_name = _func_fullname(self.builtin, os.path.basename(self.module), 
-            self.lineno, self.name)
+        self.module = os.path.basename(self.module)
+        self.full_name = _func_fullname(self.builtin, self.module, self.lineno, 
+            self.name)
         return self    
         
 class YChildFuncStat(YFuncStat):
@@ -445,15 +450,18 @@ class YFuncStats(YStats):
     
     def _enumerator(self, stat_entry):
         
+        fname, fmodule, flineno, fncall, fnactualcall, fbuiltin, fttot, ftsub, \
+            findex, fchildren = stat_entry 
+        
         # builtin function?
-        full_name = _func_fullname(bool(stat_entry[5]), stat_entry[1], stat_entry[2], stat_entry[0])                    
-        tavg = stat_entry[6] / stat_entry[3]
-        fstat = YFuncStat(stat_entry + (tavg, full_name))
+        ffull_name = _func_fullname(bool(fbuiltin), fmodule, flineno, fname)                    
+        ftavg = fttot / fncall
+        fstat = YFuncStat(stat_entry + (ftavg, ffull_name))
         
         # do not show profile stats of yappi itself.
         if os.path.basename(fstat.module) == "yappi.py" or fstat.module == "_yappi":
             return
-            
+        
         fstat.builtin = bool(fstat.builtin)                
         self.append(fstat)
         
