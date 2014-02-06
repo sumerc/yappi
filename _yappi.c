@@ -84,6 +84,7 @@ static long long yappstarttick;
 static long long yappstoptick;
 static _ctx *prev_ctx;
 static _ctx *current_ctx;
+static PyObject *context_id_callback = NULL;
 static PyObject *test_timings; // used for testing
 
 // defines
@@ -206,12 +207,46 @@ err:
     return NULL;
 }
 
+static uintptr_t
+_current_context_id(PyThreadState *ts)
+{
+    uintptr_t rc;
+    PyObject *callback_rc;
+    if (context_id_callback) {
+        callback_rc = PyObject_CallFunctionObjArgs(context_id_callback, NULL);
+        if (!callback_rc) {
+            PyErr_Print();
+            goto error;
+        }
+        rc = (uintptr_t)PyLong_AsLong(callback_rc);
+        Py_DECREF(callback_rc);
+        if (PyErr_Occurred()) {
+            yerr("context id callback returned non-integer");
+            goto error;
+        }
+        return rc;
+    } else {
+        // Use thread_id instead of ts pointer, because when we create/delete many threads, some
+        // of them do not show up in the thread_stats, because ts pointers are recycled in the VM.
+        // Also, we do not want to delete thread stats unless clear_stats() is called explicitly.
+        // We rely on the OS to give us unique thread ids, this time.
+        // thread_id -> long
+        return (uintptr_t)ts->thread_id;
+    }
+    
+error:
+    PyErr_Clear();
+    // don't use callback again
+    Py_XDECREF(context_id_callback);
+    context_id_callback = NULL;
+    return 0;
+}
+
 static _ctx *
 _thread2ctx(PyThreadState *ts)
 {
     _hitem *it;
-
-    it = hfind(contexts, (uintptr_t)ts->thread_id);
+    it = hfind(contexts, _current_context_id(ts));
     if (!it) {
         // callback functions in some circumtances, can be called before the context entry is not
         // created. (See issue 21). To prevent this problem we need to ensure the context entry for
@@ -685,6 +720,7 @@ finally:
 static _ctx *
 _profile_thread(PyThreadState *ts)
 {
+    uintptr_t ctx_id;
     _ctx *ctx;
     _hitem *it;
 
@@ -693,14 +729,10 @@ _profile_thread(PyThreadState *ts)
         return NULL;
     }
     
-    // Use thread_id instead of ts pointer, because when we create/delete many threads, some
-    // of them do not show up in the thread_stats, because ts pointers are recycled in the VM.
-    // Also, we do not want to delete thread stats unless clear_stats() is called explicitly.
-    // We rely on the OS to give us unique thread ids, this time.
-    // thread_id -> long
-    it = hfind(contexts, (uintptr_t)ts->thread_id);
+    ctx_id = _current_context_id(ts);
+    it = hfind(contexts, ctx_id);
     if (!it) {
-        if (!hadd(contexts, (uintptr_t)ts->thread_id, (uintptr_t)ctx)) {
+        if (!hadd(contexts, ctx_id, (uintptr_t)ctx)) {
             _del_ctx(ctx);
             if (!flput(flctx, ctx)) {
                 _log_err(10);
@@ -712,8 +744,8 @@ _profile_thread(PyThreadState *ts)
 
     ts->use_tracing = 1;
     ts->c_profilefunc = _yapp_callback;
-    ctx->id = ts->thread_id;
-    
+    ctx->id = ctx_id;
+
     return ctx;
 }
 
@@ -1064,6 +1096,27 @@ get_mem_usage(PyObject *self, PyObject *args)
 }
 
 static PyObject *
+set_context_id_callback(PyObject *self, PyObject *args)
+{
+    PyObject* new_callback;
+    if (!PyArg_ParseTuple(args, "O", &new_callback)) {
+        return NULL;
+    }
+    
+    if (new_callback == Py_None) {
+        Py_CLEAR(context_id_callback);
+        Py_RETURN_NONE;
+    } else if (!PyCallable_Check(new_callback)) {
+        PyErr_SetString(PyExc_TypeError, "callback should be a function.");
+        return NULL;
+    }
+    Py_XDECREF(context_id_callback);
+    Py_INCREF(new_callback);
+    context_id_callback = new_callback;
+    Py_RETURN_NONE;
+}
+    
+static PyObject *
 set_test_timings(PyObject *self, PyObject *args)
 {
     if (!PyArg_ParseTuple(args, "O", &test_timings)) {
@@ -1206,6 +1259,7 @@ static PyMethodDef yappi_methods[] = {
     {"get_clock_type", get_clock_type, METH_VARARGS, NULL},
     {"set_clock_type", set_clock_type, METH_VARARGS, NULL},
     {"get_mem_usage", get_mem_usage, METH_VARARGS, NULL},
+    {"set_context_id_callback", set_context_id_callback, METH_VARARGS, NULL},
     {"_get_start_flags", get_start_flags, METH_VARARGS, NULL}, // for internal usage.
     {"_set_test_timings", set_test_timings, METH_VARARGS, NULL}, // for internal usage.
     {"_profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage.

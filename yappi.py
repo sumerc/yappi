@@ -784,7 +784,18 @@ def get_mem_usage():
     Returns the internal memory usage of the profiler itself.
     """
     return _yappi.get_mem_usage()
- 
+
+def set_context_id_callback(callback):
+    """
+    Use a number other than thread_id to determine the current context.
+
+    The callback must take no arguments and return an integer. For example:
+
+    >>> import greenlet, yappi
+    >>> yappi.set_context_id_callback(lambda: id(greenlet.getcurrent()))
+    """
+    return _yappi.set_context_id_callback(callback)
+
 def main():
     from optparse import OptionParser
     usage = "yappi.py [-b] [-s] [scriptfile] args ..."
