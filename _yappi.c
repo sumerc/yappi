@@ -89,10 +89,17 @@ static PyObject *test_timings; // used for testing
 
 // defines
 #define UNINITIALIZED_STRING_VAL "N/A"
+
 #ifdef IS_PY3K // string formatting helper functions compatible with with both 2.x and 3.x
 #define PyStr_AS_CSTRING(s) PyBytes_AS_STRING(PyUnicode_AsUTF8String(s))
-#else
+#define PyStr_Check(s) PyUnicode_Check(s)
+#define PyStr_FromString(s) PyUnicode_FromString(s)
+#define PyStr_FromFormatV(fmt, vargs) PyUnicode_FromFormatV(fmt, vargs)
+#else // < Py3x
 #define PyStr_AS_CSTRING(s) PyString_AS_STRING(s)
+#define PyStr_Check(s) PyString_Check(mod)
+#define PyStr_FromString(s) PyString_FromString(s)
+#define PyStr_FromFormatV(fmt, vargs) PyString_FromFormatV(fmt, vargs)
 #endif
 
 // forwards
@@ -105,24 +112,8 @@ PyStr_FromFormat(const char *fmt, ...)
     va_list vargs;
     
     va_start(vargs, fmt);
-#ifdef IS_PY3K
-    ret = PyUnicode_FromFormatV(fmt, vargs);
-#else
-    ret = PyString_FromFormatV(fmt, vargs);
-#endif
-    return ret;
-}
-
-static PyObject * 
-PyStr_FromString(const char *s)
-{
-    PyObject* ret;
-    
-#ifdef IS_PY3K
-    ret = PyUnicode_FromString(s);
-#else
-    ret = PyString_FromString(s);
-#endif
+    ret = PyStr_FromFormatV(fmt, vargs);
+    va_end(vargs);
     return ret;
 }
 
@@ -300,16 +291,15 @@ _ccode2pit(void *cco)
         // get module name
         modname = NULL;
         mod = cfn->m_module;
-#ifdef IS_PY3K
-        if (mod && PyUnicode_Check(mod)) {      
-#else
-        if (mod && PyString_Check(mod)) {
-#endif
-            modname = PyStr_AS_CSTRING(mod);
-        } else if (mod && PyModule_Check(mod)) {
-            modname = (char *)PyModule_GetName(mod);
-        } 
         
+        if (mod) {
+            if (PyStr_Check(mod)) {
+                modname = PyStr_AS_CSTRING(mod);
+            } else if (PyModule_Check(mod)) {
+                modname = (char *)PyModule_GetName(mod);
+            } 
+        }
+                
         if (modname == NULL) {
             PyErr_Clear();
             modname = "__builtin__";
