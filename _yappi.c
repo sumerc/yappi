@@ -833,16 +833,14 @@ profile_event(PyObject *self, PyObject *args)
     else if (strcmp("c_exception", ev)==0)
         _yapp_callback(self, frame, PyTrace_C_EXCEPTION, arg);
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject*
 start(PyObject *self, PyObject *args)
 {
     if (yapprunning) {
-        Py_INCREF(Py_None);
-        return Py_None;
+        Py_RETURN_NONE;
     }
 
     if (!PyArg_ParseTuple(args, "ii", &flags.builtins, &flags.multithreaded))
@@ -864,8 +862,7 @@ start(PyObject *self, PyObject *args)
     time (&yappstarttime);
     yappstarttick = tickcount();
     
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 
@@ -898,8 +895,7 @@ static PyObject*
 stop(PyObject *self, PyObject *args)
 {
     if (!yapprunning) {
-        Py_INCREF(Py_None);
-        return Py_None;
+        Py_RETURN_NONE;
     }
 
     _enum_threads(&_unprofile_thread);
@@ -907,16 +903,14 @@ stop(PyObject *self, PyObject *args)
     yapprunning = 0;
     yappstoptick = tickcount();
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject*
 clear_stats(PyObject *self, PyObject *args)
 {    
     if (!yapphavestats) {
-        Py_INCREF(Py_None);
-        return Py_None;
+        Py_RETURN_NONE;
     }
     
     henum(pits, _pitenumdel, NULL);
@@ -936,8 +930,7 @@ clear_stats(PyObject *self, PyObject *args)
     YMEMLEAKCHECK();
 #endif
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 // normalizes the time count if test_timing is not set.
@@ -994,8 +987,7 @@ enum_thread_stats(PyObject *self, PyObject *args)
     PyObject *enumfn;
 
     if (!yapphavestats) {
-        Py_INCREF(Py_None);
-        return Py_None;
+        Py_RETURN_NONE;
     }
 
     if (!PyArg_ParseTuple(args, "O", &enumfn)) {
@@ -1010,8 +1002,7 @@ enum_thread_stats(PyObject *self, PyObject *args)
 
     henum(contexts, _ctxenumstat, enumfn);
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static int
@@ -1063,8 +1054,7 @@ enum_func_stats(PyObject *self, PyObject *args)
     PyObject *enumfn;
 
     if (!yapphavestats) {
-        Py_INCREF(Py_None);
-        return Py_None;
+        Py_RETURN_NONE;
     }
 
     if (!PyArg_ParseTuple(args, "O", &enumfn)) {
@@ -1079,8 +1069,7 @@ enum_func_stats(PyObject *self, PyObject *args)
 
     henum(pits, _pitenumstat, enumfn);
 
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject *
@@ -1099,6 +1088,7 @@ static PyObject *
 set_context_id_callback(PyObject *self, PyObject *args)
 {
     PyObject* new_callback;
+    
     if (!PyArg_ParseTuple(args, "O", &new_callback)) {
         return NULL;
     }
@@ -1113,6 +1103,7 @@ set_context_id_callback(PyObject *self, PyObject *args)
     Py_XDECREF(context_id_callback);
     Py_INCREF(new_callback);
     context_id_callback = new_callback;
+    
     Py_RETURN_NONE;
 }
     
@@ -1130,8 +1121,7 @@ set_test_timings(PyObject *self, PyObject *args)
     }
     Py_INCREF(test_timings);
     
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject *
@@ -1146,8 +1136,7 @@ set_clock_type(PyObject *self, PyObject *args)
     // return silently if same clock_type
     if (clock_type == get_timing_clock_type())
     {
-        Py_INCREF(Py_None);
-        return Py_None;
+        Py_RETURN_NONE;
     }
     
     if (yapphavestats) {
@@ -1160,8 +1149,7 @@ set_clock_type(PyObject *self, PyObject *args)
         return NULL;
     }   
     
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject *
@@ -1212,8 +1200,7 @@ get_start_flags(PyObject *self, PyObject *args)
     PyObject *result;
     
     if (!yapphavestats) {
-        Py_INCREF(Py_None);
-        return Py_None;
+        Py_RETURN_NONE;
     }
 
     result = PyDict_New();
@@ -1232,8 +1219,7 @@ _pause(PyObject *self, PyObject *args)
         stop(self, NULL);
     }
     
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyObject*
@@ -1245,8 +1231,7 @@ _resume(PyObject *self, PyObject *args)
         start(self, Py_BuildValue("ii", flags.builtins, flags.multithreaded));
     }
     
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 static PyMethodDef yappi_methods[] = {
