@@ -183,7 +183,7 @@ _call_context_name_callback(void)
             PyErr_Print();
             goto error;
         }
-        if (!PyString_Check(callback_rc)) {
+        if (!PyStr_Check(callback_rc)) {
             yerr("context name callback returned non-string");
             goto error;
         }
