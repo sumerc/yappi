@@ -85,6 +85,7 @@ static long long yappstoptick;
 static _ctx *prev_ctx;
 static _ctx *current_ctx;
 static PyObject *context_id_callback = NULL;
+static PyObject *context_name_callback = NULL;
 static PyObject *test_timings; // used for testing
 
 // defines
@@ -169,12 +170,45 @@ _create_ctx(void)
 }
 
 char *
+_call_context_name_callback(void)
+{
+    PyObject *callback_rc = NULL;
+    char *rc = NULL;
+
+    if (!context_name_callback) {
+        return NULL;
+    } else {
+        callback_rc = PyObject_CallFunctionObjArgs(context_name_callback, NULL);
+        if (!callback_rc) {
+            PyErr_Print();
+            goto error;
+        }
+        if (!PyString_Check(callback_rc)) {
+            yerr("context name callback returned non-string");
+            goto error;
+        }
+        
+        rc = PyStr_AS_CSTRING(callback_rc);
+        Py_CLEAR(callback_rc);
+    }
+    return rc;
+
+error:
+    Py_XDECREF(callback_rc);
+    Py_CLEAR(context_name_callback);  /* Don't use the callback again. */
+    return NULL;
+}
+
+char *
 _get_current_thread_class_name(void)
 {
+    char *rc = NULL;
     PyObject *mthr, *cthr, *tattr1, *tattr2;
-
     mthr = cthr = tattr1 = tattr2 = NULL;
 
+    rc = _call_context_name_callback();
+    if (rc) { return rc; }
+    
     mthr = PyImport_ImportModuleNoBlock("threading"); // Requires Python 2.6.
     if (!mthr)
         goto err;
@@ -1098,6 +1132,27 @@ set_context_id_callback(PyObject *self, PyObject *args)
 }
     
 static PyObject *
+set_context_name_callback(PyObject *self, PyObject *args)
+{
+    PyObject* new_callback;
+    if (!PyArg_ParseTuple(args, "O", &new_callback)) {
+        return NULL;
+    }
+    
+    if (new_callback == Py_None) {
+        Py_CLEAR(context_name_callback);
+        Py_RETURN_NONE;
+    } else if (!PyCallable_Check(new_callback)) {
+        PyErr_SetString(PyExc_TypeError, "callback should be a function.");
+        return NULL;
+    }
+    Py_XDECREF(context_name_callback);
+    Py_INCREF(new_callback);
+    context_name_callback = new_callback;
+    Py_RETURN_NONE;
+}
+
+static PyObject *
 set_test_timings(PyObject *self, PyObject *args)
 {
     if (!PyArg_ParseTuple(args, "O", &test_timings)) {
@@ -1235,6 +1290,7 @@ static PyMethodDef yappi_methods[] = {
     {"set_clock_type", set_clock_type, METH_VARARGS, NULL},
     {"get_mem_usage", get_mem_usage, METH_VARARGS, NULL},
     {"set_context_id_callback", set_context_id_callback, METH_VARARGS, NULL},
+    {"set_context_name_callback", set_context_name_callback, METH_VARARGS, NULL},
     {"_get_start_flags", get_start_flags, METH_VARARGS, NULL}, // for internal usage.
     {"_set_test_timings", set_test_timings, METH_VARARGS, NULL}, // for internal usage.
     {"_profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage.

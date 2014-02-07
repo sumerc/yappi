@@ -127,5 +127,88 @@ class ContextIdCallbackTest(test_utils.YappiUnitTestCase):
         self.assertAlmostEqual(0.12, t_stats[1].ttot, places=2)
 
 
+class ContextNameCallbackTest(test_utils.YappiUnitTestCase):
+    """Test yappi.set_context_name_callback()."""
+
+    def tearDown(self):
+        yappi.set_context_name_callback(None)
+        super(ContextNameCallbackTest, self).tearDown()
+
+    def test_bad_input(self):
+        self.assertRaises(TypeError, yappi.set_context_name_callback, 1)
+
+    def test_clear_callback(self):
+        self.callback_count = 0
+
+        def callback():
+            self.callback_count += 1
+            return 'name'
+
+        yappi.set_context_name_callback(callback)
+        yappi.start()
+        a()
+        yappi.set_context_name_callback(None)
+        old_callback_count = self.callback_count
+        a()
+        yappi.stop()
+
+        self.assertEqual(old_callback_count, self.callback_count)
+
+    def test_callback_error(self):
+        self.callback_count = 0
+
+        def callback():
+            self.callback_count += 1
+            raise Exception('callback error')
+
+        yappi.set_context_name_callback(callback)
+        yappi.start()
+        a()
+        a()
+        yappi.stop()
+
+        # Callback was cleared after first error.
+        self.assertEqual(1, self.callback_count)
+
+    def test_callback_non_string(self):
+        self.callback_count = 0
+
+        def callback():
+            self.callback_count += 1
+            return None  # Supposed to return a string.
+
+        yappi.set_context_name_callback(callback)
+        yappi.start()
+        a()
+        a()
+        yappi.stop()
+
+        # Callback was cleared after first error.
+        self.assertEqual(1, self.callback_count)
+
+    def test_callback(self):
+        self.context_id = 0
+        self.context_name = 'a'
+        yappi.set_context_id_callback(lambda: self.context_id)
+        yappi.set_context_name_callback(lambda: self.context_name)
+        yappi.start()
+        a()
+        self.context_id = 1
+        self.context_name = 'b'
+        a()
+
+        # Re-schedule context 0.
+        self.context_id = 0
+        self.context_name = 'a'
+        a()
+        yappi.stop()
+
+        threadstats = yappi.get_thread_stats().sort('name', 'ascending')
+        self.assertEqual(2, len(threadstats))
+        self.assertEqual(0, threadstats[0].id)
+        self.assertEqual('a', threadstats[0].name)
+        self.assertEqual(1, threadstats[1].id)
+        self.assertEqual('b', threadstats[1].name)
+
 if __name__ == '__main__':
     unittest.main()

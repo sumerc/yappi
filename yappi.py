@@ -796,6 +796,19 @@ def set_context_id_callback(callback):
     """
     return _yappi.set_context_id_callback(callback)
 
+def set_context_name_callback(callback):
+    """
+    Use a string other than the current thread's class name as the context's
+    name.
+
+    The callback must take no arguments and return a string. For example:
+
+    >>> import greenlet, yappi
+    >>> yappi.set_context_name_callback(
+    ...     lambda: greenlet.getcurrent().__class__.__name__)
+    """
+    return _yappi.set_context_name_callback(callback)
+
 def main():
     from optparse import OptionParser
     usage = "yappi.py [-b] [-s] [scriptfile] args ..."
