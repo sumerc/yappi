@@ -98,7 +98,7 @@ static PyObject *test_timings; // used for testing
 #define PyStr_FromFormatV(fmt, vargs) PyUnicode_FromFormatV(fmt, vargs)
 #else // < Py3x
 #define PyStr_AS_CSTRING(s) PyString_AS_STRING(s)
-#define PyStr_Check(s) PyString_Check(mod)
+#define PyStr_Check(s) PyString_Check(s)
 #define PyStr_FromString(s) PyString_FromString(s)
 #define PyStr_FromFormatV(fmt, vargs) PyString_FromFormatV(fmt, vargs)
 #endif
