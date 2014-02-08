@@ -1200,7 +1200,7 @@ set_clock_type(PyObject *self, PyObject *args)
 static PyObject *
 get_clock_type(PyObject *self, PyObject *args)
 {
-    PyObject *type,*api,*result,*resolution;
+    PyObject *type = NULL, *api = NULL, *result = NULL, *resolution = NULL;
     clock_type_t clk_type;
 
     result = PyDict_New();
@@ -1235,6 +1235,10 @@ get_clock_type(PyObject *self, PyObject *args)
     PyDict_SetItemString(result, "type", type);
     PyDict_SetItemString(result, "api", api);
     PyDict_SetItemString(result, "resolution", resolution);
+
+    Py_XDECREF(type);
+    Py_XDECREF(api);
+    Py_XDECREF(resolution);
 
     return result;
 }
