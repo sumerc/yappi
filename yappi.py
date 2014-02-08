@@ -10,12 +10,13 @@ import _yappi
 import pickle
 import marshal
 import threading
+import warnings
 from collections import defaultdict
         
 class YappiError(Exception): pass
 
 __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
-           'get_clock_type', 'set_clock_type',  'get_mem_usage']
+           'get_clock', 'get_clock_type', 'set_clock_type',  'get_mem_usage']
            
 CRLF = '\n'
 COLUMN_GAP = 2
@@ -301,7 +302,7 @@ class YStats(list):
         self._clock_type = None
         
     def get(self):
-        self._clock_type = _yappi.get_clock_type()["type"]
+        self._clock_type = _yappi.get_clock()["type"]
         return self.sort(DEFAULT_SORT_TYPE, DEFAULT_SORT_ORDER)
         
     def sort(self, sort_type, sort_order):        
@@ -762,12 +763,21 @@ def clear_stats():
     finally:
         _yappi._resume()
     
-def get_clock_type():
+def get_clock():
     """
-    Returns the OS api used for timing plus the precision and the clock type information in a dict.
+    Returns a dict containing the OS API used for timing, the precision, the
+    clock type, and the current tick count
     """
-    return _yappi.get_clock_type()
+    return _yappi.get_clock()
     
+def get_clock_type():
+    warnings.warn("get_clock_type is deprecated - use get_clock",
+                  DeprecationWarning, stacklevel=2)
+
+    result = _yappi.get_clock()
+    result.pop('time')
+    return result
+
 def set_clock_type(type):
     """
     Sets the internal clock type for timing. Profiler shall not have any previous stats.

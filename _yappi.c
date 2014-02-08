@@ -1198,9 +1198,13 @@ set_clock_type(PyObject *self, PyObject *args)
 }
 
 static PyObject *
-get_clock_type(PyObject *self, PyObject *args)
+get_clock(PyObject *self, PyObject *args)
 {
-    PyObject *type = NULL, *api = NULL, *result = NULL, *resolution = NULL;
+    PyObject *type = NULL;
+    PyObject *api = NULL;
+    PyObject *result = NULL;
+    PyObject *resolution = NULL;
+	PyObject *current_time = NULL;
     clock_type_t clk_type;
 
     result = PyDict_New();
@@ -1232,13 +1236,17 @@ get_clock_type(PyObject *self, PyObject *args)
 #endif
     }
     
+    current_time = PyFloat_FromDouble(tickfactor()*tickcount());
+
     PyDict_SetItemString(result, "type", type);
     PyDict_SetItemString(result, "api", api);
     PyDict_SetItemString(result, "resolution", resolution);
+    PyDict_SetItemString(result, "time", current_time);
 
     Py_XDECREF(type);
     Py_XDECREF(api);
     Py_XDECREF(resolution);
+    Py_XDECREF(current_time);
 
     return result;
 }
@@ -1290,7 +1298,7 @@ static PyMethodDef yappi_methods[] = {
     {"enum_thread_stats", enum_thread_stats, METH_VARARGS, NULL},
     {"clear_stats", clear_stats, METH_VARARGS, NULL},
     {"is_running", is_running, METH_VARARGS, NULL},
-    {"get_clock_type", get_clock_type, METH_VARARGS, NULL},
+    {"get_clock", get_clock, METH_VARARGS, NULL},
     {"set_clock_type", set_clock_type, METH_VARARGS, NULL},
     {"get_mem_usage", get_mem_usage, METH_VARARGS, NULL},
     {"set_context_id_callback", set_context_id_callback, METH_VARARGS, NULL},
