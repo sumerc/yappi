@@ -57,7 +57,7 @@ typedef struct {
     _cstack *cs;
     _htab *rec_levels;
     long id;
-    char *class_name;
+    char *name;
     long long t0;                           // profiling start CPU time
     unsigned long sched_cnt;                // how many times this thread is scheduled
 } _ctx; // context
@@ -161,7 +161,7 @@ _create_ctx(void)
         return NULL;
     ctx->sched_cnt = 0;
     ctx->id = 0;
-    ctx->class_name = NULL;
+    ctx->name = NULL;
     ctx->t0 = tickcount();
     ctx->rec_levels = htcreate(HT_RLEVEL_SIZE);
     if (!ctx->rec_levels)
@@ -170,65 +170,52 @@ _create_ctx(void)
 }
 
 char *
-_call_context_name_callback(void)
+_current_ctx_name(void)
 {
-    PyObject *callback_rc = NULL;
     char *rc = NULL;
-
-    if (!context_name_callback) {
-        return NULL;
-    } else {
+    PyObject *callback_rc = NULL;
+    PyObject *mthr, *cthr, *tattr1, *tattr2;
+    mthr = cthr = tattr1 = tattr2 = NULL;
+    
+    if (context_name_callback) {
         callback_rc = PyObject_CallFunctionObjArgs(context_name_callback, NULL);
         if (!callback_rc) {
             PyErr_Print();
-            goto error;
+            goto err;
         }
         if (!PyStr_Check(callback_rc)) {
             yerr("context name callback returned non-string");
-            goto error;
+            goto err;
         }
-        
+
         rc = PyStr_AS_CSTRING(callback_rc);
         Py_CLEAR(callback_rc);
+
+        return rc;
+    } else {        
+        mthr = PyImport_ImportModuleNoBlock("threading"); // Requires Python 2.6.
+        if (!mthr)
+            goto err;
+        cthr = PyObject_CallMethod(mthr, "currentThread", "");
+        if (!cthr)
+            goto err;
+        tattr1 = PyObject_GetAttrString(cthr, "__class__");
+        if (!tattr1)
+            goto err;
+        tattr2 = PyObject_GetAttrString(tattr1, "__name__");
+        if (!tattr2)
+            goto err;
+
+        return PyStr_AS_CSTRING(tattr2);
     }
-    return rc;
-
-error:
-    Py_XDECREF(callback_rc);
-    Py_CLEAR(context_name_callback);  /* Don't use the callback again. */
-    return NULL;
-}
-
-char *
-_get_current_thread_class_name(void)
-{
-    char *rc = NULL;
-    PyObject *mthr, *cthr, *tattr1, *tattr2;
-    mthr = cthr = tattr1 = tattr2 = NULL;
-
-    rc = _call_context_name_callback();
-    if (rc) { return rc; }
-    
-    mthr = PyImport_ImportModuleNoBlock("threading"); // Requires Python 2.6.
-    if (!mthr)
-        goto err;
-    cthr = PyObject_CallMethod(mthr, "currentThread", "");
-    if (!cthr)
-        goto err;
-    tattr1 = PyObject_GetAttrString(cthr, "__class__");
-    if (!tattr1)
-        goto err;
-    tattr2 = PyObject_GetAttrString(tattr1, "__name__");
-    if (!tattr2)
-        goto err;
-
-    return PyStr_AS_CSTRING(tattr2);
-
 err:
+    PyErr_Clear();
     Py_XDECREF(mthr);
     Py_XDECREF(cthr);
     Py_XDECREF(tattr1);
     Py_XDECREF(tattr2);
+    Py_XDECREF(callback_rc);
+    Py_CLEAR(context_name_callback);  /* Don't use the callback again. */
     return NULL;
 }
 
@@ -701,9 +688,9 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         current_ctx->sched_cnt++;
     }
     prev_ctx = current_ctx;
-    if (!current_ctx->class_name)
+    if (!current_ctx->name)
     {
-        current_ctx->class_name = _get_current_thread_class_name();
+        current_ctx->name = _current_ctx_name();
     }
     
         
@@ -988,7 +975,7 @@ _ctxenumstat(_hitem *item, void *arg)
         return 0;
     }
     
-    tcname = ctx->class_name;
+    tcname = ctx->name;
     if (tcname == NULL)
         tcname = UNINITIALIZED_STRING_VAL;
     efn = (PyObject *)arg;
