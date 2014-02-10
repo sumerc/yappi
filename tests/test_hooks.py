@@ -2,14 +2,14 @@ import unittest
 import time
 
 import yappi
-import test_utils
+import utils
 
 
 def a():
     pass
 
 
-class ContextIdCallbackTest(test_utils.YappiUnitTestCase):
+class ContextIdCallbackTest(utils.YappiUnitTestCase):
     """Test yappi.set_context_id_callback()."""
 
     def tearDown(self):
@@ -94,7 +94,7 @@ class ContextIdCallbackTest(test_utils.YappiUnitTestCase):
         self.assertEqual(1, threadstats[2].sched_count)
 
         funcstats = yappi.get_func_stats()
-        self.assertEqual(4, test_utils.find_stat_by_name(funcstats, 'a').ncall)
+        self.assertEqual(4, utils.find_stat_by_name(funcstats, 'a').ncall)
 
     def test_pause_resume(self):
         yappi.set_context_id_callback(lambda: self.context_id)
@@ -127,7 +127,7 @@ class ContextIdCallbackTest(test_utils.YappiUnitTestCase):
         self.assertAlmostEqual(0.12, t_stats[1].ttot, places=2)
 
 
-class ContextNameCallbackTest(test_utils.YappiUnitTestCase):
+class ContextNameCallbackTest(utils.YappiUnitTestCase):
     """Test yappi.set_context_name_callback()."""
 
     def tearDown(self):

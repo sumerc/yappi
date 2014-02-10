@@ -4,7 +4,7 @@ import time
 
 import yappi
 import _yappi
-import test_utils
+import utils
 import multiprocessing # added to fix http://bugs.python.org/issue15881 for > Py2.6
 
 if sys.version_info < (2, 7): # use unittest2 for < Py2.7
@@ -12,7 +12,7 @@ if sys.version_info < (2, 7): # use unittest2 for < Py2.7
 else:
     import unittest as _unittest
 
-class BasicUsage(test_utils.YappiUnitTestCase):
+class BasicUsage(utils.YappiUnitTestCase):
 
     def test_get_clock(self):
         yappi.set_clock_type('cpu')
@@ -69,16 +69,16 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         except:
             pass
         stats = yappi.get_func_stats().add("a.profile")
-        fsa = test_utils.find_stat_by_name(stats, 'a')
+        fsa = utils.find_stat_by_name(stats, 'a')
         self.assertEqual(fsa.ncall, 3)
         self.assertEqual(len(stats), 1) # b() should be cleared out.
         
     def test_strip_dirs(self):
         def a():
             pass
-        stats = test_utils.run_and_get_func_stats(a,)
+        stats = utils.run_and_get_func_stats(a,)
         stats.strip_dirs()
-        fsa = test_utils.find_stat_by_name(stats, "a")        
+        fsa = utils.find_stat_by_name(stats, "a")        
         self.assertEqual(fsa.module, os.path.basename(fsa.module))
         
     def test_yappi_overhead(self):  
@@ -118,7 +118,7 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         yappi.clear_stats()
         a()
         stats = yappi.get_func_stats()
-        fsa = test_utils.find_stat_by_name(stats, 'a')
+        fsa = utils.find_stat_by_name(stats, 'a')
         self.assertEqual(fsa.ncall, 1)
         
     def test_generator(self):
@@ -139,8 +139,8 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         yappi.start(builtins=True)
         a()
         stats = yappi.get_func_stats()
-        fsa = test_utils.find_stat_by_name(stats, 'a')
-        fsb = test_utils.find_stat_by_name(stats, 'b')
+        fsa = utils.find_stat_by_name(stats, 'a')
+        fsb = utils.find_stat_by_name(stats, 'b')
         self.assertTrue(fsa.children[0:1] is not None)
         prev_afullname = fsa.full_name
         prev_bchildfullname = fsa.children[fsb].full_name
@@ -163,7 +163,7 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         b() # non-child call
         c() # non-child call
         stats = yappi.get_func_stats()
-        fsa = test_utils.find_stat_by_name(stats, 'a')
+        fsa = utils.find_stat_by_name(stats, 'a')
         childs_of_a = fsa.children.get().sort("tavg", "desc")
         prev_item = None
         for item in childs_of_a:
@@ -190,7 +190,7 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         yappi.start()
         yappi.stop()
         stats = yappi.get_func_stats().add("ystats1.ys")
-        fsa = test_utils.find_stat_by_name(stats, 'a')
+        fsa = utils.find_stat_by_name(stats, 'a')
         self.assertTrue(fsa is not None)
       
     def test_subsequent_profile(self):
@@ -206,8 +206,8 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         b()
         yappi.stop()
         stats = yappi.get_func_stats()
-        fsa = test_utils.find_stat_by_name(stats, 'a')
-        fsb = test_utils.find_stat_by_name(stats, 'b')
+        fsa = utils.find_stat_by_name(stats, 'a')
+        fsb = utils.find_stat_by_name(stats, 'b')
         self.assertTrue(fsa is not None)
         self.assertTrue(fsb is not None)
         self.assertEqual(fsa.ttot, 1)
@@ -220,7 +220,7 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         yappi.start()
         f()
         stats = yappi.get_func_stats()
-        fsa = test_utils.find_stat_by_name(stats, '<lambda>')
+        fsa = utils.find_stat_by_name(stats, '<lambda>')
         self.assertTrue(fsa.ttot > 0.1)
         
     def test_module_stress(self):
@@ -251,7 +251,7 @@ class BasicUsage(test_utils.YappiUnitTestCase):
             self._ncall += 1
             a()
             
-        stats = test_utils.run_and_get_func_stats(a)
+        stats = utils.run_and_get_func_stats(a)
         stats = stats.sort("totaltime", "desc")
         prev_stat = None
         for stat in stats:
@@ -305,7 +305,7 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         yappi.start(builtins=True)
         a()
         stats = yappi.get_func_stats()
-        fsa = test_utils.find_stat_by_name(stats, 'sleep')
+        fsa = utils.find_stat_by_name(stats, 'sleep')
         self.assertTrue(fsa is not None)
         self.assertTrue(fsa.ttot > 0.3)
         yappi.stop()
@@ -337,13 +337,13 @@ class BasicUsage(test_utils.YappiUnitTestCase):
         c.join()
         a()
         stats = yappi.get_func_stats()
-        fsa1 = test_utils.find_stat_by_name(stats, 'Worker1.a')
-        fsa2 = test_utils.find_stat_by_name(stats, 'a')
+        fsa1 = utils.find_stat_by_name(stats, 'Worker1.a')
+        fsa2 = utils.find_stat_by_name(stats, 'a')
         self.assertTrue(fsa1 is None)
         self.assertTrue(fsa2 is not None)
         self.assertTrue(fsa2.ttot > 0.1)
      
-class StatSaveScenarios(test_utils.YappiUnitTestCase):
+class StatSaveScenarios(utils.YappiUnitTestCase):
 
     def test_pstats_conversion(self):
         def pstat_id(fs):
@@ -360,28 +360,28 @@ class StatSaveScenarios(test_utils.YappiUnitTestCase):
             
         _timings = {"a_1":12,"b_1":7,"c_1":5,"d_1":2}
         _yappi._set_test_timings(_timings)            
-        stats = test_utils.run_and_get_func_stats(a,)
+        stats = utils.run_and_get_func_stats(a,)
         stats.strip_dirs()    
         stats.save("a1.pstats", type="pstat")
-        fsa_pid = pstat_id(test_utils.find_stat_by_name(stats, "a"))
-        fsd_pid = pstat_id(test_utils.find_stat_by_name(stats, "d"))
+        fsa_pid = pstat_id(utils.find_stat_by_name(stats, "a"))
+        fsd_pid = pstat_id(utils.find_stat_by_name(stats, "d"))
         yappi.clear_stats()
         _yappi._set_test_timings(_timings)
-        stats = test_utils.run_and_get_func_stats(a,)
+        stats = utils.run_and_get_func_stats(a,)
         stats.strip_dirs()
         stats.save("a2.pstats", type="pstat")
         yappi.clear_stats()
         _yappi._set_test_timings(_timings)
-        stats = test_utils.run_and_get_func_stats(b,)        
+        stats = utils.run_and_get_func_stats(b,)        
         stats.strip_dirs()
         stats.save("b1.pstats", type="pstat")
-        fsb_pid = pstat_id(test_utils.find_stat_by_name(stats, "b"))
+        fsb_pid = pstat_id(utils.find_stat_by_name(stats, "b"))
         yappi.clear_stats()
         _yappi._set_test_timings(_timings)
-        stats = test_utils.run_and_get_func_stats(c,)
+        stats = utils.run_and_get_func_stats(c,)
         stats.strip_dirs()
         stats.save("c1.pstats", type="pstat")
-        fsc_pid = pstat_id(test_utils.find_stat_by_name(stats, "c"))
+        fsc_pid = pstat_id(utils.find_stat_by_name(stats, "c"))
         
         # merge saved stats and check pstats values are correct
         import pstats
@@ -439,15 +439,15 @@ class StatSaveScenarios(test_utils.YappiUnitTestCase):
         yappi.start()
         a()        
         stats = yappi.get_func_stats().add("ystats2.ys")
-        fsa = test_utils.find_stat_by_name(stats, "a")
-        fsb = test_utils.find_stat_by_name(stats, "b")
-        fsc = test_utils.find_stat_by_name(stats, "c")
-        fsd = test_utils.find_stat_by_name(stats, "d")
-        fse = test_utils.find_stat_by_name(stats, "e")
-        fsf = test_utils.find_stat_by_name(stats, "f")
-        fsg = test_utils.find_stat_by_name(stats, "g")
-        fsh = test_utils.find_stat_by_name(stats, "h")
-        fsi = test_utils.find_stat_by_name(stats, "i")
+        fsa = utils.find_stat_by_name(stats, "a")
+        fsb = utils.find_stat_by_name(stats, "b")
+        fsc = utils.find_stat_by_name(stats, "c")
+        fsd = utils.find_stat_by_name(stats, "d")
+        fse = utils.find_stat_by_name(stats, "e")
+        fsf = utils.find_stat_by_name(stats, "f")
+        fsg = utils.find_stat_by_name(stats, "g")
+        fsh = utils.find_stat_by_name(stats, "h")
+        fsi = utils.find_stat_by_name(stats, "i")
         self.assertEqual(fsa.ttot, 45)
         self.assertEqual(fsa.ncall, 3)
         self.assertEqual(fsa.nactualcall, 3)
@@ -504,8 +504,8 @@ class StatSaveScenarios(test_utils.YappiUnitTestCase):
         yappi.get_func_stats().save("ystats2.ys")
        
         stats = yappi.YFuncStats(["ystats1.ys", "ystats2.ys",])
-        fsa = test_utils.find_stat_by_name(stats, "a")
-        fsb = test_utils.find_stat_by_name(stats, "b")
+        fsa = utils.find_stat_by_name(stats, "a")
+        fsb = utils.find_stat_by_name(stats, "b")
         self.assertEqual(fsa.ncall, 2)
         self.assertEqual(fsb.ncall, 1)
         self.assertEqual(fsa.tsub, fsa.ttot, 4)
@@ -539,9 +539,9 @@ class StatSaveScenarios(test_utils.YappiUnitTestCase):
         yappi.get_func_stats().save("ystats3.ys")
         self.assertRaises(yappi.YappiError, yappi.YFuncStats().add("ystats1.ys").add, "ystats3.ys")
         stats = yappi.YFuncStats(["ystats1.ys", "ystats2.ys"]).sort("name")
-        fsa = test_utils.find_stat_by_name(stats, "a")
-        fsb = test_utils.find_stat_by_name(stats, "b")
-        fsc = test_utils.find_stat_by_name(stats, "c")
+        fsa = utils.find_stat_by_name(stats, "a")
+        fsb = utils.find_stat_by_name(stats, "b")
+        fsc = utils.find_stat_by_name(stats, "c")
         self.assertEqual(fsa.ncall, 2)
         self.assertEqual(fsa.ncall, fsb.ncall, fsc.ncall)
               
@@ -573,14 +573,14 @@ class StatSaveScenarios(test_utils.YappiUnitTestCase):
             pass
         
         self._ncall = 1
-        stats = test_utils.run_and_get_func_stats(a,)
+        stats = utils.run_and_get_func_stats(a,)
         stats.save("ystats1.ys")
         yappi.clear_stats()
         _yappi._set_test_timings(_timings)
         #stats.print_all()
                
         self._ncall = 5
-        stats = test_utils.run_and_get_func_stats(a,)
+        stats = utils.run_and_get_func_stats(a,)
         stats.save("ystats2.ys")
         #stats.print_all()
         
@@ -603,8 +603,8 @@ class StatSaveScenarios(test_utils.YappiUnitTestCase):
         self.assertEqual(fsa.nactualcall, 3)
         self.assertEqual(fsa.ttot, 45)
         self.assertEqual(fsa.tsub, 10)
-        fsb = test_utils.find_stat_by_name(stats, "b")
-        fsc = test_utils.find_stat_by_name(stats, "c")
+        fsb = utils.find_stat_by_name(stats, "b")
+        fsc = utils.find_stat_by_name(stats, "c")
         self.assertEqual(fsb.ncall, 6)
         self.assertEqual(fsb.nactualcall, 3)
         self.assertEqual(fsb.ttot, 36)
@@ -617,7 +617,7 @@ class StatSaveScenarios(test_utils.YappiUnitTestCase):
 """        
     
 """  
-class MultithreadedScenarios(test_utils.YappiUnitTestCase):
+class MultithreadedScenarios(utils.YappiUnitTestCase):
     def test_subsequent_profile(self):
         import threading
         WORKER_COUNT = 5
@@ -659,9 +659,9 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
             pass
         f() 
         stats = yappi.get_func_stats()
-        fsa = test_utils.find_stat_by_name(stats, 'a')
-        fsb = test_utils.find_stat_by_name(stats, 'b')
-        fsc = test_utils.find_stat_by_name(stats, 'c')
+        fsa = utils.find_stat_by_name(stats, 'a')
+        fsb = utils.find_stat_by_name(stats, 'b')
+        fsc = utils.find_stat_by_name(stats, 'c')
         self.assertEqual(fsa.ncall, 10)
         self.assertEqual(fsb.ncall, 5)
         self.assertEqual(fsc.ncall, 5)
@@ -690,16 +690,16 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         c.join()        
         a()
         stats = yappi.get_func_stats()
-        fsa1 = test_utils.find_stat_by_name(stats, 'Worker1.a')
-        fsa2 = test_utils.find_stat_by_name(stats, 'a')
+        fsa1 = utils.find_stat_by_name(stats, 'Worker1.a')
+        fsa2 = utils.find_stat_by_name(stats, 'a')
         self.assertTrue(fsa1 is not None)
         self.assertTrue(fsa2 is not None)
         self.assertTrue(fsa1.ttot > 0.2)
         self.assertTrue(fsa2.ttot > 0.1)
         tstats = yappi.get_thread_stats()
         self.assertEqual(len(tstats), 2)
-        tsa = test_utils.find_stat_by_name(tstats, 'Worker1')
-        tsm = test_utils.find_stat_by_name(tstats, '_MainThread')
+        tsa = utils.find_stat_by_name(tstats, 'Worker1')
+        tsm = utils.find_stat_by_name(tstats, '_MainThread')
         self.assertTrue(tsa is not None)
         self.assertTrue(tsm is not None) # FIX: I see this fails sometimes?
         
@@ -717,7 +717,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
             t.join()        
         yappi.stop()
         stats = yappi.get_thread_stats()
-        tsa = test_utils.find_stat_by_name(stats, "DummyThread")
+        tsa = utils.find_stat_by_name(stats, "DummyThread")
         self.assertTrue(tsa is not None)
         yappi.clear_stats()        
         import time
@@ -745,12 +745,12 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         stats = yappi.get_thread_stats()
         
         # the fist clear_stats clears the context table?
-        tsa = test_utils.find_stat_by_name(stats, "DummyThread") 
+        tsa = utils.find_stat_by_name(stats, "DummyThread") 
         self.assertTrue(tsa is None)
         
-        tst1 = test_utils.find_stat_by_name(stats, "Thread1")
-        tst2 = test_utils.find_stat_by_name(stats, "Thread2")
-        tsmain = test_utils.find_stat_by_name(stats, "_MainThread")
+        tst1 = utils.find_stat_by_name(stats, "Thread1")
+        tst2 = utils.find_stat_by_name(stats, "Thread2")
+        tsmain = utils.find_stat_by_name(stats, "_MainThread")
         #stats.print_all()
         self.assertTrue(len(stats) == 3)
         self.assertTrue(tst1 is not None)
@@ -793,7 +793,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         # we currently just stress yappi, no functionality test is done here.
         yappi.start()
         import time
-        if test_utils.is_py3x():
+        if utils.is_py3x():
             from queue import Queue
         else:
             from Queue import Queue
@@ -849,7 +849,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         signal.alarm(1)
         self.assertRaises(Exception, time.sleep, 2)
         stats = yappi.get_func_stats()
-        fsh = test_utils.find_stat_by_name(stats, "handler")
+        fsh = utils.find_stat_by_name(stats, "handler")
         self.assertTrue(fsh is not None)
            
     @_unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
@@ -881,7 +881,7 @@ class MultithreadedScenarios(test_utils.YappiUnitTestCase):
         t1.join()
         yappi.stop()
     
-class NonRecursiveFunctions(test_utils.YappiUnitTestCase):
+class NonRecursiveFunctions(utils.YappiUnitTestCase):
     def test_abcd(self):
         _timings = {"a_1":6,"b_1":5,"c_1":3, "d_1":1}
         _yappi._set_test_timings(_timings)
@@ -894,11 +894,11 @@ class NonRecursiveFunctions(test_utils.YappiUnitTestCase):
             d()
         def d():
             pass
-        stats = test_utils.run_and_get_func_stats(a)
-        fsa = test_utils.find_stat_by_name(stats, 'a')
-        fsb = test_utils.find_stat_by_name(stats, 'b')
-        fsc = test_utils.find_stat_by_name(stats, 'c')
-        fsd = test_utils.find_stat_by_name(stats, 'd')
+        stats = utils.run_and_get_func_stats(a)
+        fsa = utils.find_stat_by_name(stats, 'a')
+        fsb = utils.find_stat_by_name(stats, 'b')
+        fsc = utils.find_stat_by_name(stats, 'c')
+        fsd = utils.find_stat_by_name(stats, 'd')
         cfsab = fsa.children[fsb]
         cfsbc = fsb.children[fsc]
         cfscd = fsc.children[fsd]
@@ -933,8 +933,8 @@ class NonRecursiveFunctions(test_utils.YappiUnitTestCase):
         yappi.start()
         a()
         stats = yappi.get_func_stats()
-        fsa = test_utils.find_stat_by_name(stats, 'a')
-        fsb = test_utils.find_stat_by_name(stats, 'b')
+        fsa = utils.find_stat_by_name(stats, 'a')
+        fsb = utils.find_stat_by_name(stats, 'b')
 
         self.assertEqual(fsa.ncall , 1)
         self.assertEqual(fsa.nactualcall, 0)
@@ -942,15 +942,15 @@ class NonRecursiveFunctions(test_utils.YappiUnitTestCase):
         self.assertEqual(fsa.tsub , 0) # no call_leave called
         self.assertEqual(fsb.ttot , 4) 
         
-class RecursiveFunctions(test_utils.YappiUnitTestCase): 
+class RecursiveFunctions(utils.YappiUnitTestCase): 
     def test_fibonacci(self):
         def fib(n):
            if n > 1:
                return fib(n-1) + fib(n-2)
            else:
                return n
-        stats = test_utils.run_and_get_func_stats(fib, 22)
-        fs = test_utils.find_stat_by_name(stats, 'fib')
+        stats = utils.run_and_get_func_stats(fib, 22)
+        fs = utils.find_stat_by_name(stats, 'fib')
         self.assertEqual(fs.ncall, 57313)
         self.assertEqual(fs.ttot, fs.tsub)
         
@@ -971,11 +971,11 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
             a(n+1)    
         def d(n):
             c(n)
-        stats = test_utils.run_and_get_func_stats(a, 1)
-        fsa = test_utils.find_stat_by_name(stats, 'a')
-        fsb = test_utils.find_stat_by_name(stats, 'b')
-        fsc = test_utils.find_stat_by_name(stats, 'c')
-        fsd = test_utils.find_stat_by_name(stats, 'd')
+        stats = utils.run_and_get_func_stats(a, 1)
+        fsa = utils.find_stat_by_name(stats, 'a')
+        fsb = utils.find_stat_by_name(stats, 'b')
+        fsc = utils.find_stat_by_name(stats, 'c')
+        fsd = utils.find_stat_by_name(stats, 'd')
         self.assertEqual(fsa.ncall, 3)
         self.assertEqual(fsa.nactualcall, 1)
         self.assertEqual(fsa.ttot, 20)
@@ -999,8 +999,8 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
             if n == 3:
                 return
             d(n+1)
-        stats = test_utils.run_and_get_func_stats(d, 0)
-        fsd = test_utils.find_stat_by_name(stats, 'd')
+        stats = utils.run_and_get_func_stats(d, 0)
+        fsd = utils.find_stat_by_name(stats, 'd')
         self.assertEqual(fsd.ncall , 4)
         self.assertEqual(fsd.nactualcall , 1)
         self.assertEqual(fsd.ttot , 9)
@@ -1025,10 +1025,10 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
         def c(n):
             a(n+1)    
 
-        stats = test_utils.run_and_get_func_stats(a, 1)
-        fsa = test_utils.find_stat_by_name(stats, 'a')
-        fsb = test_utils.find_stat_by_name(stats, 'b')
-        fsc = test_utils.find_stat_by_name(stats, 'c')
+        stats = utils.run_and_get_func_stats(a, 1)
+        fsa = utils.find_stat_by_name(stats, 'a')
+        fsb = utils.find_stat_by_name(stats, 'b')
+        fsc = utils.find_stat_by_name(stats, 'c')
         self.assertEqual(fsa.ncall , 3)
         self.assertEqual(fsa.nactualcall , 1)
         self.assertEqual(fsa.ttot , 20)
@@ -1064,10 +1064,10 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
                 b()
             else:
                 a()                
-        stats = test_utils.run_and_get_func_stats(a)
-        fsa = test_utils.find_stat_by_name(stats, 'a')
-        fsb = test_utils.find_stat_by_name(stats, 'b')
-        fsc = test_utils.find_stat_by_name(stats, 'c')
+        stats = utils.run_and_get_func_stats(a)
+        fsa = utils.find_stat_by_name(stats, 'a')
+        fsb = utils.find_stat_by_name(stats, 'b')
+        fsc = utils.find_stat_by_name(stats, 'c')
         cfsab = fsa.children[fsb]
         cfsbc = fsb.children[fsc]
         cfsca = fsc.children[fsa]
@@ -1108,10 +1108,10 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
             else:
                 b()
                 
-        stats = test_utils.run_and_get_func_stats(a)
-        fsa = test_utils.find_stat_by_name(stats, 'a')
-        fsb = test_utils.find_stat_by_name(stats, 'b')
-        fsc = test_utils.find_stat_by_name(stats, 'c')
+        stats = utils.run_and_get_func_stats(a)
+        fsa = utils.find_stat_by_name(stats, 'a')
+        fsb = utils.find_stat_by_name(stats, 'b')
+        fsc = utils.find_stat_by_name(stats, 'c')
         cfsaa = fsa.children[fsa.index]
         cfsab = fsa.children[fsb]
         cfsbc = fsb.children[fsc.full_name]
@@ -1147,9 +1147,9 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
             self._ncall += 1
             a()
             
-        stats = test_utils.run_and_get_func_stats(a)
-        fsa = test_utils.find_stat_by_name(stats, 'a')
-        fsb = test_utils.find_stat_by_name(stats, 'b')
+        stats = utils.run_and_get_func_stats(a)
+        fsa = utils.find_stat_by_name(stats, 'a')
+        fsb = utils.find_stat_by_name(stats, 'b')
         cfsaa = fsa.children[fsa]
         cfsba = fsb.children[fsa]
         self.assertEqual(fsb.ttot , 10)
@@ -1181,9 +1181,9 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
             else:
                 return
             
-        stats = test_utils.run_and_get_func_stats(a)
-        fsa = test_utils.find_stat_by_name(stats, 'a')
-        fsb = test_utils.find_stat_by_name(stats, 'b')
+        stats = utils.run_and_get_func_stats(a)
+        fsa = utils.find_stat_by_name(stats, 'a')
+        fsb = utils.find_stat_by_name(stats, 'b')
         cfsaa = fsa.children[fsa]
         cfsab = fsa.children[fsb]
         cfsbb = fsb.children[fsb]
@@ -1212,9 +1212,9 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
             self._ncall += 1
             b()
             
-        stats = test_utils.run_and_get_func_stats(a)
-        fsa = test_utils.find_stat_by_name(stats, 'a')
-        fsb = test_utils.find_stat_by_name(stats, 'b')
+        stats = utils.run_and_get_func_stats(a)
+        fsa = utils.find_stat_by_name(stats, 'a')
+        fsb = utils.find_stat_by_name(stats, 'b')
         cfsab = fsa.children[fsb]
         cfsbb = fsb.children[fsb]
         self.assertEqual(fsa.ttot , 13)
@@ -1244,9 +1244,9 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
         def b():
             return
             
-        stats = test_utils.run_and_get_func_stats(a)
-        fsa = test_utils.find_stat_by_name(stats, 'a')
-        fsb = test_utils.find_stat_by_name(stats, 'b')
+        stats = utils.run_and_get_func_stats(a)
+        fsa = utils.find_stat_by_name(stats, 'a')
+        fsb = utils.find_stat_by_name(stats, 'b')
         cfsaa = fsa.children[fsa]
         cfsab = fsa.children[fsb]
         self.assertEqual(fsa.ttot , 13)
@@ -1271,9 +1271,9 @@ class RecursiveFunctions(test_utils.YappiUnitTestCase):
             self._ncall += 1
             a()
             
-        stats = test_utils.run_and_get_func_stats(a)
-        fsa = test_utils.find_stat_by_name(stats, 'a')
-        fsb = test_utils.find_stat_by_name(stats, 'b')
+        stats = utils.run_and_get_func_stats(a)
+        fsa = utils.find_stat_by_name(stats, 'a')
+        fsb = utils.find_stat_by_name(stats, 'b')
         cfsab = fsa.children[fsb]
         cfsba = fsb.children[fsa]
         self.assertEqual(fsa.ttot , 13)
