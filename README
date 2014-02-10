@@ -2,6 +2,8 @@
 Yappi
 ===============================
 
+.. image:: https://travis-ci.org/sumerc/yappi.png?branch=master   :target: https://travis-ci.org/sumerc/yappi
+
 Motivation:
 ===================
 CPython standard distribution is coming with three profilers. cProfile, Profile and hotshot. 
