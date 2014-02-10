@@ -1,0 +1,42 @@
+= Features (v0.82)=
+  * Profiler results can be saved in [http://valgrind.org/docs/manual/cl-format.html callgrind] and [http://docs.python.org/3.4/library/profile.html#pstats.Stats pstat] formats. (*new in 0.82*) 
+  * Profiler results can be merged from different sessions on-the-fly. (*new in 0.82*)
+  * Profiler results can be easily converted to pstats. (*new in 0.82*) 
+  * Profiling of multithreaded Python applications transparently. 
+  * Supports profiling per-thread [http://en.wikipedia.org/wiki/CPU_time CPU time](*new in 0.62*)
+  * Profiler can be started from any thread at any time.
+  * Ability to get statistics at any time without even stopping the profiler.
+  * Various flags to arrange/sort profiler results.
+  * Supports Python 2.6.x <= x <= Python 3.4
+
+= Installation =
+Can be installed via *easy_install yappi* , *pip install yappi* or from the source directly.
+
+=Documentation:=
+Please see [http://code.google.com/p/yappi/wiki/apiyappi_v082 API reference manual].
+For how to use the profiler and how to interpret statistics output, see [http://code.google.com/p/yappi/wiki/usageyappi_v082 usage reference manual].
+And finally, see [http://code.google.com/p/yappi/wiki/whyyappi requirements and techinal] section for why we have implemented yet another python profiler and some technical info about the internals.
+
+
+= Development = 
+Latest development sources can be found [http://bitbucket.org/sumerc/yappi/]*.
+
+
+=A Simple Example:=
+{{{
+>import yappi
+>def foo(): 
+>   for i in range(10000000): pass
+>yappi.start()
+>foo()
+>yappi.get_func_stats().print_all()
+'''
+Clock type: cpu
+Ordered by: totaltime, desc
+
+name                                    #n         tsub      ttot      tavg
+<stdin>:1 <module>                      2/1        0.000000  0.296402  0.148201
+<stdin>:1 foo                           1          0.296402  0.296402  0.296402
+..b\encodings\cp437.py:14 Codec.decode  2          0.000000  0.000000  0.000000
+'''
+}}}

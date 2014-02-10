@@ -24,13 +24,7 @@ screate(int size)
         yfree(cs);
         return NULL;
     }
-    cs->_counts = htcreate(HT_CS_COUNT_SIZE);
-    if (!cs->_counts) {
-        yfree(cs->_items);
-        yfree(cs);
-        return NULL;
-    }
-
+    
     for(i=0; i<size; i++) {
         cs->_items[i].ckey = 0;
         cs->_items[i].t0 = 0;
@@ -57,8 +51,7 @@ _sgrow(_cstack * cs)
     }
     yfree(cs->_items);
     cs->_items = dummy->_items;
-    cs->size = dummy->size;
-    htdestroy(dummy->_counts);
+    cs->size = dummy->size;    
     yfree(dummy);
     return 1;
 }
@@ -66,7 +59,6 @@ _sgrow(_cstack * cs)
 void
 sdestroy(_cstack * cs)
 {
-    htdestroy(cs->_counts);
     yfree(cs->_items);
     yfree(cs);
 }
@@ -75,7 +67,6 @@ sdestroy(_cstack * cs)
 _cstackitem *
 spush(_cstack *cs, void *ckey)
 {
-    _hitem *it;
     _cstackitem *ci;
 
     if (cs->head >= cs->size-1) {
@@ -86,35 +77,18 @@ spush(_cstack *cs, void *ckey)
     ci = &cs->_items[++cs->head];
     ci->ckey = ckey;
 
-    it = hfind(cs->_counts, (uintptr_t)ckey);
-    if (it) {
-        it->val++;
-    } else {
-        if (!hadd(cs->_counts, (uintptr_t)ckey, 1))
-            return NULL;
-    }
     return ci;
 }
 
 _cstackitem *
 spop(_cstack * cs)
 {
-	uintptr_t v;
     _cstackitem *ci;
-    _hitem *it;
 
     if (cs->head < 0)
         return NULL;
 
     ci = &cs->_items[cs->head--];
-    it = hfind(cs->_counts, (uintptr_t)ci->ckey);
-    if (it) {
-        v = (it->val)-1; /*supress warning -- it is safe to cast long vs pointers*/
-        if (v == 0) {
-            hfree(cs->_counts, it);
-        }
-        it->val = v;
-    }
     return ci;
 }
 
@@ -126,15 +100,3 @@ shead(_cstack * cs)
 
     return &cs->_items[cs->head];
 }
-
-// returns the number of occurrences of the ckey in the current
-// callstack structure. -1 is returned if this is the first time.
-int
-scount(_cstack * cs, void *ckey)
-{
-    _hitem *it = hfind(cs->_counts, (uintptr_t)ckey);
-    if (it)
-        return (int)it->val;
-    return -1;
-}
-

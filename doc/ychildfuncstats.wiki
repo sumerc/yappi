@@ -1,0 +1,56 @@
+#summary yappi.YChildFuncStats
+
+= class YChildFuncStats (v0.82)=
+
+<font face='Courier New'>
+
+<b><i>class</i></b> yappi.<b>YChildFuncStats</b>
+
+    _YChildFuncStat.children_ holds a list of child functions called from the main executed function as a _YChildFuncStats_ object. _YChildFuncStats_ class holds a list of _YChildFuncStat_ objects.
+
+    So, as an example if a calls b, then a.children will hold b as a _YChildFuncStat_ object.
+
+    A _YChildFuncStat_ object holds the following information:
+|| *Key* || *Description* ||
+|| index || A unique number for the stat ||
+|| module || Module name of the child function ||
+|| lineno || Line number of the child function || 
+|| name || Name of the child function || 
+|| full_name || module:lineno name - unique full name of the child function ||
+|| ncall || number of times the child function is called. ||
+|| nactualcall || number of times the child function is called, excluding the recursive calls. || 
+|| ttot || total time spent in the child function. Or in other words, total time parent spent in calling this child. See [https://code.google.com/p/yappi/wiki/ClockTypes_v082 Clock Types] to interpret this value correctly. || 
+|| tsub || total time spent in the child function. Or in other words, total time child spent in itself(subcalls excluded) when called by a specific parent. See [https://code.google.com/p/yappi/wiki/ClockTypes_v082 Clock Types] to interpret this value correctly. || 
+|| builtin || boolean flag showing if the executed function is a builtin || 
+|| tavg || per-call average total time spent in the child function. See [https://code.google.com/p/yappi/wiki/ClockTypes_v082 Clock Types] to interpret this value correctly. || 
+
+<b>print_all(out=sys.stdout)</b>
+    This method prints the current profile stats to <i>"out"</i> which is  <i>"stdout"</i> by default. 
+
+<b>sort(sort_type, sort_order="desc")</b>
+    This method sorts the current profile stats according to the  <i>"sort_type"</i> param. 
+
+    The following are the valid <i>"sort_type"</i> params:
+|| *Sort Types* ||
+|| name ||
+|| callcount/ncall || 
+|| totaltime/ttot  || 
+|| subtime/tsub || 
+|| avgtime/tavg ||
+
+   The following are the valid <i>"sort_order"</i> params:
+|| *Sort Orders* ||
+|| descending/desc ||
+|| ascending/asc || 
+
+<b>clear()</b>
+    Clears the retrieved stats. Note that this only clears the current object's stat list. You need to explicitly call _yappi.clear_stats()_ to clear the current profile stats.
+
+<b>empty()</b>
+    Returns a boolean indicating whether we have any stats available or not. 
+
+<b>debug_print()</b>
+    This method _debug_ prints the current profile stats to <i>"stdout". Debug print prints out callee functions and more detailed info than the _print_all()_ function call.</i> 
+
+
+</font>
