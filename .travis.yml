@@ -5,5 +5,6 @@ python:
   - "2.7"
   - "2.6"
 install: 
+  - if [[ $TRAVIS_PYTHON_VERSION == 2.6 ]]; then pip install unittest2; fi
   - pip install nose
-script:  python setup.py nosetests
+script:  python setup.py test
