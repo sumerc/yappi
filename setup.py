@@ -6,7 +6,7 @@ from setuptools import setup
 from distutils.core import Extension
 from distutils.ccompiler import new_compiler
 
-f = open('README')
+f = open('README.md')
 long_description = f.read()
 
 HOMEPAGE = "http://yappi.googlecode.com/"
