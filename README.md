@@ -1,6 +1,6 @@
-===============================
+
 Yappi
-===============================
+===================
 
 [![Build Status](https://drone.io/bitbucket.org/sumerc/yappi/status.png)](https://drone.io/bitbucket.org/sumerc/yappi/latest)
 
