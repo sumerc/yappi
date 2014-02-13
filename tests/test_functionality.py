@@ -16,14 +16,13 @@ class BasicUsage(utils.YappiUnitTestCase):
 
     def test_get_clock(self):
         yappi.set_clock_type('cpu')
-        clock_info = yappi.get_clock_type()
-        self.assertEqual('cpu', clock_info['type'])
+        self.assertEqual('cpu', yappi.get_clock_type())
+        clock_info = yappi.get_clock_info()
         self.assertTrue('api' in clock_info)
         self.assertTrue('resolution' in clock_info)
 
         yappi.set_clock_type('wall')
-        clock_info = yappi.get_clock_type()
-        self.assertEqual('wall', clock_info['type'])
+        self.assertEqual('wall', yappi.get_clock_type())
 
         t0 = yappi.get_clock_time()
         time.sleep(0.1)

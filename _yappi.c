@@ -1191,9 +1191,8 @@ get_clock_time(PyObject *self, PyObject *args)
 }
 
 static PyObject *
-get_clock_type(PyObject *self, PyObject *args)
+get_clock_info(PyObject *self, PyObject *args)
 {
-    PyObject *type = NULL;
     PyObject *api = NULL;
     PyObject *result = NULL;
     PyObject *resolution = NULL;
@@ -1203,7 +1202,6 @@ get_clock_type(PyObject *self, PyObject *args)
     
     clk_type = get_timing_clock_type();
     if (clk_type == WALL_CLOCK) {
-        type = Py_BuildValue("s", "wall");
 #if defined(_WINDOWS)
         api = Py_BuildValue("s", "queryperformancecounter");
         resolution = Py_BuildValue("s", "100ns");    
@@ -1212,7 +1210,6 @@ get_clock_type(PyObject *self, PyObject *args)
         resolution = Py_BuildValue("s", "100ns");
 #endif
     }  else {
-        type = Py_BuildValue("s", "cpu");
 #if defined(USE_CLOCK_TYPE_GETTHREADTIMES)
         api = Py_BuildValue("s", "getthreadtimes");
         resolution = Py_BuildValue("s", "100ns");
@@ -1228,14 +1225,25 @@ get_clock_type(PyObject *self, PyObject *args)
 #endif
     }
 
-    PyDict_SetItemString(result, "type", type);
     PyDict_SetItemString(result, "api", api);
     PyDict_SetItemString(result, "resolution", resolution);
 
-    Py_XDECREF(type);
     Py_XDECREF(api);
     Py_XDECREF(resolution);
     return result;
+}
+
+static PyObject *
+get_clock_type(PyObject *self, PyObject *args)
+{
+    clock_type_t clk_type;
+    
+    clk_type = get_timing_clock_type();
+    if (clk_type == WALL_CLOCK) {
+        return Py_BuildValue("s", "wall");
+    }  else {
+        return Py_BuildValue("s", "cpu");
+    }
 }
 
 static PyObject*
@@ -1288,6 +1296,7 @@ static PyMethodDef yappi_methods[] = {
     {"get_clock_type", get_clock_type, METH_VARARGS, NULL},
     {"set_clock_type", set_clock_type, METH_VARARGS, NULL},
     {"get_clock_time", get_clock_time, METH_VARARGS, NULL},
+    {"get_clock_info", get_clock_info, METH_VARARGS, NULL},
     {"get_mem_usage", get_mem_usage, METH_VARARGS, NULL},
     {"set_context_id_callback", set_context_id_callback, METH_VARARGS, NULL},
     {"set_context_name_callback", set_context_name_callback, METH_VARARGS, NULL},

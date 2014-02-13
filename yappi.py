@@ -15,7 +15,7 @@ from collections import defaultdict
 class YappiError(Exception): pass
 
 __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
-           'get_clock_time', 'get_clock_type', 'set_clock_type',  'get_mem_usage']
+           'get_clock_time', 'get_clock_type', 'set_clock_type', 'get_clock_info', 'get_mem_usage']
            
 CRLF = '\n'
 COLUMN_GAP = 2
@@ -770,10 +770,16 @@ def get_clock_time():
     
 def get_clock_type():
     """
-    Returns a dict containing the OS API used for timing, the precision, the
-    clock type, and the current tick count
+    Returns the underlying clock tyoe
     """
     return _yappi.get_clock_type()
+    
+def get_clock_info():
+    """
+    Returns a dict containing the OS API used for timing, the precision of the 
+    underlying clock.
+    """
+    return _yappi.get_clock_info()
 
 def set_clock_type(type):
     """
