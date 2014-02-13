@@ -2,6 +2,8 @@
 Yappi
 ===============================
 
+[![Build Status](https://drone.io/bitbucket.org/sumerc/yappi/status.png)](https://drone.io/bitbucket.org/sumerc/yappi/latest)
+
 Motivation:
 ===================
 CPython standard distribution is coming with three profilers. cProfile, Profile and hotshot. 
