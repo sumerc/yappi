@@ -1246,6 +1246,39 @@ get_clock_type(PyObject *self, PyObject *args)
     }
 }
 
+static PyObject *
+shift_context_time(PyObject *self, PyObject *args)
+{
+    int i;
+    long context_id;
+    double amount;
+    long long adjusted_amount;
+    _hitem *it;
+    _ctx *ctx;
+
+    if (!PyArg_ParseTuple(args, "ld", &context_id, &amount)) {
+        return NULL;
+    }
+
+    adjusted_amount = (long long)(amount / tickfactor());
+    it = hfind(contexts, context_id);
+    if (!it || !it->val) {
+    	// This context hasn't executed yet during this Yappi run; just abort.
+    	Py_RETURN_NONE;
+    }
+
+     // Advance the start time for each frame in this context's call stack
+     // by the duration for which this context was paused.
+    ctx = (_ctx *)it->val;
+	for (i = 0; i <= ctx->cs->head; i++) {
+		ctx->cs->_items[i].t0 += adjusted_amount;
+	}
+
+	// advance the start time for the whole context by the pause duration
+	ctx->t0 += adjusted_amount;
+    Py_RETURN_NONE;
+}
+
 static PyObject*
 get_start_flags(PyObject *self, PyObject *args)
 {
@@ -1297,6 +1330,7 @@ static PyMethodDef yappi_methods[] = {
     {"set_clock_type", set_clock_type, METH_VARARGS, NULL},
     {"get_clock_time", get_clock_time, METH_VARARGS, NULL},
     {"get_clock_info", get_clock_info, METH_VARARGS, NULL},
+    {"shift_context_time", shift_context_time, METH_VARARGS, NULL},
     {"get_mem_usage", get_mem_usage, METH_VARARGS, NULL},
     {"set_context_id_callback", set_context_id_callback, METH_VARARGS, NULL},
     {"set_context_name_callback", set_context_name_callback, METH_VARARGS, NULL},
