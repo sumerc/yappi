@@ -166,6 +166,10 @@ def profile(clock_type="cpu", profile_builtins=False, complete_callback=None):
                 try:
                     stop()
                     if complete_callback is None:
+                        sys.stdout.write(CRLF)
+                        sys.stdout.write("Executed in %s %s clock seconds" % 
+                            (_fft(get_thread_stats()[0].ttot), clock_type.upper()))
+                        sys.stdout.write(CRLF)
                         get_func_stats().print_all()
                     else:
                         complete_callback(func, get_func_stats())
@@ -589,7 +593,7 @@ class YFuncStats(YStats):
         FUNC_NAME_LEN = 38
         CALLCOUNT_LEN = 9
         out.write(CRLF)
-        out.write("Clock type: %s" % (self._clock_type))
+        out.write("Clock type: %s" % (self._clock_type.upper()))
         out.write(CRLF)
         out.write("Ordered by: %s, %s" % (self._sort_type, self._sort_order))
         out.write(CRLF)
