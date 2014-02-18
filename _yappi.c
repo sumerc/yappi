@@ -995,6 +995,7 @@ _ctxenumstat(_hitem *item, void *arg)
         return 1; // abort enumeration
     }
 
+    Py_DECREF(exc);
     return 0;
 }
 
