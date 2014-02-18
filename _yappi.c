@@ -1252,7 +1252,7 @@ shift_context_time(PyObject *self, PyObject *args)
     int i;
     long context_id;
     double amount;
-    long long adjusted_amount;
+    long long shifted_amount;
     _hitem *it;
     _ctx *ctx;
 
@@ -1260,7 +1260,7 @@ shift_context_time(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    adjusted_amount = (long long)(amount / tickfactor());
+    shifted_amount = (long long)(amount / tickfactor());
     it = hfind(contexts, context_id);
     if (!it || !it->val) {
     	// This context hasn't executed yet during this Yappi run; just abort.
@@ -1271,11 +1271,11 @@ shift_context_time(PyObject *self, PyObject *args)
      // by the duration for which this context was paused.
     ctx = (_ctx *)it->val;
 	for (i = 0; i <= ctx->cs->head; i++) {
-		ctx->cs->_items[i].t0 += adjusted_amount;
+		ctx->cs->_items[i].t0 += shifted_amount;
 	}
 
 	// advance the start time for the whole context by the pause duration
-	ctx->t0 += adjusted_amount;
+	ctx->t0 += shifted_amount;
     Py_RETURN_NONE;
 }
 
