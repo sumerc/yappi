@@ -792,6 +792,15 @@ def set_clock_type(type):
         
     _yappi.set_clock_type(CLOCK_TYPES[type])
 
+def shift_context_time(context_id, amount):
+    """
+    Adjust a context's start time, and the time of all functions currently on
+    the context's stack. 'amount' is in the same units as get_clock_type(). A
+    negative 'amount' increases the 'ttot' statistic for this context and all
+    functions on the stack, and a positive 'amount' decreases 'ttot'.
+    """
+    _yappi.shift_context_time(context_id, amount)
+
 def get_mem_usage():
     """
     Returns the internal memory usage of the profiler itself.
