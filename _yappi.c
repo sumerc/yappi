@@ -333,8 +333,10 @@ _ccode2pit(void *cco)
         if (cfn->m_self != NULL) {
             name = PyStr_FromString(cfn->m_ml->ml_name);
             if (name != NULL) {
-                PyObject *mo = _PyType_Lookup((PyTypeObject *)PyObject_Type(cfn->m_self), name);
+                PyObject *obj_type = PyObject_Type(cfn->m_self);
+                PyObject *mo = _PyType_Lookup((PyTypeObject *)obj_type, name);
                 Py_XINCREF(mo);
+                Py_XDECREF(obj_type);
                 Py_DECREF(name);
                 if (mo != NULL) {
                     pit->name = PyObject_Repr(mo);
@@ -383,10 +385,14 @@ _code2pit(PyFrameObject *fobj)
             if (locals) {
                 PyObject* self = PyDict_GetItemString(locals, "self");
                 if (self) {
-                    PyObject *as = PyObject_GetAttrString(self, "__class__");
-                    if (as) {
-                        as = PyObject_GetAttrString(as, "__name__");                    
-                        pit->name = PyStr_FromFormat("%s.%s", PyStr_AS_CSTRING(as), PyStr_AS_CSTRING(cobj->co_name));
+                    PyObject *class_obj = PyObject_GetAttrString(self, "__class__");
+                    if (class_obj) {
+                        PyObject *class_name = PyObject_GetAttrString(class_obj, "__name__");
+                        if (class_name) {
+                            pit->name = PyStr_FromFormat("%s.%s", PyStr_AS_CSTRING(class_name), PyStr_AS_CSTRING(cobj->co_name));
+                            Py_DECREF(class_name);
+                        }
+                        Py_DECREF(class_obj);
                     }
                 }
             }
