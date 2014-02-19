@@ -206,6 +206,10 @@ _current_ctx_name(void)
         if (!tattr2)
             goto err;
 
+        Py_DECREF(mthr);
+        Py_DECREF(cthr);
+        Py_DECREF(tattr1);
+        Py_DECREF(tattr2);
         return PyStr_AS_CSTRING(tattr2);
     }
 err:
