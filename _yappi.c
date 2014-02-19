@@ -1033,7 +1033,7 @@ _pitenumstat(_hitem *item, void * arg)
     PyObject *efn;
     _pit *pt;
     PyObject *exc;
-    PyObject *children;
+    PyObject *children = NULL;
     _pit_children_info *pci;
 
     pt = (_pit *)item->val;
@@ -1048,12 +1048,16 @@ _pitenumstat(_hitem *item, void * arg)
     children = PyList_New(0);
     pci = pt->children;
     while(pci) {
+        PyObject *stats_tuple;
         // normalize tsubtotal. tsubtotal being negative is an expected situation.
         if (pci->tsubtotal < 0) {
             pci->tsubtotal = 0;
-        }        
-        PyList_Append(children, Py_BuildValue("Ikkff", pci->index, pci->callcount, 
-                pci->nonrecursive_callcount, _normt(pci->ttotal), _normt(pci->tsubtotal) ));
+        }
+        stats_tuple = Py_BuildValue("Ikkff", pci->index, pci->callcount,
+                pci->nonrecursive_callcount, _normt(pci->ttotal),
+                _normt(pci->tsubtotal));
+        PyList_Append(children, stats_tuple);
+        Py_DECREF(stats_tuple);
         pci = (_pit_children_info *)pci->next;
     }
     // normalize tsubtotal. tsubtotal being negative is an expected situation.
@@ -1067,6 +1071,8 @@ _pitenumstat(_hitem *item, void * arg)
         PyErr_Print();
         return 1; // abort enumeration
     }
+
+    Py_XDECREF(children);
     return 0;
 }
 
