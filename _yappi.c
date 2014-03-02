@@ -1033,10 +1033,12 @@ _pitenumstat(_hitem *item, void * arg)
     PyObject *efn;
     _pit *pt;
     PyObject *exc;
-    PyObject *children = NULL;
+    PyObject *children;
     _pit_children_info *pci;
 
+    children = NULL
     pt = (_pit *)item->val;
+    
     // do not show builtin pits if specified
     if  ((!flags.builtins) && (pt->builtin)) {
         return 0;
