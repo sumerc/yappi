@@ -1301,16 +1301,23 @@ shift_context_time(PyObject *self, PyObject *args)
 static PyObject*
 get_start_flags(PyObject *self, PyObject *args)
 {
-    PyObject *result;
+    PyObject *result = NULL;
+    PyObject *profile_builtins = NULL;
+    PyObject *profile_multithread = NULL;
+
     
     if (!yapphavestats) {
         Py_RETURN_NONE;
     }
 
+    profile_builtins = Py_BuildValue("i", flags.builtins);
+    profile_multithread = Py_BuildValue("i", flags.multithreaded);
     result = PyDict_New();
-    PyDict_SetItemString(result, "profile_builtins", Py_BuildValue("i", flags.builtins));
-    PyDict_SetItemString(result, "profile_multithread", Py_BuildValue("i", flags.multithreaded));
+    PyDict_SetItemString(result, "profile_builtins", profile_builtins);
+    PyDict_SetItemString(result, "profile_multithread", profile_multithread);
     
+    Py_XDECREF(profile_builtins);
+    Py_XDECREF(profile_multithread);
     return result;
 }
 
