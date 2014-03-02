@@ -538,11 +538,13 @@ _get_frame_elapsed(void)
     cp = ci->ckey;
     
     if (test_timings) { 
-        uintptr_t rlevel = get_rec_level((uintptr_t)cp);        
-        PyObject *tval = PyDict_GetItem(test_timings, 
-            PyStr_FromFormat("%s_%d", PyStr_AS_CSTRING(cp->name), rlevel));
-        //printf("name:%s_%d \r\n", PyStr_AS_CSTRING(cp->name), rlevel);    
-        if (tval) {            
+        uintptr_t rlevel = get_rec_level((uintptr_t)cp);
+        PyObject *formatted_string = PyStr_FromFormat(
+                "%s_%d", PyStr_AS_CSTRING(cp->name), rlevel);
+
+        PyObject *tval = PyDict_GetItem(test_timings, formatted_string);
+        Py_DECREF(formatted_string);
+        if (tval) {
             result = PyLong_AsLong(tval);
         } else {
             result = DEFAULT_TEST_ELAPSED_TIME;
