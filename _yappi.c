@@ -1074,6 +1074,7 @@ _pitenumstat(_hitem *item, void * arg)
         return 1; // abort enumeration
     }
 
+    Py_DECREF(exc);
     Py_XDECREF(children);
     return 0;
 }
