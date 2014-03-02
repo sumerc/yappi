@@ -1036,7 +1036,7 @@ _pitenumstat(_hitem *item, void * arg)
     PyObject *children;
     _pit_children_info *pci;
 
-    children = NULL
+    children = NULL;
     pt = (_pit *)item->val;
     
     // do not show builtin pits if specified
