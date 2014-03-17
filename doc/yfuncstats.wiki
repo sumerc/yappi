@@ -38,7 +38,7 @@
     The following are the save formats currently available:
 || *Format* ||
 || ystat || 
-|| [http://docs.python.org/3.3/library/profile.html?highlight=pstat#pstats.Stats.print_stats pstats] || 
+|| [http://docs.python.org/3.3/library/profile.html?highlight=pstat#pstats.Stats.print_stats pstat] || 
 || [http://kcachegrind.sourceforge.net/html/CallgrindFormat.html callgrind] ||
 
 
