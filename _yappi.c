@@ -859,36 +859,6 @@ profile_event(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
-static PyObject*
-start(PyObject *self, PyObject *args)
-{
-    if (yapprunning) {
-        Py_RETURN_NONE;
-    }
-
-    if (!PyArg_ParseTuple(args, "ii", &flags.builtins, &flags.multithreaded))
-        return NULL;
-
-    if (!_init_profiler()) {
-        PyErr_SetString(YappiProfileError, "profiler cannot be initialized.");
-        return NULL;
-    }
-    
-    if (flags.multithreaded) {
-        _enum_threads(&_profile_thread);
-    } else {
-        _ensure_thread_profiled(PyThreadState_GET());
-    }
-    
-    yapprunning = 1;
-    yapphavestats = 1;
-    time (&yappstarttime);
-    yappstarttick = tickcount();
-    
-    Py_RETURN_NONE;
-}
-
-
 static long long
 _calc_cumdiff(long long a, long long b)
 {
@@ -914,19 +884,41 @@ _ctxenumdel(_hitem *item, void *arg)
     return 0;
 }
 
-static PyObject*
-stop(PyObject *self, PyObject *args)
+// start profiling. return 1 on success, or 0 and set exception.
+static int
+_start(void)
 {
-    if (!yapprunning) {
-        Py_RETURN_NONE;
+    if (yapprunning)
+        return 1;
+
+    if (!_init_profiler()) {
+        PyErr_SetString(YappiProfileError, "profiler cannot be initialized.");
+        return 0;
     }
+
+    if (flags.multithreaded) {
+        _enum_threads(&_profile_thread);
+    } else {
+        _ensure_thread_profiled(PyThreadState_GET());
+    }
+
+    yapprunning = 1;
+    yapphavestats = 1;
+    time (&yappstarttime);
+    yappstarttick = tickcount();
+    return 1;
+}
+
+static void
+_stop(void)
+{
+    if (!yapprunning)
+        return;
 
     _enum_threads(&_unprofile_thread);
 
     yapprunning = 0;
     yappstoptick = tickcount();
-
-    Py_RETURN_NONE;
 }
 
 static PyObject*
@@ -1080,6 +1072,29 @@ _pitenumstat(_hitem *item, void * arg)
     Py_DECREF(exc);
     Py_XDECREF(children);
     return 0;
+}
+
+static PyObject*
+start(PyObject *self, PyObject *args)
+{
+    if (yapprunning)
+        Py_RETURN_NONE;
+
+    if (!PyArg_ParseTuple(args, "ii", &flags.builtins, &flags.multithreaded))
+        return NULL;
+
+    if (!_start())
+        // error
+        return NULL;
+
+    Py_RETURN_NONE;
+}
+
+static PyObject*
+stop(PyObject *self)
+{
+    _stop();
+    Py_RETURN_NONE;
 }
 
 static PyObject*
@@ -1328,12 +1343,11 @@ get_start_flags(PyObject *self, PyObject *args)
 static PyObject*
 _pause(PyObject *self, PyObject *args)
 {
-    if (yapprunning)
-    {
+    if (yapprunning) {
         paused = 1;
-        stop(self, NULL);
+        _stop();
     }
-    
+
     Py_RETURN_NONE;
 }
 
@@ -1343,7 +1357,9 @@ _resume(PyObject *self, PyObject *args)
     if (paused)
     {
         paused = 0;        
-        start(self, Py_BuildValue("ii", flags.builtins, flags.multithreaded));
+        if (!_start())
+            // error
+            return NULL;
     }
     
     Py_RETURN_NONE;
@@ -1351,7 +1367,7 @@ _resume(PyObject *self, PyObject *args)
 
 static PyMethodDef yappi_methods[] = {
     {"start", start, METH_VARARGS, NULL},
-    {"stop", stop, METH_VARARGS, NULL},
+    {"stop", (PyCFunction)stop, METH_NOARGS, NULL},
     {"enum_func_stats", enum_func_stats, METH_VARARGS, NULL},
     {"enum_thread_stats", enum_thread_stats, METH_VARARGS, NULL},
     {"clear_stats", clear_stats, METH_VARARGS, NULL},
