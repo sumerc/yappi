@@ -713,8 +713,11 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     case PyTrace_RETURN: // either normally or with an exception
         _call_leave(self, frame, arg, 0);
         break;
-
-#ifdef PyTrace_C_CALL	// not defined in Python <= 2.3
+    /* case PyTrace_EXCEPTION:
+        If the exception results in the function exiting, a
+        PyTrace_RETURN event will be generated, so we don't need to
+        handle it. */
+        
     case PyTrace_C_CALL:
         if (PyCFunction_Check(arg))
             _call_enter(self, frame, arg, 1); // set ccall to true
@@ -725,7 +728,6 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         if (PyCFunction_Check(arg))
             _call_leave(self, frame, arg, 1);
         break;
-#endif
     default:
         break;
     }
