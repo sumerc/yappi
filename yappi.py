@@ -155,26 +155,34 @@ def profile(clock_type="cpu", profile_builtins=False, complete_callback=None):
     results. So, if you use a decorator, then global profiling may return bogus 
     results or no results at all.
     """
-    def _profile_dec(func):            
+    def _profile_dec(func):
         def wrapper(*args, **kwargs):
-            clear_stats()
-            set_clock_type(clock_type)
-            start(profile_builtins, profile_threads=False)            
+            if func._rec_level == 0:
+                clear_stats()
+                set_clock_type(clock_type)
+                start(profile_builtins, profile_threads=False)
+            func._rec_level += 1
             try:
                 return func(*args, **kwargs)
             finally:
-                try:
-                    stop()
-                    if complete_callback is None:
-                        sys.stdout.write(CRLF)
-                        sys.stdout.write("Executed in %s %s clock seconds" % 
-                            (_fft(get_thread_stats()[0].ttot), clock_type.upper()))
-                        sys.stdout.write(CRLF)
-                        get_func_stats().print_all()
-                    else:
-                        complete_callback(func, get_func_stats())
-                finally:
-                    clear_stats()            
+                func._rec_level -= 1
+                # only show profile information when recursion level of the
+                # function becomes 0. Otherwise, we are in the middle of a 
+                # recursive call tree and not finished yet.
+                if func._rec_level == 0: 
+                    try:
+                        stop()
+                        if complete_callback is None:
+                            sys.stdout.write(CRLF)
+                            sys.stdout.write("Executed in %s %s clock seconds" % 
+                                (_fft(get_thread_stats()[0].ttot), clock_type.upper()))
+                            sys.stdout.write(CRLF)
+                            get_func_stats().print_all()
+                        else:
+                            complete_callback(func, get_func_stats())
+                    finally:
+                        clear_stats()
+        func._rec_level = 0
         return wrapper
     return _profile_dec    
     
