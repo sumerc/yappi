@@ -248,8 +248,8 @@ class ShiftContextTimeTest(utils.YappiUnitTestCase):
         self.assertEqual(1, threadstats[1].id)
 
         # Context 1's total time is one second longer.
-        self.assertAlmostEqual(0, threadstats[0].ttot, places=3)
-        self.assertAlmostEqual(1, threadstats[1].ttot, places=3)
+        self.assertAlmostEqual(0, threadstats[0].ttot, places=4)
+        self.assertAlmostEqual(1, threadstats[1].ttot, places=4)
 
         self.assertEqual(1, threadstats[0].sched_count)
         self.assertEqual(1, threadstats[1].sched_count)
@@ -258,13 +258,13 @@ class ShiftContextTimeTest(utils.YappiUnitTestCase):
         a_stat = utils.find_stat_by_name(funcstats, 'a')
         self.assertTrue(a_stat)
         self.assertEqual(1, a_stat.ncall)
-        self.assertAlmostEqual(0, a_stat.ttot, places=3)
+        self.assertAlmostEqual(0, a_stat.ttot, places=4)
 
         # b's time was shifted.
         b_stat = utils.find_stat_by_name(funcstats, 'b')
         self.assertTrue(b_stat)
         self.assertEqual(1, b_stat.ncall)
-        self.assertAlmostEqual(1, b_stat.ttot, places=3)
+        self.assertAlmostEqual(1, b_stat.ttot, places=4)
 
 
 if __name__ == '__main__':
