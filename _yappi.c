@@ -1323,7 +1323,6 @@ get_start_flags(PyObject *self, PyObject *args)
     PyObject *result = NULL;
     PyObject *profile_builtins = NULL;
     PyObject *profile_multithread = NULL;
-
     
     if (!yapphavestats) {
         Py_RETURN_NONE;
@@ -1390,15 +1389,15 @@ static PyMethodDef yappi_methods[] = {
 
 #ifdef IS_PY3K
 static struct PyModuleDef _yappi_module = {
-        PyModuleDef_HEAD_INIT,
-        "_yappi",
-        _yappi__doc__,
-        -1,
-        yappi_methods,
-        NULL,
-        NULL,
-        NULL,
-        NULL
+    PyModuleDef_HEAD_INIT,
+    "_yappi",
+    _yappi__doc__,
+    -1,
+    yappi_methods,
+    NULL,
+    NULL,
+    NULL,
+    NULL
 };
 #endif
 

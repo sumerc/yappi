@@ -30,6 +30,15 @@ class BasicUsage(utils.YappiUnitTestCase):
         self.assertAlmostEqual(0.1, duration, places=2)
 
     def test_profile_decorator(self):
+        
+        @yappi.profile()
+        def a_recursive_func(n=0):
+            if n == 2:
+                return
+            a_recursive_func(n+1)
+
+        a_recursive_func(0)
+        
         def aggregate(func, stats):
             fname = "%s.profile" % (func.__name__)
             try: 
