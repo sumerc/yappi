@@ -689,7 +689,7 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     PyErr_Fetch(&last_type, &last_value, &last_tb);
     
     // get current ctx
-    current_ctx = _thread2ctx(frame->f_tstate);
+    current_ctx = _thread2ctx(PyThreadState_GET());
     if (!current_ctx) {
         _log_err(9);
         goto finally;
