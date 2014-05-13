@@ -30,6 +30,7 @@ class BasicUsage(utils.YappiUnitTestCase):
         self.assertAlmostEqual(0.1, duration, places=2)
 
     def test_profile_decorator(self):
+
         def aggregate(func, stats):
             fname = "%s.profile" % (func.__name__)
             try: 
@@ -72,6 +73,31 @@ class BasicUsage(utils.YappiUnitTestCase):
         fsa = utils.find_stat_by_name(stats, 'a')
         self.assertEqual(fsa.ncall, 3)
         self.assertEqual(len(stats), 1) # b() should be cleared out.
+        
+        @yappi.profile(complete_callback=aggregate)
+        def count_down_rec(n):
+            if n == 0:
+                return
+            count_down_rec(n-1)
+        
+        try:
+            os.remove("count_down_rec.profile") # remove the one from prev test, if available
+        except:
+            pass
+        
+        try:    
+            count_down_rec(4)
+        except:
+            pass
+        try:    
+            count_down_rec(3)
+        except:
+            pass
+        
+        stats = yappi.YFuncStats("count_down_rec.profile")
+        fsrec = utils.find_stat_by_name(stats, 'count_down_rec')
+        self.assertEqual(fsrec.ncall, 9)
+        self.assertEqual(fsrec.nactualcall, 2)
         
     def test_strip_dirs(self):
         def a():
