@@ -351,19 +351,22 @@ class YStats(list):
         return True
             
 class YChildFuncStats(YStats):
-    def __getitem__(self, key):        
+    def __getitem__(self, key):
         if isinstance(key, int):
             for item in self:
                 if item.index == key:
                     return item
+            return None
         elif isinstance(key, str):
             for item in self:
                 if item.full_name == key:
                     return item
+            return None
         elif isinstance(key, YFuncStat) or isinstance(key, YChildFuncStat):
             for item in self:
                 if item.index == key.index:
                     return item
+            return None
                     
         return super(YChildFuncStats, self).__getitem__(key)
         
@@ -424,10 +427,12 @@ class YFuncStats(YStats):
             for item in self:
                 if item.index == key:
                     return item
+            return None
         elif isinstance(key, str):
             for item in self:
                 if item.full_name == key:
                     return item
+            return None
                     
         return super(YFuncStats, self).__getitem__(key)
         
