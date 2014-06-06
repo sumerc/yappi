@@ -144,7 +144,7 @@ def convert2pstats(stats):
      
     return pstats.Stats(_PStatHolder(_pdict))
     
-def profile(clock_type="cpu", profile_builtins=False, complete_callback=None):
+def profile(clock_type="cpu", profile_builtins=False, return_callback=None):
     """
     A profile decorator that can be used to profile a single call.
     
@@ -172,19 +172,19 @@ def profile(clock_type="cpu", profile_builtins=False, complete_callback=None):
                 if func._rec_level == 0: 
                     try:
                         stop()
-                        if complete_callback is None:
+                        if return_callback is None:
                             sys.stdout.write(CRLF)
                             sys.stdout.write("Executed in %s %s clock seconds" % 
                                 (_fft(get_thread_stats()[0].ttot), clock_type.upper()))
                             sys.stdout.write(CRLF)
                             get_func_stats().print_all()
                         else:
-                            complete_callback(func, get_func_stats())
+                            return_callback(func, get_func_stats())
                     finally:
                         clear_stats()
         func._rec_level = 0
         return wrapper
-    return _profile_dec    
+    return _profile_dec
     
 class StatString(object):
     """
