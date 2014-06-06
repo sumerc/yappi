@@ -40,7 +40,7 @@ class BasicUsage(utils.YappiUnitTestCase):
             stats.save(fname)
             raise Exception("messing around")
              
-        @yappi.profile(complete_callback=aggregate)
+        @yappi.profile(return_callback=aggregate)
         def a(x, y):
             if x+y == 25:
                 raise Exception("")
@@ -74,7 +74,7 @@ class BasicUsage(utils.YappiUnitTestCase):
         self.assertEqual(fsa.ncall, 3)
         self.assertEqual(len(stats), 1) # b() should be cleared out.
         
-        @yappi.profile(complete_callback=aggregate)
+        @yappi.profile(return_callback=aggregate)
         def count_down_rec(n):
             if n == 0:
                 return
