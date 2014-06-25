@@ -23,10 +23,10 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
-/* 
+/*
     Policy of clock usage on *nix systems is as follows:
-    
-    1)  If clock_gettime() is possible, then use it, it has nanosecond 
+
+    1)  If clock_gettime() is possible, then use it, it has nanosecond
         resolution. It is available in >Linux 2.6.0.
     2)  If get_rusage() is possible use that. >Linux 2.6.26 and Solaris have that.
 */

@@ -19,19 +19,19 @@ user_libraries = []
 compile_args = []
 link_args = []
 
-if os.name == 'posix' and sys.platform != 'darwin': 
+if os.name == 'posix' and sys.platform != 'darwin':
     compiler = new_compiler()
     if compiler.has_function('timer_create', libraries=('rt',)):
         user_macros.append(('LIB_RT_AVAILABLE','1'))
         user_libraries.append('rt')
-        
+
 if _DEBUG:
     if os.name == 'posix':
         compile_args.append('-g')
     elif os.name == 'nt':
         compile_args.append('/Zi')
         link_args.append('/DEBUG')
-    
+
 #user_macros.append(('DEBUG_MEM', '1')),
 #user_macros.append(('DEBUG_CALL', '1'))
 #user_macros.append(('YDEBUG', '1')),
@@ -42,7 +42,7 @@ CLASSIFIERS = [
     'Intended Audience :: Developers',
     'License :: OSI Approved :: MIT License',
     'Programming Language :: Python',
-    'Programming Language :: Python :: 2',    
+    'Programming Language :: Python :: 2',
     'Programming Language :: Python :: 2.6',
     'Programming Language :: Python :: 2.7',
     'Programming Language :: Python :: 3.1',
@@ -55,8 +55,8 @@ CLASSIFIERS = [
     'Topic :: Software Development :: Libraries :: Python Modules',
 ]
 
-setup(name=NAME, 
-    version=VERSION,    
+setup(name=NAME,
+    version=VERSION,
     author="Sumer Cip",
     author_email="sumerc@gmail.com",
     ext_modules = [Extension(
