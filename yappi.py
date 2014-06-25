@@ -17,7 +17,7 @@ class YappiError(Exception): pass
 __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
            'get_clock_time', 'get_clock_type', 'set_clock_type', 'get_clock_info', 'get_mem_usage']
            
-CRLF = '\n'
+LINESEP = os.linesep
 COLUMN_GAP = 2
 TIME_COLUMN_LEN = 8 # 0.000000, 12345.98, precision is microsecs
 YPICKLE_PROTOCOL = 2
@@ -173,10 +173,10 @@ def profile(clock_type="cpu", profile_builtins=False, return_callback=None):
                     try:
                         stop()
                         if return_callback is None:
-                            sys.stdout.write(CRLF)
+                            sys.stdout.write(LINESEP)
                             sys.stdout.write("Executed in %s %s clock seconds" % 
                                 (_fft(get_thread_stats()[0].ttot), clock_type.upper()))
-                            sys.stdout.write(CRLF)
+                            sys.stdout.write(LINESEP)
                             get_func_stats().print_all()
                         else:
                             return_callback(func, get_func_stats())
@@ -385,9 +385,9 @@ class YChildFuncStats(YStats):
         
         FUNC_NAME_LEN = 38
         CALLCOUNT_LEN = 9        
-        out.write(CRLF)
+        out.write(LINESEP)
         out.write("name                                    #n         tsub      ttot      tavg")
-        out.write(CRLF)
+        out.write(LINESEP)
         for stat in self:
             out.write(StatString(stat.full_name).ltrim(FUNC_NAME_LEN))
             out.write(" " * COLUMN_GAP)
@@ -403,7 +403,7 @@ class YChildFuncStats(YStats):
             out.write(StatString(_fft(stat.ttot)).rtrim(TIME_COLUMN_LEN))
             out.write(" " * COLUMN_GAP)
             out.write(StatString(_fft(stat.tavg)).rtrim(TIME_COLUMN_LEN))
-            out.write(CRLF)
+            out.write(LINESEP)
     
     def strip_dirs(self):
         for stat in self:
@@ -605,14 +605,14 @@ class YFuncStats(YStats):
         
         FUNC_NAME_LEN = 38
         CALLCOUNT_LEN = 9
-        out.write(CRLF)
+        out.write(LINESEP)
         out.write("Clock type: %s" % (self._clock_type.upper()))
-        out.write(CRLF)
+        out.write(LINESEP)
         out.write("Ordered by: %s, %s" % (self._sort_type, self._sort_order))
-        out.write(CRLF)
-        out.write(CRLF)
+        out.write(LINESEP)
+        out.write(LINESEP)
         out.write("name                                    #n         tsub      ttot      tavg")
-        out.write(CRLF)
+        out.write(LINESEP)
         for stat in self:
             out.write(StatString(stat.full_name).ltrim(FUNC_NAME_LEN))
             out.write(" " * COLUMN_GAP)
@@ -628,7 +628,7 @@ class YFuncStats(YStats):
             out.write(StatString(_fft(stat.ttot)).rtrim(TIME_COLUMN_LEN))
             out.write(" " * COLUMN_GAP)
             out.write(StatString(_fft(stat.tavg)).rtrim(TIME_COLUMN_LEN))
-            out.write(CRLF)
+            out.write(LINESEP)
             
     def sort(self, sort_type, sort_order="desc"):
         sort_type = _validate_sorttype(sort_type, SORT_TYPES_FUNCSTATS)
@@ -647,35 +647,35 @@ class YFuncStats(YStats):
         CHILD_STATS_LEFT_MARGIN = 5
         for stat in self:
             console.write("index: %d" % stat.index)
-            console.write(CRLF)
+            console.write(LINESEP)
             console.write("full_name: %s" % stat.full_name)
-            console.write(CRLF)
+            console.write(LINESEP)
             console.write("ncall: %d/%d" % (stat.ncall, stat.nactualcall))
-            console.write(CRLF)
+            console.write(LINESEP)
             console.write("ttot: %s" % _fft(stat.ttot))
-            console.write(CRLF)
+            console.write(LINESEP)
             console.write("tsub: %s" % _fft(stat.tsub))
-            console.write(CRLF)
+            console.write(LINESEP)
             console.write("children: ")
-            console.write(CRLF)
+            console.write(LINESEP)
             for child_stat in stat.children:
-                console.write(CRLF)
+                console.write(LINESEP)
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
                 console.write("index: %d" % child_stat.index)
-                console.write(CRLF)
+                console.write(LINESEP)
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
                 console.write("child_full_name: %s" % child_stat.full_name)
-                console.write(CRLF)
+                console.write(LINESEP)
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
                 console.write("ncall: %d/%d" % (child_stat.ncall, child_stat.nactualcall))
-                console.write(CRLF)
+                console.write(LINESEP)
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
                 console.write("ttot: %s" % _fft(child_stat.ttot))
-                console.write(CRLF)      
+                console.write(LINESEP)      
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
                 console.write("tsub: %s" % _fft(child_stat.tsub))
-                console.write(CRLF) 
-            console.write(CRLF)
+                console.write(LINESEP) 
+            console.write(LINESEP)
          
 class YThreadStats(YStats):
         
@@ -708,9 +708,9 @@ class YThreadStats(YStats):
         THREAD_ID_LEN = 15
         THREAD_SCHED_CNT_LEN = 10
 
-        out.write(CRLF)
+        out.write(LINESEP)
         out.write("name           tid              ttot      scnt")
-        out.write(CRLF)
+        out.write(LINESEP)
         for stat in self:
             out.write(StatString(stat.name).ltrim(THREAD_NAME_LEN))
             out.write(" " * COLUMN_GAP)
@@ -719,7 +719,7 @@ class YThreadStats(YStats):
             out.write(StatString(_fft(stat.ttot)).rtrim(TIME_COLUMN_LEN))
             out.write(" " * COLUMN_GAP)
             out.write(StatString(stat.sched_count).rtrim(THREAD_SCHED_CNT_LEN))
-            out.write(CRLF)
+            out.write(LINESEP)
             
     def strip_dirs(self):
         pass # do nothing
