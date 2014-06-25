@@ -19,7 +19,6 @@ __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats',
            
 LINESEP = os.linesep
 COLUMN_GAP = 2
-TIME_COLUMN_LEN = 8 # 0.000000, 12345.98, precision is microsecs
 YPICKLE_PROTOCOL = 2
 
 SORT_TYPES_FUNCSTATS = {"name":0, "callcount":3, "totaltime":6, "subtime":7, "avgtime":10,
@@ -58,12 +57,12 @@ def _callback(frame, event, arg):
 """
 function to prettify time columns in stats.
 """
-def _fft(x):
+def _fft(x, COL_SIZE):
     _rprecision = 6
     while(_rprecision > 0):
         _fmt = "%0." + "%d" % (_rprecision) + "f"
         s = _fmt % (x)
-        if len(s) <= TIME_COLUMN_LEN:
+        if len(s) <= COL_SIZE:
             break
         _rprecision -= 1
     return s
@@ -212,6 +211,22 @@ class StatString(object):
             
     def rtrim(self, length):
         return self._trim(length, self._RIGHT)
+        
+class YStatColumns(dict):
+    """
+    A helper container to traverse columns in order and to reach column size in O(1)
+    Assumes keys are immutable: are not changed after init.
+    """
+    def __init__(self, *args):
+        self._titles = []
+        
+        for title, size in args:
+            self[title] = size
+            self._titles.append(title)
+
+    def __iter__(self):
+        for x in self._titles:
+            yield (x, self[x])
 
 class YStat(dict):
     """
@@ -275,7 +290,31 @@ class YFuncStat(YStat):
         self.module = os.path.basename(self.module)
         self.full_name = _func_fullname(self.builtin, self.module, self.lineno, 
             self.name)
-        return self    
+        return self
+        
+    def _print(self, out, columns):
+        if "name" in columns:
+            out.write(StatString(self.full_name).ltrim(columns["name"]))
+            out.write(" " * COLUMN_GAP)
+        if "ncall" in columns:
+            if self.is_recursive():
+                out.write(StatString("%d/%d" % (self.ncall, 
+                        self.nactualcall)).rtrim(columns["ncall"]))
+            else:
+                out.write(StatString(self.ncall).rtrim(columns["ncall"]))
+            out.write(" " * COLUMN_GAP)
+        if "tsub" in columns:
+            out.write(StatString(_fft(self.tsub, 
+                    columns["tsub"])).rtrim(columns["tsub"]))
+            out.write(" " * COLUMN_GAP)
+        if "ttot" in columns:
+            out.write(StatString(_fft(self.ttot, 
+                    columns["ttot"])).rtrim(columns["ttot"]))
+            out.write(" " * COLUMN_GAP)
+        if "tavg" in columns:
+            out.write(StatString(_fft(self.tavg, 
+                    columns["tavg"])).rtrim(columns["tavg"]))
+            out.write(LINESEP)
         
 class YChildFuncStat(YFuncStat):
     """
@@ -304,6 +343,21 @@ class YThreadStat(YStat):
         if other is None:
             return False
         return self.id == other.id
+        
+    def _print(self, out, columns):
+        if "name" in columns:
+            out.write(StatString(self.name).ltrim(columns["name"]))
+            out.write(" " * COLUMN_GAP)
+        if "tid" in columns:
+            out.write(StatString(self.id).rtrim(columns["tid"]))
+            out.write(" " * COLUMN_GAP)
+        if "ttot" in columns:
+            out.write(StatString(_fft(self.ttot, 
+                columns["ttot"])).rtrim(columns["ttot"]))
+            out.write(" " * COLUMN_GAP)
+        if "scnt" in columns:
+            out.write(StatString(self.sched_count).rtrim(columns["scnt"]))
+            out.write(LINESEP)
 
 class YStats(list):
     """
@@ -340,6 +394,15 @@ class YStats(list):
                 cstat += item
                 return        
         super(YStats, self).append(item)
+        
+    def _print_header(self, out, columns):
+        for title, size in columns:
+            if len(title) > size:
+                raise YappiError("Column title exceeds available length[%s:%d]" % \
+                    (title, size))
+            out.write(title)
+            out.write(" " * (COLUMN_GAP + size - len(title)))
+        out.write(LINESEP)
                 
     def _debug_check_sanity(self):
         """
@@ -376,40 +439,25 @@ class YChildFuncStats(YStats):
         
         return super(YChildFuncStats, self).sort(SORT_TYPES_CHILDFUNCSTATS[sort_type], SORT_ORDERS[sort_order])
     
-    def print_all(self, out=sys.stdout):
+    def print_all(self, out=sys.stdout, 
+                columns=YStatColumns(("name",36), ("ncall", 5), 
+                        ("tsub", 8), ("ttot", 8), ("tavg",8))):
         """
         Prints all of the child function profiler results to a given file. (stdout by default)
         """
         if self.empty():
             return
         
-        FUNC_NAME_LEN = 38
-        CALLCOUNT_LEN = 9        
         out.write(LINESEP)
-        out.write("name                                    #n         tsub      ttot      tavg")
-        out.write(LINESEP)
+        self._print_header(out, columns)
         for stat in self:
-            out.write(StatString(stat.full_name).ltrim(FUNC_NAME_LEN))
-            out.write(" " * COLUMN_GAP)
-            
-            # the function is recursive?
-            if stat.is_recursive():
-                out.write(StatString("%d/%d" % (stat.ncall, stat.nactualcall)).rtrim(CALLCOUNT_LEN))
-            else:
-                out.write(StatString(stat.ncall).rtrim(CALLCOUNT_LEN))
-            out.write(" " * COLUMN_GAP)
-            out.write(StatString(_fft(stat.tsub)).rtrim(TIME_COLUMN_LEN))
-            out.write(" " * COLUMN_GAP)
-            out.write(StatString(_fft(stat.ttot)).rtrim(TIME_COLUMN_LEN))
-            out.write(" " * COLUMN_GAP)
-            out.write(StatString(_fft(stat.tavg)).rtrim(TIME_COLUMN_LEN))
-            out.write(LINESEP)
+            stat._print(out, columns)
     
     def strip_dirs(self):
         for stat in self:
             stat.strip_dirs()
         return self
-    
+
 class YFuncStats(YStats):
 
     _idx_max = 0
@@ -442,7 +490,7 @@ class YFuncStats(YStats):
             stat.children.strip_dirs()
         return self
         
-    def get(self):        
+    def get(self):
         _yappi._pause()
         self.clear()
         try:        
@@ -464,8 +512,8 @@ class YFuncStats(YStats):
                     cfstat = YChildFuncStat(child_tpl+(tavg, rstat.builtin, rstat.full_name, rstat.module, 
                         rstat.lineno, rstat.name,))
                     _childs.append(cfstat)
-                stat.children = _childs            
-            result = super(YFuncStats, self).get()            
+                stat.children = _childs
+            result = super(YFuncStats, self).get()
         finally:
             _yappi._resume()
         return result
@@ -484,7 +532,7 @@ class YFuncStats(YStats):
         if os.path.basename(fstat.module) == "yappi.py" or fstat.module == "_yappi":
             return
         
-        fstat.builtin = bool(fstat.builtin)                
+        fstat.builtin = bool(fstat.builtin)
         self.append(fstat)
         
         # hold the max idx number for merging new entries(for making the merging entries indexes unique)
@@ -507,7 +555,7 @@ class YFuncStats(YStats):
                 
         # add 'not present' previous entries with unique indexes
         for saved_stat in saved_stats:
-            if saved_stat not in self:                
+            if saved_stat not in self:
                 self._idx_max += 1
                 saved_stat.index = self._idx_max
                 self.append(saved_stat)
@@ -573,9 +621,9 @@ class YFuncStats(YStats):
             lines += func_stats
             
         with open(path, "w") as f:
-            f.write('\n'.join(lines))                
+            f.write('\n'.join(lines))
             
-    def add(self, files, type="ystat"):    
+    def add(self, files, type="ystat"):
         type = type.upper()
         if type not in self._SUPPORTED_LOAD_FORMATS:
             raise NotImplementedError('Loading from (%s) format is not possible currently.')
@@ -584,7 +632,7 @@ class YFuncStats(YStats):
         for fd in files:
             with open(fd, "rb") as f:
                 add_func = getattr(self, "_add_from_%s" % (type))
-                add_func(file=f)            
+                add_func(file=f)
             
         return self.sort(DEFAULT_SORT_TYPE, DEFAULT_SORT_ORDER)
             
@@ -596,39 +644,25 @@ class YFuncStats(YStats):
         save_func = getattr(self, "_save_as_%s" % (type))
         save_func(path=path)
         
-    def print_all(self, out=sys.stdout):
+    def print_all(self, out=sys.stdout, 
+                columns=YStatColumns(("name",36), ("ncall", 5), 
+                        ("tsub", 8), ("ttot", 8), ("tavg",8))):
         """
         Prints all of the function profiler results to a given file. (stdout by default)
         """
         if self.empty():
             return
         
-        FUNC_NAME_LEN = 38
-        CALLCOUNT_LEN = 9
         out.write(LINESEP)
         out.write("Clock type: %s" % (self._clock_type.upper()))
         out.write(LINESEP)
         out.write("Ordered by: %s, %s" % (self._sort_type, self._sort_order))
         out.write(LINESEP)
         out.write(LINESEP)
-        out.write("name                                    #n         tsub      ttot      tavg")
-        out.write(LINESEP)
+        
+        self._print_header(out, columns)
         for stat in self:
-            out.write(StatString(stat.full_name).ltrim(FUNC_NAME_LEN))
-            out.write(" " * COLUMN_GAP)
-            
-            # the function is recursive?
-            if stat.is_recursive():
-                out.write(StatString("%d/%d" % (stat.ncall, stat.nactualcall)).rtrim(CALLCOUNT_LEN))
-            else:
-                out.write(StatString(stat.ncall).rtrim(CALLCOUNT_LEN))
-            out.write(" " * COLUMN_GAP)
-            out.write(StatString(_fft(stat.tsub)).rtrim(TIME_COLUMN_LEN))
-            out.write(" " * COLUMN_GAP)
-            out.write(StatString(_fft(stat.ttot)).rtrim(TIME_COLUMN_LEN))
-            out.write(" " * COLUMN_GAP)
-            out.write(StatString(_fft(stat.tavg)).rtrim(TIME_COLUMN_LEN))
-            out.write(LINESEP)
+            stat._print(out, columns)
             
     def sort(self, sort_type, sort_order="desc"):
         sort_type = _validate_sorttype(sort_type, SORT_TYPES_FUNCSTATS)
@@ -689,7 +723,7 @@ class YThreadStats(YStats):
             _yappi._resume()
         return result
         
-    def _enumerator(self, stat_entry):        
+    def _enumerator(self, stat_entry):
         tstat = YThreadStat(stat_entry)
         self.append(tstat)
         
@@ -699,26 +733,17 @@ class YThreadStats(YStats):
 
         return super(YThreadStats, self).sort(SORT_TYPES_THREADSTATS[sort_type], SORT_ORDERS[sort_order])
         
-    def print_all(self, out=sys.stdout):
+    def print_all(self, out=sys.stdout, 
+                columns=YStatColumns(("name",13), ("tid", 15), ("ttot", 8), 
+                    ("scnt", 10))):
         """
         Prints all of the thread profiler results to a given file. (stdout by default)
         """
-        THREAD_NAME_LEN = 13
-        THREAD_ID_LEN = 15
-        THREAD_SCHED_CNT_LEN = 10
-
+        
         out.write(LINESEP)
-        out.write("name           tid              ttot      scnt")
-        out.write(LINESEP)
+        self._print_header(out, columns)
         for stat in self:
-            out.write(StatString(stat.name).ltrim(THREAD_NAME_LEN))
-            out.write(" " * COLUMN_GAP)
-            out.write(StatString(stat.id).rtrim(THREAD_ID_LEN))            
-            out.write(" " * COLUMN_GAP)
-            out.write(StatString(_fft(stat.ttot)).rtrim(TIME_COLUMN_LEN))
-            out.write(" " * COLUMN_GAP)
-            out.write(StatString(stat.sched_count).rtrim(THREAD_SCHED_CNT_LEN))
-            out.write(LINESEP)
+            stat._print(out, columns)
             
     def strip_dirs(self):
         pass # do nothing
