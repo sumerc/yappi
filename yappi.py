@@ -703,7 +703,6 @@ class YThreadStats(YStats):
         """
         Prints all of the thread profiler results to a given file. (stdout by default)
         """
-        THREAD_FUNC_NAME_LEN = 25
         THREAD_NAME_LEN = 13
         THREAD_ID_LEN = 15
         THREAD_SCHED_CNT_LEN = 10
