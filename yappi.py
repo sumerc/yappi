@@ -21,6 +21,8 @@ LINESEP = os.linesep
 COLUMN_GAP = 2
 YPICKLE_PROTOCOL = 2
 
+COLUMNS_FUNCSTATS = ["name", "ncall", "ttot", "tsub", "tavg"]
+COLUMNS_THREADSTATS = ["name", "tid", "ttot", "scnt"]
 SORT_TYPES_FUNCSTATS = {"name":0, "callcount":3, "totaltime":6, "subtime":7, "avgtime":10,
                         "ncall":3, "ttot":6, "tsub":7, "tavg":10}
 SORT_TYPES_CHILDFUNCSTATS = {"name":10, "callcount":1, "totaltime":3, "subtime":4, "avgtime":5,
@@ -36,14 +38,20 @@ CLOCK_TYPES = {"WALL":0, "CPU":1}
 def _validate_sorttype(sort_type, list):
     sort_type = sort_type.lower()
     if sort_type not in list:
-        raise YappiError("Invalid SortType parameter.[%s]" % (sort_type))
+        raise YappiError("Invalid SortType parameter: '%s'" % (sort_type))
     return sort_type
 
 def _validate_sortorder(sort_order):
     sort_order = sort_order.lower()
     if sort_order not in SORT_ORDERS:
-        raise YappiError("Invalid SortOrder parameter.[%s]" % (sort_order))
+        raise YappiError("Invalid SortOrder parameter: '%s'" % (sort_order))
     return sort_order
+    
+def _validate_columns(name, list):
+    name = name.lower()
+    if name not in list:
+        raise YappiError("Invalid Column name: '%s'" % (name))
+
 
 """
  _callback will only be called once per-thread. _yappi will detect
@@ -212,22 +220,6 @@ class StatString(object):
     def rtrim(self, length):
         return self._trim(length, self._RIGHT)
 
-class YStatColumns(dict):
-    """
-    A helper container to traverse columns in order and to reach column size in O(1)
-    Assumes keys are immutable: are not changed after init.
-    """
-    def __init__(self, *args):
-        self._titles = []
-
-        for title, size in args:
-            self[title] = size
-            self._titles.append(title)
-
-    def __iter__(self):
-        for x in self._titles:
-            yield (x, self[x])
-
 class YStat(dict):
     """
     Class to hold a profile result line in a dict object, which all items can also be accessed as
@@ -293,28 +285,27 @@ class YFuncStat(YStat):
         return self
 
     def _print(self, out, columns):
-        if "name" in columns:
-            out.write(StatString(self.full_name).ltrim(columns["name"]))
-            out.write(" " * COLUMN_GAP)
-        if "ncall" in columns:
-            if self.is_recursive():
-                out.write(StatString("%d/%d" % (self.ncall,
-                        self.nactualcall)).rtrim(columns["ncall"]))
-            else:
-                out.write(StatString(self.ncall).rtrim(columns["ncall"]))
-            out.write(" " * COLUMN_GAP)
-        if "tsub" in columns:
-            out.write(StatString(_fft(self.tsub,
-                    columns["tsub"])).rtrim(columns["tsub"]))
-            out.write(" " * COLUMN_GAP)
-        if "ttot" in columns:
-            out.write(StatString(_fft(self.ttot,
-                    columns["ttot"])).rtrim(columns["ttot"]))
-            out.write(" " * COLUMN_GAP)
-        if "tavg" in columns:
-            out.write(StatString(_fft(self.tavg,
-                    columns["tavg"])).rtrim(columns["tavg"]))
-            out.write(LINESEP)
+        for x in sorted(columns.keys()):
+            title, size = columns[x]
+            if title == "name":
+                out.write(StatString(self.full_name).ltrim(size))
+                out.write(" " * COLUMN_GAP)
+            elif title == "ncall":
+                if self.is_recursive():
+                    out.write(StatString("%d/%d" % (self.ncall,
+                            self.nactualcall)).rtrim(size))
+                else:
+                    out.write(StatString(self.ncall).rtrim(size))
+                out.write(" " * COLUMN_GAP)
+            elif title == "tsub":
+                out.write(StatString(_fft(self.tsub, size)).rtrim(size))
+                out.write(" " * COLUMN_GAP)
+            elif title == "ttot":
+                out.write(StatString(_fft(self.ttot, size)).rtrim(size))
+                out.write(" " * COLUMN_GAP)
+            elif title == "tavg":
+                out.write(StatString(_fft(self.tavg, size)).rtrim(size))
+        out.write(LINESEP)
 
 class YChildFuncStat(YFuncStat):
     """
@@ -345,19 +336,20 @@ class YThreadStat(YStat):
         return self.id == other.id
 
     def _print(self, out, columns):
-        if "name" in columns:
-            out.write(StatString(self.name).ltrim(columns["name"]))
-            out.write(" " * COLUMN_GAP)
-        if "tid" in columns:
-            out.write(StatString(self.id).rtrim(columns["tid"]))
-            out.write(" " * COLUMN_GAP)
-        if "ttot" in columns:
-            out.write(StatString(_fft(self.ttot,
-                columns["ttot"])).rtrim(columns["ttot"]))
-            out.write(" " * COLUMN_GAP)
-        if "scnt" in columns:
-            out.write(StatString(self.sched_count).rtrim(columns["scnt"]))
-            out.write(LINESEP)
+        for x in sorted(columns.keys()):
+            title, size = columns[x]
+            if title == "name":
+                out.write(StatString(self.name).ltrim(size))
+                out.write(" " * COLUMN_GAP)
+            elif title == "tid":
+                out.write(StatString(self.id).rtrim(size))
+                out.write(" " * COLUMN_GAP)
+            elif title == "ttot":
+                out.write(StatString(_fft(self.ttot, size)).rtrim(size))
+                out.write(" " * COLUMN_GAP)
+            elif title == "scnt":
+                out.write(StatString(self.sched_count).rtrim(size))
+        out.write(LINESEP)
 
 class YStats(list):
     """
@@ -396,7 +388,8 @@ class YStats(list):
         super(YStats, self).append(item)
 
     def _print_header(self, out, columns):
-        for title, size in columns:
+        for x in sorted(columns.keys()):
+            title, size = columns[x]
             if len(title) > size:
                 raise YappiError("Column title exceeds available length[%s:%d]" % \
                     (title, size))
@@ -414,6 +407,7 @@ class YStats(list):
         return True
 
 class YChildFuncStats(YStats):
+    
     def __getitem__(self, key):
         if isinstance(key, int):
             for item in self:
@@ -439,14 +433,16 @@ class YChildFuncStats(YStats):
 
         return super(YChildFuncStats, self).sort(SORT_TYPES_CHILDFUNCSTATS[sort_type], SORT_ORDERS[sort_order])
 
-    def print_all(self, out=sys.stdout,
-                columns=YStatColumns(("name",36), ("ncall", 5),
-                        ("tsub", 8), ("ttot", 8), ("tavg",8))):
+    def print_all(self, out=sys.stdout, columns= {0:("name",36), 1:("ncall", 5), 
+                    2:("tsub", 8), 3: ("ttot", 8), 4:("tavg",8)}):
         """
         Prints all of the child function profiler results to a given file. (stdout by default)
         """
-        if self.empty():
+        if self.empty() or len(columns) == 0:
             return
+
+        for _, col in columns.items():
+            _validate_columns(col[0], COLUMNS_FUNCSTATS)
 
         out.write(LINESEP)
         self._print_header(out, columns)
@@ -644,14 +640,16 @@ class YFuncStats(YStats):
         save_func = getattr(self, "_save_as_%s" % (type))
         save_func(path=path)
 
-    def print_all(self, out=sys.stdout,
-                columns=YStatColumns(("name",36), ("ncall", 5),
-                        ("tsub", 8), ("ttot", 8), ("tavg",8))):
+    def print_all(self, out=sys.stdout, columns={0:("name",36), 1:("ncall", 5), 
+                    2:("tsub", 8), 3:("ttot", 8), 4:("tavg",8)}):
         """
         Prints all of the function profiler results to a given file. (stdout by default)
         """
         if self.empty():
             return
+
+        for _, col in columns.items():
+            _validate_columns(col[0], COLUMNS_FUNCSTATS)
 
         out.write(LINESEP)
         out.write("Clock type: %s" % (self._clock_type.upper()))
@@ -733,12 +731,14 @@ class YThreadStats(YStats):
 
         return super(YThreadStats, self).sort(SORT_TYPES_THREADSTATS[sort_type], SORT_ORDERS[sort_order])
 
-    def print_all(self, out=sys.stdout,
-                columns=YStatColumns(("name",13), ("tid", 15), ("ttot", 8),
-                    ("scnt", 10))):
+    def print_all(self, out=sys.stdout, columns={0:("name",13), 1:("tid", 15), 
+                    2:("ttot", 8), 3:("scnt", 10)}):
         """
         Prints all of the thread profiler results to a given file. (stdout by default)
         """
+        
+        for _, col in columns.items():
+            _validate_columns(col[0], COLUMNS_THREADSTATS)
 
         out.write(LINESEP)
         self._print_header(out, columns)

@@ -14,6 +14,30 @@ else:
 
 class BasicUsage(utils.YappiUnitTestCase):
 
+    def test_print_formatting(self):
+        def a():
+            pass
+        def b():
+            a()
+        
+        func_cols={1:("name",48), 0:("ncall", 5), 2:("tsub", 8),}
+        thread_cols = {1:("name", 48), 0:("ttot", 8), }
+        
+        yappi.start()
+        a(); b();
+        yappi.stop()
+        fs = yappi.get_func_stats()
+        cs = fs[1].children
+        ts = yappi.get_thread_stats()
+        #fs.print_all(out=sys.stderr, columns={1:("name", 70), })
+        #cs.print_all(out=sys.stderr, columns=func_cols)
+        #ts.print_all(out=sys.stderr, columns=thread_cols)
+        #cs.print_all(out=sys.stderr, columns={})
+        
+        self.assertRaises(yappi.YappiError, fs.print_all, columns={1:("namee",9)})
+        self.assertRaises(yappi.YappiError, cs.print_all, columns={1:("dd",0)})
+        self.assertRaises(yappi.YappiError, ts.print_all, columns={1:("tidd",0)})
+   
     def test_get_clock(self):
         yappi.set_clock_type('cpu')
         self.assertEqual('cpu', yappi.get_clock_type())
