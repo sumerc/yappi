@@ -19,6 +19,9 @@ Please see [http://code.google.com/p/yappi/wiki/apiyappi_v092 API reference manu
 For how to use the profiler and how to interpret statistics output, see [http://code.google.com/p/yappi/wiki/usageyappi_v092 usage reference manual].
 And finally, see [http://code.google.com/p/yappi/wiki/whyyappi requirements and techinal] section for why we have implemented yet another python profiler and some technical info about the internals.
 
+= Download = 
+Latest version can be downloaded from [http://bitbucket.org/sumerc/yappi/downloads] or
+from PyPI [http://pypi.python.org] directly. 
 
 = Development = 
 Latest development sources can be found [http://bitbucket.org/sumerc/yappi/]*.

@@ -79,6 +79,7 @@ setup(name=NAME,
     classifiers=CLASSIFIERS,
     license = "MIT",
     url = HOMEPAGE,
-    download_url = "%s/files/%s-%s.tar.gz" % (HOMEPAGE, NAME, VERSION),
+    download_url = "http://bitbucket.org/sumerc/yappi/downloads/%s-%s.tar.gz" % (HOMEPAGE, NAME, VERSION),
     test_suite = 'nose.collector'
 )
+yappi-0.92.tar.gz
