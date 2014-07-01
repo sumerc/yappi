@@ -20,6 +20,8 @@ powerful requirements.
 
 Features:
 ===================
+* Ability to hook underlying threading model events/properties. (*new in 0.92*)
+* Decorator to profile individual functions easily. (*new in 0.92*)
 * Profiler results can be saved in callgrind and pstat formats. (new in 0.82) 
 * Profiler results can be merged from different sessions on-the-fly. (new in 0.82)
 * Profiler results can be easily converted to pstats. (new in 0.82) 
@@ -31,7 +33,6 @@ Features:
   
 Limitations:
 ===================
-* Threads must be derived from "threading" module's Thread object.
 * Latest version of Yappi supports Python 2.6.x <= x <= Python.3.4
 
 

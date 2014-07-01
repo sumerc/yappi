@@ -1,4 +1,6 @@
-= Features (v0.82)=
+= Features (v0.92)=
+  * Ability to hook underlying threading model events/properties. (*new in 0.92*)
+  * Decorator to profile individual functions easily. (*new in 0.92*)
   * Profiler results can be saved in [http://valgrind.org/docs/manual/cl-format.html callgrind] and [http://docs.python.org/3.4/library/profile.html#pstats.Stats pstat] formats. (*new in 0.82*) 
   * Profiler results can be merged from different sessions on-the-fly. (*new in 0.82*)
   * Profiler results can be easily converted to pstats. (*new in 0.82*) 
@@ -13,8 +15,8 @@
 Can be installed via *easy_install yappi* , *pip install yappi* or from the source directly.
 
 =Documentation:=
-Please see [http://code.google.com/p/yappi/wiki/apiyappi_v082 API reference manual].
-For how to use the profiler and how to interpret statistics output, see [http://code.google.com/p/yappi/wiki/usageyappi_v082 usage reference manual].
+Please see [http://code.google.com/p/yappi/wiki/apiyappi_v092 API reference manual].
+For how to use the profiler and how to interpret statistics output, see [http://code.google.com/p/yappi/wiki/usageyappi_v092 usage reference manual].
 And finally, see [http://code.google.com/p/yappi/wiki/whyyappi requirements and techinal] section for why we have implemented yet another python profiler and some technical info about the internals.
 
 

@@ -1,8 +1,8 @@
 #summary yappi.YChildFuncStats
 
-= class YChildFuncStats (v0.82)=
+= class YChildFuncStats (v0.92)=
 
-<font face='Courier New'>
+<font face='Consolas'>
 
 <b><i>class</i></b> yappi.<b>YChildFuncStats</b>
 
@@ -24,9 +24,15 @@
 || builtin || boolean flag showing if the executed function is a builtin || 
 || tavg || per-call average total time spent in the child function. See [https://code.google.com/p/yappi/wiki/ClockTypes_v082 Clock Types] to interpret this value correctly. || 
 
-<b>print_all(out=sys.stdout)</b>
+<b>print_all(out=sys.stdout, columns={0:("name",36), 1:("ncall", 5), 2:("tsub", 8), 3:("ttot", 8), 4:("tavg",8)})</b>
     This method prints the current profile stats to <i>"out"</i> which is  <i>"stdout"</i> by default. 
-
+    <i>columns</i> dict specifies the formatting of the printable columns. Every column is formatted
+    according to the parameters of this dict's item. 
+    
+    An example item:
+    0:("name",36) means that the first column in position '0' has title name and its 
+    size is 36. Yappi will allocate 36 characters for this column when printing.
+    
 <b>sort(sort_type, sort_order="desc")</b>
     This method sorts the current profile stats according to the  <i>"sort_type"</i> param. 
 

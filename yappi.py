@@ -811,7 +811,7 @@ def get_clock_time():
 
 def get_clock_type():
     """
-    Returns the underlying clock tyoe
+    Returns the underlying clock type
     """
     return _yappi.get_clock_type()
 

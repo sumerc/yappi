@@ -11,7 +11,7 @@ long_description = f.read()
 
 HOMEPAGE = "http://yappi.googlecode.com/"
 NAME = "yappi"
-VERSION = "0.82"
+VERSION = "0.92"
 _DEBUG = False # compile/link code for debugging
 
 user_macros = []
