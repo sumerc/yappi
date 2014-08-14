@@ -785,13 +785,8 @@ _unprofile_thread(PyThreadState *ts)
 static void
 _ensure_thread_profiled(PyThreadState *ts)
 {
-    PyThreadState *p = NULL;
-
-    for (p=ts->interp->tstate_head ; p != NULL; p = p->next) {
-        if (ts->c_profilefunc != _yapp_callback) {
-            _profile_thread(ts);
-        }
-    }
+    if (ts->c_profilefunc != _yapp_callback)
+        _profile_thread(ts);
 }
 
 static void
