@@ -798,22 +798,39 @@ _init_profiler(void)
     if (!yappinitialized) {
         contexts = htcreate(HT_CTX_SIZE);
         if (!contexts)
-            return 0;
+            goto error;
         pits = htcreate(HT_PIT_SIZE);
         if (!pits)
-            return 0;
+            goto error;
         flpit = flcreate(sizeof(_pit), FL_PIT_SIZE);
         if (!flpit)
-            return 0;
+            goto error;
         flctx = flcreate(sizeof(_ctx), FL_CTX_SIZE);
         if (!flctx)
-            return 0;
+            goto error;
         yappinitialized = 1;
-        current_ctx = NULL;
-        prev_ctx = NULL;
-        ycurfuncindex = 0;
     }
     return 1;
+
+error:
+    if (contexts) {
+        htdestroy(contexts);
+        contexts = NULL;
+    }
+    if (pits) {
+        htdestroy(pits);
+        pits = NULL;
+    }
+    if (flpit) {
+        fldestroy(flpit);
+        flpit = NULL;
+    }
+    if (flctx) {
+        fldestroy(flctx);
+        flctx = NULL;
+    }
+
+    return 0;
 }
 
 static PyObject*
@@ -917,15 +934,26 @@ clear_stats(PyObject *self, PyObject *args)
         Py_RETURN_NONE;
     }
 
+    current_ctx = NULL;
+    prev_ctx = NULL;
+
     henum(pits, _pitenumdel, NULL);
     htdestroy(pits);
+    pits = NULL;
+
     henum(contexts, _ctxenumdel, NULL);
     htdestroy(contexts);
+    contexts = NULL;
 
     fldestroy(flpit);
+    flpit = NULL;
+
     fldestroy(flctx);
+    flctx = NULL;
+
     yappinitialized = 0;
     yapphavestats = 0;
+    ycurfuncindex = 0;
     Py_CLEAR(test_timings);
 
 // check for mem leaks if DEBUG_MEM is specified
