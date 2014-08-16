@@ -252,9 +252,7 @@ _current_context_id(PyThreadState *ts)
 
 error:
     PyErr_Clear();
-    // don't use callback again
-    Py_XDECREF(context_id_callback);
-    context_id_callback = NULL;
+    Py_CLEAR(context_id_callback); // don't use callback again
     return 0;
 }
 
@@ -285,8 +283,8 @@ _del_pit(_pit *pit)
         it = next;
     }
     pit->children = NULL;
-    Py_XDECREF(pit->name);
-    Py_XDECREF(pit->modname);
+    Py_CLEAR(pit->name);
+    Py_CLEAR(pit->modname);
 }
 
 static _pit *
@@ -934,8 +932,7 @@ clear_stats(PyObject *self, PyObject *args)
     fldestroy(flctx);
     yappinitialized = 0;
     yapphavestats = 0;
-    Py_XDECREF(test_timings);
-    test_timings = NULL;
+    Py_CLEAR(test_timings);
 
 // check for mem leaks if DEBUG_MEM is specified
 #ifdef DEBUG_MEM
