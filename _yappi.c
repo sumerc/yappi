@@ -57,7 +57,7 @@ typedef struct {
     _cstack *cs;
     _htab *rec_levels;
     long id;
-    char *name;
+    PyObject *name;
     long long t0;                           // profiling start CPU time
     unsigned long sched_cnt;                // how many times this thread is scheduled
 } _ctx; // context
@@ -169,29 +169,24 @@ _create_ctx(void)
     return ctx;
 }
 
-char *
+static PyObject *
 _current_ctx_name(void)
 {
-    char *rc = NULL;
-    PyObject *callback_rc = NULL;
-    PyObject *mthr, *cthr, *tattr1, *tattr2;
-    mthr = cthr = tattr1 = tattr2 = NULL;
+    PyObject *name = NULL;
+    PyObject *mthr, *cthr, *tattr1;
+    mthr = cthr = tattr1 = NULL;
 
     if (context_name_callback) {
-        callback_rc = PyObject_CallFunctionObjArgs(context_name_callback, NULL);
-        if (!callback_rc) {
+        name = PyObject_CallFunctionObjArgs(context_name_callback, NULL);
+        if (!name) {
             PyErr_Print();
             goto err;
         }
-        if (!PyStr_Check(callback_rc)) {
+        if (!PyStr_Check(name)) {
             yerr("context name callback returned non-string");
             goto err;
         }
-
-        rc = PyStr_AS_CSTRING(callback_rc);
-        Py_CLEAR(callback_rc);
-
-        return rc;
+        return name;
     } else {
         mthr = PyImport_ImportModuleNoBlock("threading"); // Requires Python 2.6.
         if (!mthr)
@@ -202,23 +197,21 @@ _current_ctx_name(void)
         tattr1 = PyObject_GetAttrString(cthr, "__class__");
         if (!tattr1)
             goto err;
-        tattr2 = PyObject_GetAttrString(tattr1, "__name__");
-        if (!tattr2)
+        name = PyObject_GetAttrString(tattr1, "__name__");
+        if (!name)
             goto err;
 
         Py_DECREF(mthr);
         Py_DECREF(cthr);
         Py_DECREF(tattr1);
-        Py_DECREF(tattr2);
-        return PyStr_AS_CSTRING(tattr2);
+        return name;
     }
 err:
     PyErr_Clear();
+    Py_XDECREF(name);
     Py_XDECREF(mthr);
     Py_XDECREF(cthr);
     Py_XDECREF(tattr1);
-    Py_XDECREF(tattr2);
-    Py_XDECREF(callback_rc);
     Py_CLEAR(context_name_callback);  /* Don't use the callback again. */
     return NULL;
 }
@@ -676,6 +669,7 @@ _del_ctx(_ctx * ctx)
 {
     sdestroy(ctx->cs);
     htdestroy(ctx->rec_levels);
+    Py_CLEAR(ctx->name);
 }
 
 static int
@@ -956,7 +950,7 @@ static int
 _ctxenumstat(_hitem *item, void *arg)
 {
     PyObject *efn;
-    char *tcname;
+    const char *tcname;
     _ctx *ctx;
     long long cumdiff;
     PyObject *exc;
@@ -973,9 +967,11 @@ _ctxenumstat(_hitem *item, void *arg)
         return 0;
     }
 
-    tcname = ctx->name;
-    if (tcname == NULL)
+    if (ctx->name)
+        tcname = PyString_AS_STRING(ctx->name);
+    else
         tcname = UNINITIALIZED_STRING_VAL;
+
     efn = (PyObject *)arg;
 
     cumdiff = _calc_cumdiff(tickcount(), ctx->t0);
