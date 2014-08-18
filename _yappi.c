@@ -996,7 +996,7 @@ _ctxenumstat(_hitem *item, void *arg)
     }
 
     if (ctx->name)
-        tcname = PyString_AS_STRING(ctx->name);
+        tcname = PyStr_AS_CSTRING(ctx->name);
     else
         tcname = UNINITIALIZED_STRING_VAL;
 
