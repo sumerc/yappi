@@ -13,6 +13,7 @@ HOMEPAGE = "http://yappi.googlecode.com/"
 NAME = "yappi"
 VERSION = "0.92"
 _DEBUG = False # compile/link code for debugging
+_PROFILE = False # For profiling yappi iteslf
 
 user_macros = []
 user_libraries = []
@@ -31,6 +32,11 @@ if _DEBUG:
     elif os.name == 'nt':
         compile_args.append('/Zi')
         link_args.append('/DEBUG')
+
+if _PROFILE:
+    # Link with cpu profiler to allow profiling yappi itself
+    # http://google-perftools.googlecode.com/svn/trunk/doc/cpuprofile.html
+    user_libraries.append('profiler')
 
 #user_macros.append(('DEBUG_MEM', '1')),
 #user_macros.append(('DEBUG_CALL', '1'))
