@@ -368,7 +368,8 @@ _code2pit(PyFrameObject *fobj)
         return NULL;
 
     pit->name = NULL;
-    pit->modname = PyStr_FromString(PyStr_AS_CSTRING(cobj->co_filename));
+    Py_INCREF(cobj->co_filename);
+    pit->modname = cobj->co_filename;
     pit->lineno = cobj->co_firstlineno;
 
     PyFrame_FastToLocals(fobj);
@@ -394,7 +395,8 @@ _code2pit(PyFrameObject *fobj)
         }
     }
     if (!pit->name) {
-        pit->name = PyStr_FromString(PyStr_AS_CSTRING(cobj->co_name));
+        Py_INCREF(cobj->co_name);
+        pit->name = cobj->co_name;
     }
 
     PyFrame_LocalsToFast(fobj, 0);
