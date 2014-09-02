@@ -13,7 +13,7 @@ HOMEPAGE = "http://yappi.googlecode.com/"
 NAME = "yappi"
 VERSION = "0.92"
 _DEBUG = False # compile/link code for debugging
-_PROFILE = False # For profiling yappi iteslf
+_PROFILE = False # profile yappi itself
 
 user_macros = []
 user_libraries = []
