@@ -170,12 +170,31 @@ class ContextNameCallbackTest(utils.YappiUnitTestCase):
         # Callback was cleared after first error.
         self.assertEqual(1, self.callback_count)
 
+    def test_callback_none_return(self):
+        self.callback_count = 0
+
+        def callback():
+            self.callback_count += 1
+            if self.callback_count < 3:
+                return None  # yappi will call again
+            else:
+                return "name"
+
+        yappi.set_context_name_callback(callback)
+        yappi.start()
+        a()
+        a()
+        yappi.stop()
+
+        # yappi tried again until a string was returned
+        self.assertEqual(3, self.callback_count)
+
     def test_callback_non_string(self):
         self.callback_count = 0
 
         def callback():
             self.callback_count += 1
-            return None  # Supposed to return a string.
+            return 1  # Supposed to return a string.
 
         yappi.set_context_name_callback(callback)
         yappi.start()
