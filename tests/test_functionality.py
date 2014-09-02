@@ -726,18 +726,20 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         import threading
         import time
         yappi.set_clock_type('wall')
+        def dummy():
+            pass
         def a():
             time.sleep(0.2)
         class Worker1(threading.Thread):
             def a(self):
-                time.sleep(0.3)                
+                time.sleep(0.3)
             def run(self):
                 self.a()
         yappi.start(builtins=False, profile_threads=True)
 
         c = Worker1()
         c.start()
-        c.join()        
+        c.join()
         a()
         stats = yappi.get_func_stats()
         fsa1 = utils.find_stat_by_name(stats, 'Worker1.a')
@@ -750,21 +752,26 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         self.assertEqual(len(tstats), 2)
         tsa = utils.find_stat_by_name(tstats, 'Worker1')
         tsm = utils.find_stat_by_name(tstats, '_MainThread')
+        dummy() # call dummy to force ctx name to be retrieved again.
         self.assertTrue(tsa is not None)
-        self.assertTrue(tsm is not None) # FIX: I see this fails sometimes?
+        # TODO: I put dummy() to fix below, remove the comments after a while.
+        self.assertTrue(tsm is not None) # FIX: I see this fails sometimes? 
         
     def test_ctx_stats(self):
-        from threading import Thread        
+        from threading import Thread
         DUMMY_WORKER_COUNT = 5
-        yappi.start()       
+        yappi.start()
         class DummyThread(Thread): pass
         
+        def dummy():
+            pass
+
         def dummy_worker():
             pass
         for i in range(DUMMY_WORKER_COUNT):
             t = DummyThread(target=dummy_worker)
             t.start()
-            t.join()        
+            t.join()
         yappi.stop()
         stats = yappi.get_thread_stats()
         tsa = utils.find_stat_by_name(stats, "DummyThread")
@@ -801,13 +808,12 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         tst1 = utils.find_stat_by_name(stats, "Thread1")
         tst2 = utils.find_stat_by_name(stats, "Thread2")
         tsmain = utils.find_stat_by_name(stats, "_MainThread")
-        #stats.print_all()
+        dummy() # call dummy to force ctx name to be retrieved again.
         self.assertTrue(len(stats) == 3)
         self.assertTrue(tst1 is not None)
         self.assertTrue(tst2 is not None)
-        self.assertTrue(tsmain is not None) # I see this fails sometimes, probably 
-        # because Py_ImportNoBlock() fails to import and get the thread class name 
-        # sometimes.
+        # TODO: I put dummy() to fix below, remove the comments after a while.
+        self.assertTrue(tsmain is not None) # FIX: I see this fails sometimes
         self.assertTrue(1.0 > tst2.ttot >= 0.5)
         self.assertTrue(1.0 > tst1.ttot >= 0.5)
         

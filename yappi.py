@@ -10,6 +10,10 @@ import _yappi
 import pickle
 import marshal
 import threading
+try:
+    from thread import get_ident        # Python 2
+except ImportError:
+    from threading import get_ident     # Python 3
 from collections import defaultdict
 
 class YappiError(Exception): pass
@@ -52,16 +56,30 @@ def _validate_columns(name, list):
     if name not in list:
         raise YappiError("Invalid Column name: '%s'" % (name))
 
+"""
+
+We don't use threading.current_thread() becuase it will deadlock if
+called when profiling threading._active_limbo_lock.acquire().
+See: #Issue48.
+"""
+def _ctx_name_callback():
+    try:
+        current_thread = threading._active[get_ident()]
+        return current_thread.__class__.__name__
+    except KeyError: 
+        # Threads maybe not registered yet during the first few profile
+        # callbacks.
+        return None
+    raise Exception("bididi")
 
 """
- _callback will only be called once per-thread. _yappi will detect
+ _profile_thread_callback will only be called once per-thread. _yappi will detect
  the new thread and changes the profilefunc param of the ThreadState
  structure. This is an internal function please don't mess with it.
 """
-def _callback(frame, event, arg):
+def _profile_thread_callback(frame, event, arg):
     _yappi._profile_event(frame, event, arg)
-    return _callback
-
+    
 """
 function to prettify time columns in stats.
 """
@@ -759,7 +777,7 @@ def start(builtins=False, profile_threads=True):
     Start profiler.
     """
     if profile_threads:
-        threading.setprofile(_callback)
+        threading.setprofile(_profile_thread_callback)
     _yappi.start(builtins, profile_threads)
 
 def get_func_stats():
@@ -869,6 +887,12 @@ def set_context_name_callback(callback):
     >>> import greenlet, yappi
     >>> yappi.set_context_name_callback(
     ...     lambda: greenlet.getcurrent().__class__.__name__)
+
+    If the callback cannot return the name at this time but may be able to
+    return it later, it should return None.
+
+    To disable your callback and use the current thread's class name, set the
+    callback to yappi.context_name_callback.
     """
     return _yappi.set_context_name_callback(callback)
 
@@ -907,3 +931,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+else:
+    # set _ctx_name_callback to default at import time. 
+    _yappi.set_context_name_callback(_ctx_name_callback)
