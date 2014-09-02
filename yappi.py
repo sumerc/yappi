@@ -56,34 +56,32 @@ def _validate_columns(name, list):
     if name not in list:
         raise YappiError("Invalid Column name: '%s'" % (name))
 
-"""
 
-We don't use threading.current_thread() becuase it will deadlock if
-called when profiling threading._active_limbo_lock.acquire().
-See: #Issue48.
-"""
 def _ctx_name_callback():
+    """
+    We don't use threading.current_thread() becuase it will deadlock if
+    called when profiling threading._active_limbo_lock.acquire().
+    See: #Issue48.
+    """
     try:
-        current_thread = threading._active[get_ident()]
+        current_thread = threading._active2[get_ident()]
         return current_thread.__class__.__name__
     except KeyError: 
-        # Threads maybe not registered yet during the first few profile
-        # callbacks.
+        # Threads may not be registered yet in first few profile callbacks.
         return None
-    raise Exception("bididi")
 
-"""
- _profile_thread_callback will only be called once per-thread. _yappi will detect
- the new thread and changes the profilefunc param of the ThreadState
- structure. This is an internal function please don't mess with it.
-"""
 def _profile_thread_callback(frame, event, arg):
+    """
+    _profile_thread_callback will only be called once per-thread. _yappi will detect
+    the new thread and changes the profilefunc param of the ThreadState
+    structure. This is an internal function please don't mess with it.
+    """
     _yappi._profile_event(frame, event, arg)
     
-"""
-function to prettify time columns in stats.
-"""
 def _fft(x, COL_SIZE=8):
+    """
+    function to prettify time columns in stats.
+    """
     _rprecision = 6
     while(_rprecision > 0):
         _fmt = "%0." + "%d" % (_rprecision) + "f"
@@ -879,8 +877,7 @@ def set_context_id_callback(callback):
 
 def set_context_name_callback(callback):
     """
-    Use a string other than the current thread's class name as the context's
-    name.
+    Set the callback to retrieve current context's name.
 
     The callback must take no arguments and return a string. For example:
 
@@ -890,9 +887,6 @@ def set_context_name_callback(callback):
 
     If the callback cannot return the name at this time but may be able to
     return it later, it should return None.
-
-    To disable your callback and use the current thread's class name, set the
-    callback to yappi.context_name_callback.
     """
     return _yappi.set_context_name_callback(callback)
 
@@ -931,6 +925,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-else:
-    # set _ctx_name_callback to default at import time. 
-    _yappi.set_context_name_callback(_ctx_name_callback)
+
+# set _ctx_name_callback by default at import time. 
+_yappi.set_context_name_callback(_ctx_name_callback)

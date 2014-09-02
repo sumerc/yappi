@@ -199,6 +199,7 @@ _current_context_name(void)
 err:
     PyErr_Clear();
     Py_CLEAR(context_name_callback);  /* Don't use the callback again. */
+    Py_XDECREF(name);
     return NULL;
 later:
     Py_XDECREF(name);
