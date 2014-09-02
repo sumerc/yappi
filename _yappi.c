@@ -170,49 +170,38 @@ _create_ctx(void)
 }
 
 static PyObject *
-_current_ctx_name(void)
+_current_context_name(void)
 {
-    PyObject *name = NULL;
-    PyObject *mthr, *cthr, *tattr1;
-    mthr = cthr = tattr1 = NULL;
+    PyObject *name;
 
-    if (context_name_callback) {
-        name = PyObject_CallFunctionObjArgs(context_name_callback, NULL);
-        if (!name) {
-            PyErr_Print();
-            goto err;
-        }
-        if (!PyStr_Check(name)) {
-            yerr("context name callback returned non-string");
-            goto err;
-        }
-        return name;
-    } else {
-        mthr = PyImport_ImportModuleNoBlock("threading"); // Requires Python 2.6.
-        if (!mthr)
-            goto err;
-        cthr = PyObject_CallMethod(mthr, "currentThread", "");
-        if (!cthr)
-            goto err;
-        tattr1 = PyObject_GetAttrString(cthr, "__class__");
-        if (!tattr1)
-            goto err;
-        name = PyObject_GetAttrString(tattr1, "__name__");
-        if (!name)
-            goto err;
-
-        Py_DECREF(mthr);
-        Py_DECREF(cthr);
-        Py_DECREF(tattr1);
-        return name;
+    if (!context_name_callback) {
+        return NULL;
     }
+
+    name = PyObject_CallFunctionObjArgs(context_name_callback, NULL);
+    if (!name) {
+        PyErr_Print();
+        goto err;
+    }
+
+    if (name == Py_None) {
+        // Name not available yet - will try again on the next call
+        goto later;
+    }
+
+    if (!PyStr_Check(name)) {
+        yerr("context name callback returned non-string");
+        goto err;
+    }
+
+    return name;
+
 err:
     PyErr_Clear();
-    Py_XDECREF(name);
-    Py_XDECREF(mthr);
-    Py_XDECREF(cthr);
-    Py_XDECREF(tattr1);
     Py_CLEAR(context_name_callback);  /* Don't use the callback again. */
+    return NULL;
+later:
+    Py_XDECREF(name);
     return NULL;
 }
 
@@ -368,7 +357,8 @@ _code2pit(PyFrameObject *fobj)
         return NULL;
 
     pit->name = NULL;
-    pit->modname = PyStr_FromString(PyStr_AS_CSTRING(cobj->co_filename));
+    Py_INCREF(cobj->co_filename);
+    pit->modname = cobj->co_filename;
     pit->lineno = cobj->co_firstlineno;
 
     PyFrame_FastToLocals(fobj);
@@ -394,7 +384,8 @@ _code2pit(PyFrameObject *fobj)
         }
     }
     if (!pit->name) {
-        pit->name = PyStr_FromString(PyStr_AS_CSTRING(cobj->co_name));
+        Py_INCREF(cobj->co_name);
+        pit->name = cobj->co_name;
     }
 
     PyFrame_LocalsToFast(fobj, 0);
@@ -694,7 +685,7 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     prev_ctx = current_ctx;
     if (!current_ctx->name)
     {
-        current_ctx->name = _current_ctx_name();
+        current_ctx->name = _current_context_name();
     }
 
 
