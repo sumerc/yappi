@@ -64,7 +64,7 @@ def _ctx_name_callback():
     See: #Issue48.
     """
     try:
-        current_thread = threading._active2[get_ident()]
+        current_thread = threading._active[get_ident()]
         return current_thread.__class__.__name__
     except KeyError: 
         # Threads may not be registered yet in first few profile callbacks.
