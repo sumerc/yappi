@@ -82,11 +82,11 @@ class BasicUsage(utils.YappiUnitTestCase):
         
         # assert functionality and call function at same time
         try:
-            self.assertEqual(a(1, 2), 3)            
+            self.assertEqual(a(1, 2), 3)
         except:
             pass
         try:
-            self.assertEqual(a(2, 5), 7)             
+            self.assertEqual(a(2, 5), 7)
         except:
             pass          
         try:    
