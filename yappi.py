@@ -70,6 +70,9 @@ def _ctx_name_callback():
         # Threads may not be registered yet in first few profile callbacks.
         return None
 
+# set _ctx_name_callback by default at import time. 
+_yappi.set_context_name_callback(_ctx_name_callback)
+
 def _profile_thread_callback(frame, event, arg):
     """
     _profile_thread_callback will only be called once per-thread. _yappi will detect
@@ -925,6 +928,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# set _ctx_name_callback by default at import time. 
-_yappi.set_context_name_callback(_ctx_name_callback)
