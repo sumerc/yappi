@@ -1,3 +1,6 @@
+import re
+import subprocess
+import sys
 import unittest
 import time
 
@@ -228,6 +231,14 @@ class ContextNameCallbackTest(utils.YappiUnitTestCase):
         self.assertEqual('a', threadstats[0].name)
         self.assertEqual(1, threadstats[1].id)
         self.assertEqual('b', threadstats[1].name)
+
+    def test_script(self):
+        p = subprocess.Popen([sys.executable, '../yappi.py', 'helper.py'],
+                             stdout=subprocess.PIPE)
+        out, err = p.communicate()
+        assert p.returncode == 0
+        func_stats, thread_stats = re.split(b'name\s+tid\s+ttot\s+scnt\s*\n', out)
+        assert b'FancyThread' in thread_stats
 
 
 class ShiftContextTimeTest(utils.YappiUnitTestCase):
