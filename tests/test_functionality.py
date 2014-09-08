@@ -134,8 +134,6 @@ class BasicUsage(utils.YappiUnitTestCase):
 
     def test_run_as_script(self):
         import re
-        class FancyThread(threading.Thread): pass
-
         p = subprocess.Popen([sys.executable, 'yappi.py', 'tests/run_as_script.py'],
                              stdout=subprocess.PIPE)
         out, err = p.communicate()
