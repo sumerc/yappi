@@ -1,11 +1,12 @@
 import os
 import sys
 import time
-
+import threading
 import yappi
 import _yappi
 import utils
 import multiprocessing # added to fix http://bugs.python.org/issue15881 for > Py2.6
+import subprocess 
 
 if sys.version_info < (2, 7): # use unittest2 for < Py2.7
     import unittest2 as _unittest
@@ -128,11 +129,21 @@ class BasicUsage(utils.YappiUnitTestCase):
             pass
         stats = utils.run_and_get_func_stats(a,)
         stats.strip_dirs()
-        fsa = utils.find_stat_by_name(stats, "a")        
+        fsa = utils.find_stat_by_name(stats, "a")
         self.assertEqual(fsa.module, os.path.basename(fsa.module))
+
+    def test_run_as_script(self):
+        import re
+        class FancyThread(threading.Thread): pass
+
+        p = subprocess.Popen([sys.executable, 'yappi.py', 'tests/run_as_script.py'],
+                             stdout=subprocess.PIPE)
+        out, err = p.communicate()
+        self.assertEqual(p.returncode, 0)
+        func_stats, thread_stats = re.split(b'name\s+tid\s+ttot\s+scnt\s*\n', out)
+        self.assertTrue(b'FancyThread' in thread_stats)
         
-    def test_yappi_overhead(self):  
-        import time
+    def test_yappi_overhead(self):
         LOOP_COUNT = 10000
         def a(): pass
         def b():
@@ -264,7 +275,6 @@ class BasicUsage(utils.YappiUnitTestCase):
         self.assertEqual(fsb.ttot, 1)
              
     def test_lambda(self):
-        import time
         f = lambda : time.sleep(0.3)
         yappi.set_clock_type("wall")
         yappi.start()
@@ -346,9 +356,7 @@ class BasicUsage(utils.YappiUnitTestCase):
         self.assertEqual(len(yappi.get_thread_stats()), 1) 
         
     def test_builtin_profiling(self):
-        import threading
         def a():
-            import time
             time.sleep(0.4) # is a builtin function
         yappi.set_clock_type('wall')
 
@@ -370,8 +378,6 @@ class BasicUsage(utils.YappiUnitTestCase):
         stats = yappi.get_func_stats()
         
     def test_singlethread_profiling(self):
-        import threading
-        import time
         yappi.set_clock_type('wall')
         def a():
             time.sleep(0.2)
@@ -527,7 +533,6 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
         #stats.debug_print()
 
     def test_merge_multithreaded_stats(self):
-        import threading
         import _yappi
         timings = {"a_1":2, "b_1":1}
         _yappi._set_test_timings(timings)
@@ -562,7 +567,6 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
         self.assertEqual(fsb.tsub, fsb.ttot, 1)
         
     def test_merge_load_different_clock_types(self):
-        import threading
         yappi.start(builtins=True)
         def a(): b()
         def b(): c()
@@ -669,7 +673,6 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
 """  
 class MultithreadedScenarios(utils.YappiUnitTestCase):
     def test_subsequent_profile(self):
-        import threading
         WORKER_COUNT = 5
         def a(): pass
         def b(): pass
@@ -723,8 +726,6 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         self.assertTrue(len(yappi.get_thread_stats()) >= 2) 
            
     def test_basic(self):
-        import threading
-        import time
         yappi.set_clock_type('wall')
         def dummy():
             pass
@@ -776,8 +777,7 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         stats = yappi.get_thread_stats()
         tsa = utils.find_stat_by_name(stats, "DummyThread")
         self.assertTrue(tsa is not None)
-        yappi.clear_stats()        
-        import time
+        yappi.clear_stats()
         time.sleep(1.0)
         _timings = {"a_1":6,"b_1":5,"c_1":3, "d_1":1, "a_2":4,"b_2":3,"c_2":2, "d_2":1}
         _yappi._set_test_timings(_timings)
@@ -848,7 +848,6 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
     def test_producer_consumer_with_queues(self):
         # we currently just stress yappi, no functionality test is done here.
         yappi.start()
-        import time
         if utils.is_py3x():
             from queue import Queue
         else:
@@ -875,11 +874,9 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         yappi.stop()
      
     def test_temporary_lock_waiting(self):
-        import threading
-        import time
-        yappi.start()        
+        yappi.start()
         _lock = threading.Lock()
-        def worker():            
+        def worker():
             _lock.acquire()
             try:
                 time.sleep(1.0)
@@ -911,7 +908,6 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
     @_unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
     def test_concurrent_futures(self):
         yappi.start()
-        import time
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(max_workers=5) as executor:
             f = executor.submit(pow, 5, 2)
@@ -922,7 +918,6 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
     @_unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
     def test_barrier(self):
         yappi.start()
-        import threading
         b = threading.Barrier(2, timeout=1)
         def worker():
             try:
@@ -932,7 +927,7 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
             except Exception:
                 raise Exception("BrokenBarrierError not raised")
         t1 = threading.Thread(target=worker)
-        t1.start()        
+        t1.start()
         #b.wait()
         t1.join()
         yappi.stop()
@@ -975,7 +970,6 @@ class NonRecursiveFunctions(utils.YappiUnitTestCase):
         self.assertEqual(cfscd.tsub , 1)
         
     def test_stop_in_middle(self):
-        import time
         _timings = {"a_1":6,"b_1":4}
         _yappi._set_test_timings(_timings)
 
