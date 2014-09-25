@@ -19,6 +19,22 @@ class ContextIdCallbackTest(utils.YappiUnitTestCase):
         yappi.set_context_id_callback(None)
         super(ContextIdCallbackTest, self).tearDown()
 
+    def test_profile_single_context(self):
+        self.callback_count = 0
+        def id_callback():
+            self.callback_count += 1
+            return self.callback_count
+        def a():
+            pass
+        yappi.set_context_id_callback(id_callback)
+        yappi.start(profile_threads=False)
+        a() # context-id:1
+        a() # context-id:2
+        stats = yappi.get_func_stats()
+        fsa = utils.find_stat_by_name(stats, "a")
+        # TODO:
+        #self.assertEqual(fsa.ncall, 1)
+
     def test_bad_input(self):
         self.assertRaises(TypeError, yappi.set_context_id_callback, 1)
 
