@@ -159,7 +159,7 @@ class ContextIdCallbackTest(utils.YappiUnitTestCase):
 
 
 class ContextNameCallbackTest(utils.YappiUnitTestCase):
-    # Test yappi.set_context_name_callback().
+    """ Test yappi.set_context_name_callback(). """
 
     def tearDown(self):
         yappi.set_context_name_callback(None)
