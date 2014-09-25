@@ -82,8 +82,9 @@ static int paused;
 static time_t yappstarttime;
 static long long yappstarttick;
 static long long yappstoptick;
-static _ctx *prev_ctx;
-static _ctx *current_ctx;
+static _ctx *prev_ctx = NULL;
+static _ctx *current_ctx = NULL;
+static _ctx *initial_ctx = NULL; // used for holding the context that called start()
 static PyObject *context_id_callback = NULL;
 static PyObject *context_name_callback = NULL;
 static PyObject *test_timings; // used for testing
@@ -679,6 +680,12 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         goto finally;
     }
 
+    // do not profile if multi-threaded is off and the context is different than
+    // the context that called start.
+    if (!flags.multithreaded && current_ctx != initial_ctx) {
+        goto finally;
+    }
+
     // update ctx stats
     if (prev_ctx != current_ctx) {
         current_ctx->sched_cnt++;
@@ -898,6 +905,7 @@ _start(void)
         _enum_threads(&_profile_thread);
     } else {
         _ensure_thread_profiled(PyThreadState_GET());
+        initial_ctx = _thread2ctx(PyThreadState_GET());
     }
 
     yapprunning = 1;
@@ -928,6 +936,7 @@ clear_stats(PyObject *self, PyObject *args)
 
     current_ctx = NULL;
     prev_ctx = NULL;
+    initial_ctx = NULL;
 
     henum(pits, _pitenumdel, NULL);
     htdestroy(pits);

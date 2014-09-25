@@ -20,20 +20,32 @@ class ContextIdCallbackTest(utils.YappiUnitTestCase):
         super(ContextIdCallbackTest, self).tearDown()
 
     def test_profile_single_context(self):
-        self.callback_count = 0
+        
         def id_callback():
-            self.callback_count += 1
             return self.callback_count
         def a():
             pass
+
+        self.callback_count = 1
         yappi.set_context_id_callback(id_callback)
         yappi.start(profile_threads=False)
         a() # context-id:1
+        self.callback_count = 2
         a() # context-id:2
         stats = yappi.get_func_stats()
         fsa = utils.find_stat_by_name(stats, "a")
-        # TODO:
-        #self.assertEqual(fsa.ncall, 1)
+        self.assertEqual(fsa.ncall, 1)
+        yappi.stop()
+        yappi.clear_stats()
+        
+        self.callback_count = 1
+        yappi.start() # profile_threads=True
+        a() # context-id:1
+        self.callback_count = 2
+        a() # context-id:2
+        stats = yappi.get_func_stats()
+        fsa = utils.find_stat_by_name(stats, "a")
+        self.assertEqual(fsa.ncall, 2)
 
     def test_bad_input(self):
         self.assertRaises(TypeError, yappi.set_context_id_callback, 1)
@@ -147,7 +159,7 @@ class ContextIdCallbackTest(utils.YappiUnitTestCase):
 
 
 class ContextNameCallbackTest(utils.YappiUnitTestCase):
-    """Test yappi.set_context_name_callback()."""
+    # Test yappi.set_context_name_callback().
 
     def tearDown(self):
         yappi.set_context_name_callback(None)
@@ -247,7 +259,7 @@ class ContextNameCallbackTest(utils.YappiUnitTestCase):
         self.assertEqual('a', threadstats[0].name)
         self.assertEqual(1, threadstats[1].id)
         self.assertEqual('b', threadstats[1].name)
-        
+      
 class ShiftContextTimeTest(utils.YappiUnitTestCase):
     """Test yappi.shift_context_time()."""
 
@@ -303,6 +315,5 @@ class ShiftContextTimeTest(utils.YappiUnitTestCase):
         self.assertEqual(1, b_stat.ncall)
         self.assertAlmostEqual(1, b_stat.ttot, places=3)
     """
-
 if __name__ == '__main__':
     unittest.main()
