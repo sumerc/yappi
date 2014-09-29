@@ -271,13 +271,46 @@ _del_pit(_pit *pit)
     Py_CLEAR(pit->modname);
 }
 
+static PyObject *
+_pycfunction_module_name(PyCFunctionObject *cfn)
+{
+    PyObject *obj;
+    PyObject *name;
+
+    // The __module__ attribute, can be anything
+    obj = cfn->m_module;
+
+    if (!obj) {
+        // XXX Is this always correct?
+        name = PyStr_FromString("__builtin__");
+    } else if (PyStr_Check(obj)) {
+        // A string - use it
+        Py_INCREF(obj);
+        name = obj;
+    } else if (PyModule_Check(obj)) {
+        // A module - try to copy its __name__
+        const char *s = PyModule_GetName(obj);
+        if (!s)
+            // No __name__, or not a string
+            goto error;
+        name = PyStr_FromString(s);
+    } else {
+        // Something else - str(obj)
+        name = PyObject_Str(obj);
+    }
+
+    return name;
+
+error:
+    PyErr_Clear();
+    return PyStr_FromString("<unknown>");
+}
+
 static _pit *
 _ccode2pit(void *cco)
 {
     PyCFunctionObject *cfn;
     _hitem *it;
-    PyObject *mod;
-    char *modname;
     PyObject *name;
 
     cfn = cco;
@@ -294,25 +327,7 @@ _ccode2pit(void *cco)
             return NULL;
 
         pit->builtin = 1;
-
-        // get module name
-        modname = NULL;
-        mod = cfn->m_module;
-
-        if (mod) {
-            if (PyStr_Check(mod)) {
-                modname = PyStr_AS_CSTRING(mod);
-            } else if (PyModule_Check(mod)) {
-                modname = (char *)PyModule_GetName(mod);
-            }
-        }
-
-        if (modname == NULL) {
-            PyErr_Clear();
-            modname = "__builtin__";
-        }
-
-        pit->modname = PyStr_FromString(modname);
+        pit->modname = _pycfunction_module_name(cfn);
         pit->lineno = 0;
 
         // built-in method?
