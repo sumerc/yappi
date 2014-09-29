@@ -281,18 +281,16 @@ _pycfunction_module_name(PyCFunctionObject *cfn)
     obj = cfn->m_module;
 
     if (!obj) {
-        // XXX Is this always correct?
+        // TODO: Is this always correct?
         name = PyStr_FromString("__builtin__");
     } else if (PyStr_Check(obj)) {
-        // A string - use it
         Py_INCREF(obj);
         name = obj;
     } else if (PyModule_Check(obj)) {
-        // A module - try to copy its __name__
         const char *s = PyModule_GetName(obj);
-        if (!s)
-            // No __name__, or not a string
+        if (!s) {
             goto error;
+        }
         name = PyStr_FromString(s);
     } else {
         // Something else - str(obj)
