@@ -150,12 +150,12 @@ class ContextIdCallbackTest(utils.YappiUnitTestCase):
         self.assertEqual(2, len(t_stats))
         self.assertEqual(0, t_stats[0].id)
         self.assertEqual(2, t_stats[0].sched_count)
-        self.assertAlmostEqual(0.2, t_stats[0].ttot, places=2)
+        self.assertTrue(0.2 < t_stats[0].ttot < 0.3)
 
         self.assertEqual(1, t_stats[1].id)
         self.assertEqual(1, t_stats[1].sched_count)
         # Context 1 was first scheduled 0.08 sec after context 0.
-        self.assertAlmostEqual(0.12, t_stats[1].ttot, places=2)
+        self.assertTrue(0.1 < t_stats[1].ttot < 0.2 )
 
 
 class ContextNameCallbackTest(utils.YappiUnitTestCase):

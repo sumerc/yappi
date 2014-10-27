@@ -52,7 +52,7 @@ class BasicUsage(utils.YappiUnitTestCase):
         t0 = yappi.get_clock_time()
         time.sleep(0.1)
         duration = yappi.get_clock_time() - t0
-        self.assertAlmostEqual(0.1, duration, places=2)
+        self.assertTrue(0.05 < duration < 0.2)
 
     def test_profile_decorator(self):
 
@@ -142,7 +142,7 @@ class BasicUsage(utils.YappiUnitTestCase):
         self.assertTrue(b'FancyThread' in thread_stats)
         
     def test_yappi_overhead(self):
-        LOOP_COUNT = 10000
+        LOOP_COUNT = 100000
         def a(): pass
         def b():
             for i in range(LOOP_COUNT): a()
