@@ -670,25 +670,6 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
     
 """  
 class MultithreadedScenarios(utils.YappiUnitTestCase):
-
-    def test_resume(self):
-        stop = False
-        def b(): time.sleep(0.1)
-
-        def a():
-            while(stop is False):
-                b()
-        yappi.start()
-        t = threading.Thread(target=a)
-        t.start()
-        yappi.stop()
-        time.sleep(0.2)
-        yappi.start() # resume session
-        time.sleep(0.2) # wait a bit to have stats after resume
-        yappi.get_thread_stats().print_all()
-        stop=True
-
-
     def test_subsequent_profile(self):
         WORKER_COUNT = 5
         def a(): pass
