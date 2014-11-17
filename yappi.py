@@ -70,9 +70,6 @@ def _ctx_name_callback():
         # Threads may not be registered yet in first few profile callbacks.
         return None
 
-# set _ctx_name_callback by default at import time. 
-_yappi.set_context_name_callback(_ctx_name_callback)
-
 def _profile_thread_callback(frame, event, arg):
     """
     _profile_thread_callback will only be called once per-thread. _yappi will detect
@@ -382,7 +379,8 @@ class YStats(list):
         return self.sort(DEFAULT_SORT_TYPE, DEFAULT_SORT_ORDER)
 
     def sort(self, sort_type, sort_order):
-        super(YStats, self).sort(key=lambda stat: stat[sort_type], reverse=(sort_order==SORT_ORDERS["desc"]))
+        super(YStats, self).sort(key=lambda stat: stat[sort_type], 
+            reverse=(sort_order==SORT_ORDERS["desc"]))
         return self
 
     def clear(self):
@@ -755,6 +753,9 @@ class YThreadStats(YStats):
         """
         Prints all of the thread profiler results to a given file. (stdout by default)
         """
+
+        if self.empty():
+            return
         
         for _, col in columns.items():
             _validate_columns(col[0], COLUMNS_THREADSTATS)
@@ -891,7 +892,12 @@ def set_context_name_callback(callback):
     If the callback cannot return the name at this time but may be able to
     return it later, it should return None.
     """
+    if callback is None:
+        return _yappi.set_context_name_callback(_ctx_name_callback)
     return _yappi.set_context_name_callback(callback)
+
+# set _ctx_name_callback by default at import time. 
+set_context_name_callback(None)
 
 def main():
     from optparse import OptionParser
