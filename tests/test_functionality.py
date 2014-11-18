@@ -15,6 +15,39 @@ else:
 
 class BasicUsage(utils.YappiUnitTestCase):
 
+    def test_filter(self):
+        def a(): pass
+        def b(): a()
+        def c(): b()
+
+        _TCOUNT = 5
+
+        ts = []
+        yappi.start()
+        for i in range(_TCOUNT):
+            t = threading.Thread(target=c)
+            t.start()
+            ts.append(t)
+
+        for t in ts:
+            t.join()
+
+        yappi.stop()
+
+        fstats = yappi.get_func_stats(filter={"ctx_id":9})
+        self.assertTrue(fstats.empty())
+        fstats = yappi.get_func_stats(filter={"ctx_id":0, "name":"c"}) # main thread
+        self.assertTrue(fstats.empty())
+
+        for i in range(1, _TCOUNT):
+            fstats = yappi.get_func_stats(filter={"ctx_id":i, "name":"a", 
+                "ncall":1})
+            self.assertEqual(fstats.pop().ncall, 1)
+            fstats = yappi.get_func_stats(filter={"ctx_id":i, "name":"b"})
+            self.assertEqual(fstats.pop().ncall, 1)
+            fstats = yappi.get_func_stats(filter={"ctx_id":i, "name":"c"})
+            self.assertEqual(fstats.pop().ncall, 1)
+
     def test_print_formatting(self):
         def a():
             pass
@@ -89,7 +122,7 @@ class BasicUsage(utils.YappiUnitTestCase):
         try:
             self.assertEqual(a(2, 5), 7)
         except:
-            pass          
+            pass
         try:    
             a(4, 21)
         except:
@@ -138,7 +171,7 @@ class BasicUsage(utils.YappiUnitTestCase):
                              stdout=subprocess.PIPE)
         out, err = p.communicate()
         self.assertEqual(p.returncode, 0)
-        func_stats, thread_stats = re.split(b'name\s+tid\s+ttot\s+scnt\s*\n', out)
+        func_stats, thread_stats = re.split(b'name\s+id\s+tid\s+ttot\s+scnt\s*\n', out)
         self.assertTrue(b'FancyThread' in thread_stats)
         
     def test_yappi_overhead(self):

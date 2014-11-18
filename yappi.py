@@ -26,13 +26,13 @@ COLUMN_GAP = 2
 YPICKLE_PROTOCOL = 2
 
 COLUMNS_FUNCSTATS = ["name", "ncall", "ttot", "tsub", "tavg"]
-COLUMNS_THREADSTATS = ["name", "tid", "ttot", "scnt"]
+COLUMNS_THREADSTATS = ["name", "id", "tid", "ttot", "scnt"]
 SORT_TYPES_FUNCSTATS = {"name":0, "callcount":3, "totaltime":6, "subtime":7, "avgtime":10,
                         "ncall":3, "ttot":6, "tsub":7, "tavg":10}
 SORT_TYPES_CHILDFUNCSTATS = {"name":10, "callcount":1, "totaltime":3, "subtime":4, "avgtime":5,
                         "ncall":1, "ttot":3, "tsub":4, "tavg":5}
-SORT_TYPES_THREADSTATS = {"name":0, "id":1, "totaltime":2, "schedcount":3,
-                          "ttot":2, "scnt":3}
+SORT_TYPES_THREADSTATS = {"name":0, "id":1, "tid":2, "totaltime":3, "schedcount":4,
+                          "ttot":3, "scnt":4}
 SORT_ORDERS = {"ascending":0, "asc":0, "descending":1, "desc":1}
 DEFAULT_SORT_TYPE = "totaltime"
 DEFAULT_SORT_ORDER = "desc"
@@ -259,7 +259,7 @@ class YFuncStat(YStat):
     Class holding information for function stats.
     """
     _KEYS = ('name', 'module', 'lineno', 'ncall', 'nactualcall', 'builtin', 'ttot', 'tsub', 'index',
-        'children', 'tavg', 'full_name')
+        'children', 'ctx_id', 'tavg', 'full_name')
 
     def __eq__(self, other):
         if other is None:
@@ -344,7 +344,7 @@ class YThreadStat(YStat):
     """
     Class holding information for thread stats.
     """
-    _KEYS = ('name', 'id', 'ttot','sched_count',)
+    _KEYS = ('name', 'id', 'tid', 'ttot','sched_count',)
 
     def __eq__(self, other):
         if other is None:
@@ -357,8 +357,11 @@ class YThreadStat(YStat):
             if title == "name":
                 out.write(StatString(self.name).ltrim(size))
                 out.write(" " * COLUMN_GAP)
-            elif title == "tid":
+            elif title == "id":
                 out.write(StatString(self.id).rtrim(size))
+                out.write(" " * COLUMN_GAP)
+            elif title == "tid":
+                out.write(StatString(self.tid).rtrim(size))
                 out.write(" " * COLUMN_GAP)
             elif title == "ttot":
                 out.write(StatString(_fft(self.ttot, size)).rtrim(size))
@@ -396,8 +399,7 @@ class YStats(list):
             return None
 
     def append(self, item):
-        # sometimes, we may have Stat object that seems to be unique, however
-        # it may already be in the list.
+        # increment/update the stat if we already have it
         for cstat in self:
             if cstat == item:
                 cstat += item
@@ -503,14 +505,17 @@ class YFuncStats(YStats):
             stat.children.strip_dirs()
         return self
 
-    def get(self):
+    def get(self, filter=None):
         _yappi._pause()
         self.clear()
         try:
+            self._filter = filter
             _yappi.enum_func_stats(self._enumerator)
+            self._filter = None
 
             # convert the children info from tuple to YChildFuncStat
             for stat in self:
+
                 _childs = YChildFuncStats()
                 for child_tpl in stat.children:
                     rstat = self[child_tpl[0]]
@@ -534,7 +539,7 @@ class YFuncStats(YStats):
     def _enumerator(self, stat_entry):
 
         fname, fmodule, flineno, fncall, fnactualcall, fbuiltin, fttot, ftsub, \
-            findex, fchildren = stat_entry
+            findex, fchildren, fctxid = stat_entry
 
         # builtin function?
         ffull_name = _func_fullname(bool(fbuiltin), fmodule, flineno, fname)
@@ -546,6 +551,12 @@ class YFuncStats(YStats):
             return
 
         fstat.builtin = bool(fstat.builtin)
+
+        if self._filter:
+            for k,v in self._filter.items():
+                if getattr(fstat, k) != v:
+                    return
+
         self.append(fstat)
 
         # hold the max idx number for merging new entries(for making the merging entries indexes unique)
@@ -748,8 +759,8 @@ class YThreadStats(YStats):
 
         return super(YThreadStats, self).sort(SORT_TYPES_THREADSTATS[sort_type], SORT_ORDERS[sort_order])
 
-    def print_all(self, out=sys.stdout, columns={0:("name",13), 1:("tid", 15), 
-                    2:("ttot", 8), 3:("scnt", 10)}):
+    def print_all(self, out=sys.stdout, columns={0:("name",13), 1:("id", 5), 
+                2:("tid", 15), 3:("ttot", 8), 4:("scnt", 10)}):
         """
         Prints all of the thread profiler results to a given file. (stdout by default)
         """
@@ -782,7 +793,7 @@ def start(builtins=False, profile_threads=True):
         threading.setprofile(_profile_thread_callback)
     _yappi.start(builtins, profile_threads)
 
-def get_func_stats():
+def get_func_stats(filter=None):
     """
     Gets the function profiler results with given filters and returns an iterable.
     """
@@ -790,7 +801,7 @@ def get_func_stats():
     # not only get() is executed here.
     _yappi._pause()
     try:
-        stats = YFuncStats().get()
+        stats = YFuncStats().get(filter=filter)
     finally:
         _yappi._resume()
     return stats

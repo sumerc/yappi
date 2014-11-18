@@ -56,11 +56,19 @@ typedef struct {
 typedef struct {
     _cstack *cs;
     _htab *rec_levels;
-    long id;
+    _htab *pits;
+    long id;                                // internal tid given by user callback or yappi. Will be unique per profile session.
+    long tid;                               // the real OS thread id.
     PyObject *name;
     long long t0;                           // profiling start CPU time
     unsigned long sched_cnt;                // how many times this thread is scheduled
 } _ctx; // context
+
+typedef struct
+{
+    PyObject *efn;
+    _ctx *ctx;
+} _ctxfuncenumarg;
 
 typedef struct {
     int builtins;
@@ -70,13 +78,13 @@ typedef struct {
 // globals
 static PyObject *YappiProfileError;
 static _htab *contexts;
-static _htab *pits;
 static _flag flags;
 static _freelist *flpit;
 static _freelist *flctx;
 static int yappinitialized;
 static unsigned int ycurfuncindex; // used for providing unique index for functions
-static int yapphavestats;	// start() called at least once or stats cleared?
+static long ycurthreadindex;
+static int yapphavestats;   // start() called at least once or stats cleared?
 static int yapprunning;
 static int paused;
 static time_t yappstarttime;
@@ -160,8 +168,14 @@ _create_ctx(void)
     ctx->cs = screate(100);
     if (!ctx->cs)
         return NULL;
+
+    ctx->pits = htcreate(HT_PIT_SIZE);
+    if (!ctx->pits)
+        return NULL;
+
     ctx->sched_cnt = 0;
     ctx->id = 0;
+    ctx->tid = 0;
     ctx->name = NULL;
     ctx->t0 = tickcount();
     ctx->rec_levels = htcreate(HT_RLEVEL_SIZE);
@@ -228,10 +242,23 @@ _current_context_id(PyThreadState *ts)
     } else {
         // Use thread_id instead of ts pointer, because when we create/delete many threads, some
         // of them do not show up in the thread_stats, because ts pointers are recycled in the VM.
-        // Also, we do not want to delete thread stats unless clear_stats() is called explicitly.
-        // We rely on the OS to give us unique thread ids, this time.
-        // thread_id -> long
-        return (uintptr_t)ts->thread_id;
+        // Also, OS tids are recycled, too. The only valid way is to give ctx's custom tids which
+        // are hold in a per-thread structure. Again: we use an integer instead of directly mapping the ctx
+        // pointer to some per-thread structure because other threading libraries do not necessarily
+        // have direct ThreadState->Thread mapping. Greenlets, for example, will only have a single
+        // thread. Therefore, we need to identify the "context" concept independent from ThreadState 
+        // objects.
+
+        // TODO: Any more optimization? This has increased the runtime factor from 7x to 11x.
+        // and also we may have a memory leak below. We maybe can optimize the common case.
+        PyObject *d = PyThreadState_GetDict();
+        PyObject *ytid = PyDict_GetItemString(d, "_yappi_tid");
+        if (!ytid) {
+            ytid = PyLong_FromLong(ycurthreadindex++);
+            PyDict_SetItemString(d, "_yappi_tid", ytid);
+        }
+        rc = PyLong_AsLong(ytid);
+        return rc;
     }
 
 error:
@@ -316,12 +343,12 @@ _ccode2pit(void *cco)
     // Hashing cfn to the pits table causes different object methods
     // to be hashed into the same slot. Use cfn->m_ml for hashing the
     // Python C functions.
-    it = hfind(pits, (uintptr_t)cfn->m_ml);
+    it = hfind(current_ctx->pits, (uintptr_t)cfn->m_ml);
     if (!it) {
         _pit *pit = _create_pit();
         if (!pit)
             return NULL;
-        if (!hadd(pits, (uintptr_t)cfn->m_ml, (uintptr_t)pit))
+        if (!hadd(current_ctx->pits, (uintptr_t)cfn->m_ml, (uintptr_t)pit))
             return NULL;
 
         pit->builtin = 1;
@@ -360,7 +387,7 @@ _code2pit(PyFrameObject *fobj)
     _pit *pit;
 
     cobj = fobj->f_code;
-    it = hfind(pits, (uintptr_t)cobj);
+    it = hfind(current_ctx->pits, (uintptr_t)cobj);
     if (it) {
         return ((_pit *)it->val);
     }
@@ -368,7 +395,7 @@ _code2pit(PyFrameObject *fobj)
     pit = _create_pit();
     if (!pit)
         return NULL;
-    if (!hadd(pits, (uintptr_t)cobj, (uintptr_t)pit))
+    if (!hadd(current_ctx->pits, (uintptr_t)cobj, (uintptr_t)pit))
         return NULL;
 
     pit->name = NULL;
@@ -458,6 +485,7 @@ _add_child_info(_pit *parent, _pit *current)
 {
     _pit_children_info *newci;
 
+    // TODO: Optimize by moving to a freelist?
     newci = ymalloc(sizeof(_pit_children_info));
     newci->index = current->index;
     newci->callcount = 0;
@@ -668,6 +696,13 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     }
 }
 
+static int
+_pitenumdel(_hitem *item, void *arg)
+{
+    _del_pit((_pit *)item->val);
+    return 0;
+}
+
 // context will be cleared by the free list. we do not free it here.
 // we only free the context call stack.
 static void
@@ -675,6 +710,8 @@ _del_ctx(_ctx * ctx)
 {
     sdestroy(ctx->cs);
     htdestroy(ctx->rec_levels);
+    henum(ctx->pits, _pitenumdel, NULL);
+    htdestroy(ctx->pits);
     Py_CLEAR(ctx->name);
 }
 
@@ -683,7 +720,6 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
                PyObject *arg)
 {
     PyObject *last_type, *last_value, *last_tb;
-
     PyErr_Fetch(&last_type, &last_value, &last_tb);
 
     // get current ctx
@@ -708,7 +744,6 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     {
         current_ctx->name = _current_context_name();
     }
-
 
     switch (what) {
     case PyTrace_CALL:
@@ -745,7 +780,6 @@ finally:
     return 0;
 }
 
-
 static _ctx *
 _profile_thread(PyThreadState *ts)
 {
@@ -753,14 +787,13 @@ _profile_thread(PyThreadState *ts)
     _ctx *ctx;
     _hitem *it;
 
-    ctx = _create_ctx();
-    if (!ctx) {
-        return NULL;
-    }
-
     ctx_id = _current_context_id(ts);
     it = hfind(contexts, ctx_id);
     if (!it) {
+        ctx = _create_ctx();
+        if (!ctx) {
+            return NULL;
+        }    
         if (!hadd(contexts, ctx_id, (uintptr_t)ctx)) {
             _del_ctx(ctx);
             if (!flput(flctx, ctx)) {
@@ -769,11 +802,14 @@ _profile_thread(PyThreadState *ts)
             _log_err(11);
             return NULL;
         }
+    } else {
+        ctx = (_ctx *)it->val;
     }
-
+    
     ts->use_tracing = 1;
     ts->c_profilefunc = _yapp_callback;
     ctx->id = ctx_id;
+    ctx->tid = ts->thread_id;
 
     return ctx;
 }
@@ -796,9 +832,14 @@ _ensure_thread_profiled(PyThreadState *ts)
 static void
 _enum_threads(_ctx* (*f) (PyThreadState *))
 {
-    PyThreadState *p = NULL;
-    for (p=PyThreadState_GET()->interp->tstate_head ; p != NULL; p = p->next) {
-        f(p);
+    PyThreadState *ts;
+    PyInterpreterState* is;
+
+    for(is=PyInterpreterState_Head();is!=NULL;is = PyInterpreterState_Next(is))
+    {
+        for (ts=PyInterpreterState_ThreadHead(is) ; ts != NULL; ts = ts->next) {
+            f(ts);
+        }
     }
 }
 
@@ -810,9 +851,6 @@ _init_profiler(void)
     if (!yappinitialized) {
         contexts = htcreate(HT_CTX_SIZE);
         if (!contexts)
-            goto error;
-        pits = htcreate(HT_PIT_SIZE);
-        if (!pits)
             goto error;
         flpit = flcreate(sizeof(_pit), FL_PIT_SIZE);
         if (!flpit)
@@ -828,10 +866,6 @@ error:
     if (contexts) {
         htdestroy(contexts);
         contexts = NULL;
-    }
-    if (pits) {
-        htdestroy(pits);
-        pits = NULL;
     }
     if (flpit) {
         fldestroy(flpit);
@@ -889,13 +923,6 @@ _calc_cumdiff(long long a, long long b)
 }
 
 static int
-_pitenumdel(_hitem *item, void *arg)
-{
-    _del_pit((_pit *)item->val);
-    return 0;
-}
-
-static int
 _ctxenumdel(_hitem *item, void *arg)
 {
     _del_ctx(((_ctx *)item->val) );
@@ -943,6 +970,8 @@ _stop(void)
 static PyObject*
 clear_stats(PyObject *self, PyObject *args)
 {
+    PyObject *d;
+
     if (!yapphavestats) {
         Py_RETURN_NONE;
     }
@@ -950,10 +979,6 @@ clear_stats(PyObject *self, PyObject *args)
     current_ctx = NULL;
     prev_ctx = NULL;
     initial_ctx = NULL;
-
-    henum(pits, _pitenumdel, NULL);
-    htdestroy(pits);
-    pits = NULL;
 
     henum(contexts, _ctxenumdel, NULL);
     htdestroy(contexts);
@@ -968,6 +993,13 @@ clear_stats(PyObject *self, PyObject *args)
     yappinitialized = 0;
     yapphavestats = 0;
     ycurfuncindex = 0;
+    ycurthreadindex = 0;
+
+    d = PyThreadState_GET()->dict;
+    if (PyDict_GetItemString(d, "_yappi_tid")) {
+        PyDict_DelItemString(d, "_yappi_tid");
+    }
+
     Py_CLEAR(test_timings);
 
 // check for mem leaks if DEBUG_MEM is specified
@@ -1018,7 +1050,7 @@ _ctxenumstat(_hitem *item, void *arg)
 
     cumdiff = _calc_cumdiff(tickcount(), ctx->t0);
 
-    exc = PyObject_CallFunction(efn, "((skfk))", tcname, ctx->id,
+    exc = PyObject_CallFunction(efn, "((skkfk))", tcname, ctx->id, ctx->tid,
         cumdiff * tickfactor(), ctx->sched_cnt);
     if (!exc) {
         PyErr_Print();
@@ -1054,23 +1086,22 @@ enum_thread_stats(PyObject *self, PyObject *args)
 }
 
 static int
-_pitenumstat(_hitem *item, void * arg)
+_pitenumstat(_hitem *item, void *arg)
 {
-    PyObject *efn;
     _pit *pt;
     PyObject *exc;
     PyObject *children;
     _pit_children_info *pci;
+    _ctxfuncenumarg *eargs;
 
     children = NULL;
     pt = (_pit *)item->val;
+    eargs = (_ctxfuncenumarg *)arg;
 
     // do not show builtin pits if specified
     if  ((!flags.builtins) && (pt->builtin)) {
         return 0;
     }
-
-    efn = (PyObject *)arg;
 
     // convert children function index list to PyList
     children = PyList_New(0);
@@ -1092,9 +1123,9 @@ _pitenumstat(_hitem *item, void * arg)
     if (pt->tsubtotal < 0) {
         pt->tsubtotal = 0;
     }
-    exc = PyObject_CallFunction(efn, "((OOkkkIffIO))", pt->name, pt->modname, pt->lineno, pt->callcount,
+    exc = PyObject_CallFunction(eargs->efn, "((OOkkkIffIOk))", pt->name, pt->modname, pt->lineno, pt->callcount,
                         pt->nonrecursive_callcount, pt->builtin, _normt(pt->ttotal), _normt(pt->tsubtotal),
-                        pt->index, children);
+                        pt->index, children, eargs->ctx->id);
     if (!exc) {
         PyErr_Print();
         Py_XDECREF(children);
@@ -1103,6 +1134,19 @@ _pitenumstat(_hitem *item, void * arg)
 
     Py_DECREF(exc);
     Py_XDECREF(children);
+    return 0;
+}
+
+static int 
+_ctxfuncenumstat(_hitem *item, void *arg)
+{
+    _ctxfuncenumarg ext_args;
+
+    ext_args.ctx = (_ctx *)item->val; 
+    ext_args.efn = (PyObject *)arg;
+
+    henum(ext_args.ctx->pits, _pitenumstat, &ext_args);
+
     return 0;
 }
 
@@ -1148,7 +1192,7 @@ enum_func_stats(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    henum(pits, _pitenumstat, enumfn);
+    henum(contexts, _ctxfuncenumstat, enumfn);
 
     Py_RETURN_NONE;
 }
@@ -1206,6 +1250,7 @@ set_context_name_callback(PyObject *self, PyObject *args)
     Py_XDECREF(context_name_callback);
     Py_INCREF(new_callback);
     context_name_callback = new_callback;
+    
     Py_RETURN_NONE;
 }
 
