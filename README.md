@@ -20,6 +20,7 @@ powerful requirements.
 
 Features:
 ===================
+* Ability to analyze per-thread information. (*new in 0.94*)
 * Ability to hook underlying threading model events/properties. (*new in 0.92*)
 * Decorator to profile individual functions easily. (*new in 0.92*)
 * Profiler results can be saved in callgrind and pstat formats. (new in 0.82) 
