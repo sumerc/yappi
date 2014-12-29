@@ -787,7 +787,9 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         dummy() # call dummy to force ctx name to be retrieved again.
         self.assertTrue(tsa is not None)
         # TODO: I put dummy() to fix below, remove the comments after a while.
-        self.assertTrue(tsm is not None) # FIX: I see this fails sometimes? 
+        self.assertTrue( # FIX: I see this fails sometimes?
+            tsm is not None, 
+            'Could not find "_MainThread". Found: %s' % (', '.join(utils.get_stat_names(tstats)))) 
         
     def test_ctx_stats(self):
         from threading import Thread
@@ -844,7 +846,9 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         self.assertTrue(tst1 is not None)
         self.assertTrue(tst2 is not None)
         # TODO: I put dummy() to fix below, remove the comments after a while.
-        self.assertTrue(tsmain is not None) # FIX: I see this fails sometimes
+        self.assertTrue( # FIX: I see this fails sometimes
+            tsmain is not None,
+            'Could not find "_MainThread". Found: %s' % (', '.join(utils.get_stat_names(stats))))
         self.assertTrue(1.0 > tst2.ttot >= 0.5)
         self.assertTrue(1.0 > tst1.ttot >= 0.5)
         
@@ -1367,3 +1371,8 @@ class RecursiveFunctions(utils.YappiUnitTestCase):
         self.assertEqual(cfsab.nactualcall , 1)
         self.assertEqual(cfsba.ttot , 6)
         self.assertEqual(cfsba.tsub , 5)
+
+if __name__ == '__main__':
+#     import sys;sys.argv = ['', 'BasicUsage.test_run_as_script']
+#     import sys;sys.argv = ['', 'MultithreadedScenarios.test_subsequent_profile']
+    _unittest.main()

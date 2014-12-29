@@ -54,6 +54,9 @@ def find_stat_by_name(stats, name):
         if stat.name == name:
             return stat
 
+def get_stat_names(stats):
+    return [stat.name for stat in stats]
+
 def find_stat_by_id(stats, id):
     for stat in stats:
         if stat.id == id:

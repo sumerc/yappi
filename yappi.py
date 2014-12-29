@@ -265,6 +265,9 @@ class YFuncStat(YStat):
         if other is None:
             return False
         return self.full_name == other.full_name
+    
+    def __ne__(self, other):
+        return not self == other
 
     def __add__(self, other):
 
@@ -284,7 +287,7 @@ class YFuncStat(YStat):
         return self
 
     def __hash__(self):
-        return self.index
+        return hash(self.full_name)
 
     def is_recursive(self):
         # we have a known bug where call_leave not called for some thread functions(run() especially)
@@ -350,6 +353,12 @@ class YThreadStat(YStat):
         if other is None:
             return False
         return self.id == other.id
+    
+    def __ne__(self, other):
+        return not self == other
+    
+    def __hash__(self, *args, **kwargs):
+        return hash(self.id)
 
     def _print(self, out, columns):
         for x in sorted(columns.keys()):
@@ -370,41 +379,61 @@ class YThreadStat(YStat):
                 out.write(StatString(self.sched_count).rtrim(size))
         out.write(LINESEP)
 
-class YStats(list):
+class YStats(object):
     """
     Main Stats class where we collect the information from _yappi and apply the user filters.
     """
     def __init__(self):
         self._clock_type = None
+        self._as_dict = {}
+        self._as_list = []
 
     def get(self):
         self._clock_type = _yappi.get_clock_type()
-        return self.sort(DEFAULT_SORT_TYPE, DEFAULT_SORT_ORDER)
+        self.sort(DEFAULT_SORT_TYPE, DEFAULT_SORT_ORDER)
+        return self
 
     def sort(self, sort_type, sort_order):
-        super(YStats, self).sort(key=lambda stat: stat[sort_type], 
+        self._as_list.sort(key=lambda stat: stat[sort_type], 
             reverse=(sort_order==SORT_ORDERS["desc"]))
         return self
 
     def clear(self):
-        del self[:]
+        del self._as_list[:]
+        self._as_dict.clear()
 
     def empty(self):
-        return (len(self) == 0)
+        return (len(self._as_list) == 0)
 
     def __getitem__(self, key):
         try:
-            return super(YStats, self).__getitem__(key)
+            return self._as_list[key]
         except IndexError:
             return None
+        
+    def count(self, item):
+        return self._as_list.count(item)
+    
+    def __iter__(self):
+        return iter(self._as_list)
+    
+    def __len__(self):
+        return len(self._as_list)
+    
+    def pop(self):
+        item = self._as_list.pop()
+        del self._as_dict[item]
+        return item
 
     def append(self, item):
         # increment/update the stat if we already have it
-        for cstat in self:
-            if cstat == item:
-                cstat += item
-                return
-        super(YStats, self).append(item)
+        
+        existing = self._as_dict.get(item)
+        if existing:
+            existing += item
+            return
+        self._as_list.append(item)
+        self._as_dict[item] = item
 
     def _print_header(self, out, columns):
         for x in sorted(columns.keys()):
@@ -424,27 +453,43 @@ class YStats(list):
             if self.count(x) > 1:
                 return False
         return True
-
-class YChildFuncStats(YStats):
     
+
+class YStatsIndexable(YStats):
+    
+    def __init__(self):
+        super(YStatsIndexable, self).__init__()
+        self._additional_indexing = {}
+    
+    def clear(self):
+        super(YStatsIndexable, self).clear()
+        self._additional_indexing.clear()
+         
+    def pop(self):
+        item = super(YStatsIndexable, self).pop()
+        self._additional_indexing.pop(item.index, None)
+        self._additional_indexing.pop(item.full_name, None)
+        return item
+     
+    def append(self, item):
+        super(YStatsIndexable, self).append(item)
+        # setdefault so that we don't replace them if they're already there.
+        self._additional_indexing.setdefault(item.index, item)
+        self._additional_indexing.setdefault(item.full_name, item)
+
     def __getitem__(self, key):
         if isinstance(key, int):
-            for item in self:
-                if item.index == key:
-                    return item
-            return None
+            # search by item.index
+            return self._additional_indexing.get(key, None)
         elif isinstance(key, str):
-            for item in self:
-                if item.full_name == key:
-                    return item
-            return None
+            # search by item.full_name
+            return self._additional_indexing.get(key, None)
         elif isinstance(key, YFuncStat) or isinstance(key, YChildFuncStat):
-            for item in self:
-                if item.index == key.index:
-                    return item
-            return None
+            return self._additional_indexing.get(key.index, None)
 
-        return super(YChildFuncStats, self).__getitem__(key)
+        return super(YStatsIndexable, self).__getitem__(key)
+
+class YChildFuncStats(YStatsIndexable):
 
     def sort(self, sort_type, sort_order="desc"):
         sort_type = _validate_sorttype(sort_type, SORT_TYPES_CHILDFUNCSTATS)
@@ -472,8 +517,9 @@ class YChildFuncStats(YStats):
         for stat in self:
             stat.strip_dirs()
         return self
+    
 
-class YFuncStats(YStats):
+class YFuncStats(YStatsIndexable):
 
     _idx_max = 0
     _sort_type = None
@@ -484,21 +530,7 @@ class YFuncStats(YStats):
     def __init__(self, files=[]):
         super(YFuncStats, self).__init__()
         self.add(files)
-
-    def __getitem__(self, key):
-        if isinstance(key, int):
-            for item in self:
-                if item.index == key:
-                    return item
-            return None
-        elif isinstance(key, str):
-            for item in self:
-                if item.full_name == key:
-                    return item
-            return None
-
-        return super(YFuncStats, self).__getitem__(key)
-
+        
     def strip_dirs(self):
         for stat in self:
             stat.strip_dirs()
