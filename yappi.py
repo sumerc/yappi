@@ -250,8 +250,7 @@ class YStat(dict):
             setattr(self, key, values[i])
 
     def __setattr__(self, name, value):
-        if name in self._KEYS:
-            self[self._KEYS.index(name)] = value
+        self[self._KEYS.index(name)] = value
         super(YStat, self).__setattr__(name, value)
 
 class YFuncStat(YStat):
