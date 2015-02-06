@@ -241,24 +241,23 @@ class YStat(dict):
     Class to hold a profile result line in a dict object, which all items can also be accessed as
     instance attributes where their attribute name is the given key. Mimicked NamedTuples.
     """
-    _KEYS = ()
+    _KEYS = {}
 
     def __init__(self, values):
         super(YStat, self).__init__()
 
-        for i, key in enumerate(self._KEYS):
+        for key,i in self._KEYS.items():
             setattr(self, key, values[i])
 
     def __setattr__(self, name, value):
-        self[self._KEYS.index(name)] = value
+        self[self._KEYS[name]] = value
         super(YStat, self).__setattr__(name, value)
 
 class YFuncStat(YStat):
     """
     Class holding information for function stats.
     """
-    _KEYS = ('name', 'module', 'lineno', 'ncall', 'nactualcall', 'builtin', 'ttot', 'tsub', 'index',
-        'children', 'ctx_id', 'tavg', 'full_name')
+    _KEYS = {'name':0, 'module':1, 'lineno':2, 'ncall':3, 'nactualcall':4, 'builtin':5, 'ttot':6, 'tsub':7, 'index':8, 'children':9, 'ctx_id':10, 'tavg':11, 'full_name':12}
 
     def __eq__(self, other):
         if other is None:
@@ -329,8 +328,7 @@ class YChildFuncStat(YFuncStat):
     """
     Class holding information for children function stats.
     """
-    _KEYS = ('index', 'ncall', 'nactualcall', 'ttot', 'tsub', 'tavg', 'builtin', 'full_name',
-        'module', 'lineno', 'name')
+    _KEYS = {'index':0, 'ncall':1, 'nactualcall':2, 'ttot':3, 'tsub':4, 'tavg':5, 'builtin':6, 'full_name':7, 'module':8, 'lineno':9, 'name':10}
 
     def __add__(self, other):
         if other is None:
@@ -346,7 +344,7 @@ class YThreadStat(YStat):
     """
     Class holding information for thread stats.
     """
-    _KEYS = ('name', 'id', 'tid', 'ttot','sched_count',)
+    _KEYS = {'name':0, 'id':1, 'tid':2, 'ttot':3,'sched_count':4,}
 
     def __eq__(self, other):
         if other is None:
