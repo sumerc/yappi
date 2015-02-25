@@ -8,13 +8,11 @@ import os
 import sys
 import _yappi
 import pickle
-import marshal
 import threading
 try:
     from thread import get_ident        # Python 2
 except ImportError:
     from threading import get_ident     # Python 3
-from collections import defaultdict
 
 class YappiError(Exception): pass
 
@@ -137,6 +135,7 @@ of b() when called by a, just like yappi.
 PSTAT only expects to have the above dict to be saved.
 """
 def convert2pstats(stats):
+    from collections import defaultdict
     """
     Converts the internal stat type of yappi(which is returned by a call to YFuncStats.get())
     as pstats object.
