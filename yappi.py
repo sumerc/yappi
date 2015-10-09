@@ -940,12 +940,18 @@ set_context_name_callback(None)
 
 def main():
     from optparse import OptionParser
-    usage = "yappi.py [-b] [-s] [scriptfile] args ..."
+    usage = "yappi.py [-b] [-o output_file] [-f output_format] [-s] [scriptfile] args ..."
     parser = OptionParser(usage=usage)
     parser.allow_interspersed_args = False
     parser.add_option("-b", "--builtins",
                   action="store_true", dest="profile_builtins", default=False,
                   help="Profiles builtin functions when set. [default: False]")
+    parser.add_option("-o", "--output-file", metavar="output_file",
+                  help="Write stats to output_file.")
+    parser.add_option("-f", "--output-format", default="pformat",
+                  choices=("pformat", "callgrind"), metavar="output_format",
+                  help="Write stats in the specified format (\"pstat\" or "
+                  "\"callgrind\", default is \"pstat\").")
     parser.add_option("-s", "--single_thread",
                   action="store_true", dest="profile_single_thread", default=False,
                   help="Profiles only the thread that calls start(). [default: False]")
@@ -959,15 +965,21 @@ def main():
     if (len(sys.argv) > 0):
         sys.path.insert(0, os.path.dirname(sys.argv[0]))
         start(options.profile_builtins, not options.profile_single_thread)
-        if sys.version_info >= (3, 0):
-            exec(compile(open(sys.argv[0]).read(), sys.argv[0], 'exec'),
-               sys._getframe(1).f_globals, sys._getframe(1).f_locals)
-        else:
-            execfile(sys.argv[0], sys._getframe(1).f_globals, sys._getframe(1).f_locals)
-        stop()
-        # we will currently use default params for these
-        get_func_stats().print_all()
-        get_thread_stats().print_all()
+        try:
+            if sys.version_info >= (3, 0):
+                exec(compile(open(sys.argv[0]).read(), sys.argv[0], 'exec'),
+                   sys._getframe(1).f_globals, sys._getframe(1).f_locals)
+            else:
+                execfile(sys.argv[0], sys._getframe(1).f_globals, sys._getframe(1).f_locals)
+        finally:
+            stop()
+            if options.output_file:
+                stats = get_func_stats()
+                stats.save(options.output_file, options.output_format)
+            else:
+                # we will currently use default params for these
+                get_func_stats().print_all()
+                get_thread_stats().print_all()
     else:
         parser.print_usage()
 
