@@ -948,10 +948,11 @@ def main():
                   help="Profiles builtin functions when set. [default: False]")
     parser.add_option("-o", "--output-file", metavar="output_file",
                   help="Write stats to output_file.")
-    parser.add_option("-f", "--output-format", default="pformat",
-                  choices=("pformat", "callgrind"), metavar="output_format",
-                  help="Write stats in the specified format (\"pstat\" or "
-                  "\"callgrind\", default is \"pstat\").")
+    parser.add_option("-f", "--output-format", default="pstat",
+                  choices=("pstat", "callgrind", "ystat"),
+                  metavar="output_format", help="Write stats in the specified"
+                  "format (\"pstat\", \"callgrind\" or \"ystat\", default is "
+                  "\"pstat\").")
     parser.add_option("-s", "--single_thread",
                   action="store_true", dest="profile_single_thread", default=False,
                   help="Profiles only the thread that calls start(). [default: False]")
