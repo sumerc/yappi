@@ -14,6 +14,8 @@ try:
 except ImportError:
     from threading import get_ident     # Python 3
 
+from contextlib import contextmanager
+
 class YappiError(Exception): pass
 
 __all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
@@ -851,6 +853,33 @@ def stop():
     """
     _yappi.stop()
     threading.setprofile(None)
+
+@contextmanager
+def run(builtins=False, profile_threads=True):
+    """
+    Context manger for profiling block of code.
+
+    Starts profiling before entering the context, and stop profilying when
+    exiting from the context.
+
+    Usage:
+
+        with yappi.run():
+            print("this call is profiled")
+
+    Warning: don't use this recursively, the inner context will stop profiling
+    when exited:
+
+        with yappi.run():
+            with yappi.run():
+                print("this call will be profiled")
+            print("this call will *not* be profiled")
+    """
+    start(builtins=builtins, profile_threads=profile_threads)
+    try:
+        yield
+    finally:
+        stop()
 
 def clear_stats():
     """

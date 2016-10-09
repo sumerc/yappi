@@ -429,7 +429,45 @@ class BasicUsage(utils.YappiUnitTestCase):
         self.assertTrue(fsa1 is None)
         self.assertTrue(fsa2 is not None)
         self.assertTrue(fsa2.ttot > 0.1)
-     
+
+    def test_run(self):
+
+        def profiled():
+            pass
+
+        yappi.clear_stats()
+        try:
+            with yappi.run():
+                profiled()
+            stats = yappi.get_func_stats()
+        finally:
+            yappi.clear_stats()
+
+        self.assertIsNotNone(utils.find_stat_by_name(stats, 'profiled'))
+
+    def test_run_recursive(self):
+
+        def profiled():
+            pass
+
+        def not_profiled():
+            pass
+
+        yappi.clear_stats()
+        try:
+            with yappi.run():
+                with yappi.run():
+                    profiled()
+                # Profiling stopped here
+                not_profiled()
+            stats = yappi.get_func_stats()
+        finally:
+            yappi.clear_stats()
+
+        self.assertIsNotNone(utils.find_stat_by_name(stats, 'profiled'))
+        self.assertIsNone(utils.find_stat_by_name(stats, 'not_profiled'))
+
+
 class StatSaveScenarios(utils.YappiUnitTestCase):
 
     def test_pstats_conversion(self):
@@ -1371,6 +1409,7 @@ class RecursiveFunctions(utils.YappiUnitTestCase):
         self.assertEqual(cfsab.nactualcall , 1)
         self.assertEqual(cfsba.ttot , 6)
         self.assertEqual(cfsba.tsub , 5)
+
 
 if __name__ == '__main__':
 #     import sys;sys.argv = ['', 'BasicUsage.test_run_as_script']
