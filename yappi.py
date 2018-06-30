@@ -969,9 +969,13 @@ set_context_name_callback(None)
 
 def main():
     from optparse import OptionParser
-    usage = "yappi.py [-b] [-o output_file] [-f output_format] [-s] [scriptfile] args ..."
+    usage = "yappi_clock.py [-b] [-c clock_type] [-o output_file] [-f output_format] [-s] [scriptfile] args ..."
     parser = OptionParser(usage=usage)
     parser.allow_interspersed_args = False
+    parser.add_option("-c", "--clock-type", default="cpu",
+                      choices=("cpu", "wall"),
+                      metavar="clock_type", help="Clock type to use during profiling"
+                                "(\"cpu\" or \"wall\", default is \"cpu\").")
     parser.add_option("-b", "--builtins",
                   action="store_true", dest="profile_builtins", default=False,
                   help="Profiles builtin functions when set. [default: False]")
@@ -994,6 +998,7 @@ def main():
 
     if (len(sys.argv) > 0):
         sys.path.insert(0, os.path.dirname(sys.argv[0]))
+        set_clock_type(options.clock_type)
         start(options.profile_builtins, not options.profile_single_thread)
         try:
             if sys.version_info >= (3, 0):
