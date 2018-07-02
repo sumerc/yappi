@@ -969,11 +969,11 @@ set_context_name_callback(None)
 
 def main():
     from optparse import OptionParser
-    usage = "yappi_clock.py [-b] [-c clock_type] [-o output_file] [-f output_format] [-s] [scriptfile] args ..."
+    usage = "%s [-b] [-c clock_type] [-o output_file] [-f output_format] [-s] [scriptfile] args ..." % os.path.basename(sys.argv[0])
     parser = OptionParser(usage=usage)
     parser.allow_interspersed_args = False
     parser.add_option("-c", "--clock-type", default="cpu",
-                      choices=("cpu", "wall"),
+                      choices=sorted(c.lower() for c in CLOCK_TYPES),
                       metavar="clock_type", help="Clock type to use during profiling"
                                 "(\"cpu\" or \"wall\", default is \"cpu\").")
     parser.add_option("-b", "--builtins",
