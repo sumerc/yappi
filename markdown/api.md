@@ -35,7 +35,7 @@ Returns the function stats as a `YFuncStat` object.
 
 #### `get_thread_stats()`
 
-Returns the thread stats as a `YThreadStat` object.
+Returns the thread stats as a [`YThreadStat`](#ythreadstat) object.
 
 #### `is_running()`
 
@@ -85,7 +85,7 @@ This holds the stat items as a list of `YFuncStat` objects. 
 
 This method retrieves the current profiling stats.      
 
-`yappi.get_func_stats()` is actually just a wrapper for this function. 
+[`yappi.get_func_stats()`](#get_func_statsfilternone) is actually just a wrapper for this function. 
 
 
 #### `add(path, type="ystat")`
@@ -128,7 +128,7 @@ The `sort_type` must be one of the following:
 
 Clears the retrieved stats. 
 
-Note that this only clears the current object's stat list. You need to explicitly call `yappi.clear_stats()` to clear the current profile's stats.
+Note that this only clears the current object's stat list. You need to explicitly call [`yappi.clear_stats()`](#clear_stats) to clear the current profile's stats.
 
 #### `empty()`
 
@@ -142,7 +142,7 @@ Strip the directory information from the results. Affects the child fu
 
 This method _debug_ prints the current profile stats to stdout. 
 
-Debug print prints out callee functions and more detailed info than the _print_all()_ function call.
+Debug print prints out callee functions and more detailed info than the [`print_all()`](#print_alloutsysstdout) function call.
 
 ## `YThreadStat`
 
@@ -160,7 +160,7 @@ This holds the stat items as a list of `YThreadStat` object.
 
 This method retrieves the current thread stats.     
 
-`yappi.get_thread_stats()` is actually just a wrapper for this function. 
+[`yappi.get_thread_stats()`](#get_thread_stats) is actually just a wrapper for this function. 
 
 #### `print_all(out=sys.stdout)`
 
@@ -180,7 +180,7 @@ This method sorts the current profile stats.
 Clears the retrieved stats. 
 
 Note that this only clears the current object's stat list. 
-You need to explicitly call `yappi.clear_stats()` to clear the current profile stats.
+You need to explicitly call [`yappi.clear_stats()`](#clear_stats) to clear the current profile stats.
 
 #### `empty()`
 
