@@ -1,61 +1,60 @@
-1.  summary yappi Reference Manual
+# API reference
 
-\_\*Please note that current version of yappi (v0.82) is not compatible
-with the older versions. Lots of existing API have been changed.\*\_
+**Please note that current version of yappi (v0.82) is not compatible with the older versions.
+Lots of existing APIs have been changed.**
 
-Reference Manual (v0.82)
-========================
 
-<font face='Courier New'> yappi.<b>start</b>(builtins=False,
-profile\_threads=True)
+### `start(builtins=False, profile_threads=True)`
 
-`   Starts profiling all threads in the current interpreter instance. This function can be called from any thread at any time. Resumes profiling if stop() is called previously.`
+Starts profiling all threads in the current interpreter instance. 
+This function can be called from any thread at any time. 
 
-`   Current parameters:`
+Resumes profiling if stop() is called previously.
 
-|| \*Param\* || \*Description\* || || builtins || Profile builtin
-functions used by standart Python modules. It is \_False\_ by
-\_default\_. || || profile\_threads || Profile all of the threads if
-'true', else, profile only the calling thread. ||
+| *Argument*      | *Description*                                                                         |
+|-----------------|---------------------------------------------------------------------------------------|
+| builtins        | Whether to profile builtin functions, from the Python stdlib.                         |
+| profile_threads | Profile all threads if `True`. Otherwise, profile only the calling thread.            |
 
-<font face='Courier New'> yappi.<b>stop</b>() </font>
+### `stop()`
 
-`   Stops the currently running yappi instance. Same profiling session might be resumed later by calling start().`
+Stops the currently running yappi instance. 
+Same profiling session might be resumed later by calling `start()`.
 
-<font face='Courier New'> yappi.<b>clear\_stats</b>() </font>
+### `clear_stats()`
 
-`   Clears the profiler results. The results stays in memory unless application(all threads including the main thread) exists or clear_stats() is called.`
+Clears the profiler results. 
 
-<font face='Courier New'> yappi.<b>get\_func\_stats</b>() </font>
+All results stay in memory unless application (all threads including the main thread) exits or `clear_stats()` is explicitly called.
 
-`   Returns the function stats as `[`YFuncStats`](https://code.google.com/p/yappi/wiki/YFuncStats_v082)`  object.`
+### `get_func_stats(filter=None)`
+
+Returns the function stats as a [`YFuncStats`](./YFuncStats.md) object.
 
 <font face='Courier New'> yappi.<b>get\_thread\_stats</b>() </font>
 
-`   Returns the thread stats as `[`YThreadStats`](https://code.google.com/p/yappi/wiki/YThreadStats_v082)`  object.`
+### `get_thread_stats()`
 
-<font face='Courier New'> yappi.<b>is\_running</b>() </font>
+Returns the thread stats as a [`YThreadStats`](./YThreadStats.md) object.
 
-`   Returns a boolean indicating whether profiler is running or not.`
+### `is_running()`
 
-<font face='Courier New'> yappi.<b>get\_clock\_type</b>() </font>
+Returns a boolean indicating whether profiler is running or not.
 
-`   Returns information about the underlying clock type Yappi uses to measure timing.`
+### `get_clock_type()`
 
-<font face='Courier New'> yappi.<b>set\_clock\_type</b>(type) </font>
+Returns information about the underlying clock type Yappi should use to measure timing.
 
-`   Sets the underlying clock type. _type_ can be following: `
+### `set_clock_type(type)`
 
-|| \*Clock Type\* || \*Description\* || || Wall ||
-[Details](http://en.wikipedia.org/wiki/Wall_time) || || CPU ||
-[Details](http://en.wikipedia.org/wiki/CPU_time) ||
+Sets the underlying clock type. `type` must be one of `"wall"` or `"cpu"` .
 
-<font face='Courier New'> yappi.<b>get\_mem\_usage</b>() </font>
+Read [Clock Types](./clock_types.md) for more.
 
-`   Returns the internal memory usage of the profiler itself.`
+### `yappi.get_mem_usage()`
 
-<font face='Courier New'> yappi.<b>convert2pstats</b>(stats) </font>
+Returns the internal memory usage of the profiler itself.
 
-`   Converts the internal stat type of yappi(which is returned by a call to YFuncStats.get()) as `[`pstats`](http://docs.python.org/3.4/library/profile.html#module-pstats)` object.`
+### `convert2pstats(stats)`
 
-</font>
+Converts the internal stat type of yappi (as returned by `YFuncStats.get()`) to a [`pstats`](https://docs.python.org/3/library/profile.html#module-pstats) object.
