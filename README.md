@@ -45,7 +45,7 @@ $ pip install git+https://github.com/sumerc/yappi#egg=yappi
 
 ## Documentation
 
-- [Introduction](markdown/usage_manual.md)
+- [Introduction](markdown/introduction.md)
 - [API](markdown/api.md)
 
 ## Talks
