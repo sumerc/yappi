@@ -1,0 +1,51 @@
+1.  summary yappi.YThreadStats
+
+class YThreadStats (v0.82)
+==========================
+
+<font face='Courier New'>
+
+<b><i>class</i></b> yappi.<b>YThreadStats</b>
+
+<b>get()</b>
+
+`   This method retrieves the current thread stats.      yappi.get_thread_stats() is actually just a wrapper for this function. YThreadStats holds the stat items as a list of _YThreadStat_ object. `
+
+`   A _YThreadStat_ object holds the following information:`
+
+|| \*Key\* || \*Description\* || || id || thread id given by the OS ||
+|| name || class name of the current thread object which is derived from
+threading.Thread class || || ttot || total time spent in the last
+executed function. See [Clock
+Types](https://code.google.com/p/yappi/wiki/ClockTypes_v082) to
+interpret this value correctly. || || sched\_count || number of times
+this thread is scheduled. ||
+
+<b>print\_all(out=sys.stdout)</b>
+
+`   This method prints the current profile stats to `<i>“`out`”</i>` which is  `<i>“`stdout`”</i>` by default. `
+
+<b>sort(sort\_type, sort\_order=“desc”)</b>
+
+`   This method sorts the current profile stats according to the  `<i>“`sort_type`”</i>` param. `
+
+`   The following are the valid `<i>“`sort_type`”</i>` params:`
+
+|| \*Sort Types\* || || name || || id || || totaltime/ttot || ||
+schedcount/scnt ||
+
+`  The following are the valid `<i>“`sort_order`”</i>` params:`
+
+|| \*Sort Orders\* || || descending/desc || || ascending/asc ||
+
+<b>clear()</b>
+
+`   Clears the retrieved stats. Note that this only clears the current object's stat list. You need to explicitly call _yappi.clear_stats()_ to clear the current profile stats.`\
+`   `
+
+<b>empty()</b>
+
+`   Returns a boolean indicating whether we have any stats available or not. `\
+`   `
+
+</font>
