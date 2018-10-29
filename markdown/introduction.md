@@ -45,7 +45,7 @@ indicates the profiling timing stats shown are retrieved using the CPU clock.
 That means the actual CPU time spent in the function is shown.
 
 Yappi provides two modes of operation: CPU and Wall time profiling. You can change the
-setting by a call to `yappi.set_clock_type()`.
+setting by a call to [`yappi.set_clock_type()`](./api.md#set_clock_typetype).
 
 Read [ClockTypes](./clock_types.md) for more.
 
@@ -58,7 +58,7 @@ Ordered by: totaltime, desc
 ```
 
 This shows the sort order and sort key of the
-shown profiling stats. You can see the valid values for this here - [`YFuncStats.sort()`]().
+shown profiling stats. You can see the valid values for this here - [`YFuncStats.sort()`](./api.md#sortsort_type-sort_orderdesc).
 
 ---
 
