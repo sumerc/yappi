@@ -131,7 +131,7 @@ test.py:5 my_func                     1      0.178615  0.178615  0.178615
 NOTE: The values actually may differ from computer to computer as
 CPU clock rates may differ significantly. Yappi actually uses native OS
 APIs to retrieve per-thread CPU time information. You can see
-`timing.c` module in the repository for details.
+[timing.c](/timing.c) module in the repository for details.
 
 ---
 
