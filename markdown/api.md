@@ -13,8 +13,8 @@ Resumes profiling if stop() is called previously.
 
 | *Argument*      | *Description*                                                                         |
 |-----------------|---------------------------------------------------------------------------------------|
-| builtins        | Whether to profile builtin functions, from the Python stdlib.                         |
-| profile_threads | Profile all threads if `True`. Otherwise, profile only the calling thread.            |
+| `builtins`        | Whether to profile builtin functions, from the Python stdlib.                         |
+| `profile_threads` | Profile all threads if `True`. Otherwise, profile only the calling thread.            |
 
 ### `stop()`
 
