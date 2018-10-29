@@ -1,43 +1,101 @@
-1.  summary yappi Usage Manual
-
-Usage Manual (v0.82)
-====================
+# Usage Manual (v0.82)
 
 A typical example on profiling with yappi, includes at least 3 lines of
 code:
 
+```python
+import yappi
+
+
+def a():
+    for i in range(10000000): pass
+
+yappi.start()
+
+a()
+
+yappi.get_func_stats().print_all()
+yappi.get_thread_stats().print_all()
+```
+
 And the output of running above script:
 
-Let's inspect the results in detail. So, first line: This indicates the
-profiling timing stats shown are retrieved using the CPU clock. That
-means the actual CPU time spent in the function is shown. Yappi provides
-two modes of operation: CPU and Wall time profiling. You can change the
-setting by a call to \_yappi.set\_clock\_type()\_ API. See [Clock
-Types](https://code.google.com/p/yappi/wiki/ClockTypes_v082) to
-interpret different timing values correctly.
+```
+Clock type: cpu
+Ordered by: totaltime, desc
 
-Second is: It is obvious. It shows the sort order and sort key of the
-shown profiling stats. You can see the valid values for this in
-\_YFuncStats().sort()\_ API.
+name                    ncall      tsub      ttot      tavg
+deneme.py:35 a          1          0.296402  0.296402  0.296402
 
-Ok, now we actually see the statistic of the function a(): Let's explain
-the fields in detail: || \*Title\* || \*Description\* || || name || the
-full unique name of the called function. || || \#n || how many times
-this function is called. || || tsub || how many time this function has
-spent in total, subcalls excluded. See [Clock
-Types](https://code.google.com/p/yappi/wiki/ClockTypes_v082) to
-interpret this value correctly. || || ttot || how many time this
-function has spent in total, subcalls included. See [Clock
-Types](https://code.google.com/p/yappi/wiki/ClockTypes_v082) to
-interpret this value correctly. || || tavg || how many time this
-function has spent in average, subcalls included. See [Clock
-Types](https://code.google.com/p/yappi/wiki/ClockTypes_v082) to
-interpret this value correctly. ||
+name           tid              ttot      scnt
+_MainThread    6016             0.296402  1
+```
 
-The next lines shows the thread stats. So, let see: || \*Title\* ||
-\*Description\* || || name || the class name of the Thread.(this is the
-name of the class inherits the threading.Thread class) || || tid || the
-thread id. || || ttot || how many time this thread has spent in total.
-See [Clock Types](https://code.google.com/p/yappi/wiki/ClockTypes_v082)
-to interpret this value correctly. || || scnt || how many times this
-thread is scheduled. ||
+**Let's inspect the results in detail.**
+
+---
+
+The first line:
+
+```
+Clock type: cpu
+```
+
+indicates the profiling timing stats shown are retrieved using the CPU clock.
+That means the actual CPU time spent in the function is shown.
+
+Yappi provides two modes of operation: CPU and Wall time profiling. You can change the
+setting by a call to `yappi.set_clock_type()`.
+
+Read [ClockTypes](./clock_types.md) for more.
+
+---
+
+Second is:
+
+```
+Ordered by: totaltime, desc
+```
+
+This shows the sort order and sort key of the
+shown profiling stats. You can see the valid values for this here - [`YFuncStats.sort()`]().
+
+---
+
+Now we actually see the statistic of the function call `a()`:
+
+```
+name                    ncall      tsub      ttot      tavg
+deneme.py:35 a          1          0.296402  0.296402  0.296402
+```
+
+
+Here is what each of these mean -
+
+| *Title* | *Description*                                                        |
+|---------|----------------------------------------------------------------------|
+| name    | the full unique name of the called function.                         |
+| ncall   | How many times this function is called.                              |
+| tsub    | How much time this function has spent in total, subcalls excluded.   |
+| ttot    | How much time this function has spent in total, subcalls included.   |
+| tavg    | How much time this function has spent in average, subcalls included. |
+
+
+---
+
+The next lines shows the thread stats:
+
+```
+name           tid              ttot      scnt
+_MainThread    6016             0.296402  1
+```
+
+Here is what each of these mean -
+
+
+| *Title* | *Description*                                                                                     |
+|---------|---------------------------------------------------------------------------------------------------|
+| name    | The class name of the Thread. (This is the name of the class inherits the threading.Thread class) |
+| tid     | The thread id.                                                                                    |
+| ttot    | How much time this thread has spent in total.                                                     |
+| scnt    | How many times this thread is scheduled.                                                          |
