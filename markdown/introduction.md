@@ -1,4 +1,4 @@
-# Usage Manual (v0.82)
+# Introduction
 
 A typical example on profiling with yappi, includes at least 3 lines of
 code:
