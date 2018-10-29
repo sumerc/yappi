@@ -46,7 +46,9 @@ $ pip install git+https://github.com/sumerc/yappi#egg=yappi
 ## Documentation
 
 - [Introduction](markdown/introduction.md)
+- [Clock Types](markdown/clock_types.md)
 - [API](markdown/api.md)
+
 
 ## Talks
 
