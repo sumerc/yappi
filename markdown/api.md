@@ -63,6 +63,8 @@ Converts the internal stat type of yappi (as returned by `YFuncStat.get(
 
 ## `YFuncStat`
 
+This holds the stat items as a list of `YFuncStat` objects. 
+
 | *Attribute*  | *Description*                                                                   |
 |-------------|---------------------------------------------------------------------------------|
 | `name`        | Name of the executed function                                                   |
@@ -85,7 +87,6 @@ This method retrieves the current profiling stats.      
 
 `yappi.get_func_stats()` is actually just a wrapper for this function. 
 
-`YFuncStat` holds the stat items as a list of `YFuncStat` objects. 
 
 #### `add(path, type="ystat")`
 
@@ -145,7 +146,7 @@ Debug print prints out callee functions and more detailed info than t
 
 ## `YThreadStat`
 
-This holds the stat items as a list of _YThreadStat_ object.
+This holds the stat items as a list of `YThreadStat` object.
 
 | *Attribute*  | *Description*                                                                   |
 |-------------|---------------------------------------------------------------------------------|
@@ -189,8 +190,8 @@ Returns a `bool` indicating whether we have any stats available or no
 
 This holds a list of child functions called from the main executed function as a `YChildFuncStat` object. 
 
-`YChildFuncStat` class holds a list of `YChildFuncStat` objects.
+This class holds a list of `YChildFuncStat` objects.
 
 For example, if `a` calls `b`, then `a.children` will hold `b` as a `YChildFuncStat` object.
 
-Holds the same attributes and methods as `YFuncStat`.
+Holds the same attributes and methods as [`YFuncStat`](#yfuncstat).
