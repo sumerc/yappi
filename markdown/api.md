@@ -30,13 +30,12 @@ All results stay in memory unless application (all threads including th
 
 #### `get_func_stats(filter=None)`
 
-Returns the function stats as a [`YFuncStats`](./YFuncStats.md) object.
+Returns the function stats as a `YFuncStat` object.
 
-<font face='Courier New'> yappi.<b>get\_thread\_stats</b>() </font>
 
 #### `get_thread_stats()`
 
-Returns the thread stats as a [`YThreadStats`](./YThreadStats.md) object.
+Returns the thread stats as a `YThreadStat` object.
 
 #### `is_running()`
 
@@ -58,12 +57,11 @@ Returns the internal memory usage of the profiler itself.
 
 #### `convert2pstats(stats)`
 
-Converts the internal stat type of yappi (as returned by `YFuncStats.get()`) to a [`pstats`](https://docs.python.org/3/library/profile.html#module-pstats) object.
+Converts the internal stat type of yappi (as returned by `YFuncStat.get()`) to a [`pstats`](https://docs.python.org/3/library/profile.html#module-pstats) object.
 
 # Classes
 
-## `YFuncStats` (*new in v0.82*)
-
+## `YFuncStat`
 
 | *Attribute*  | *Description*                                                                   |
 |-------------|---------------------------------------------------------------------------------|
@@ -81,15 +79,13 @@ Converts the internal stat type of yappi (as returned by `YFuncStats.get
 | `tavg`        | per-call average total time spent in the executed function.                     |
 | `full_name`   | unique full name of the executed function                                       |
 
-
-
 #### `get()`
 
 This method retrieves the current profiling stats.      
 
 `yappi.get_func_stats()` is actually just a wrapper for this function. 
 
-`YFuncStats` holds the stat items as a list of `YFuncStat` objects. 
+`YFuncStat` holds the stat items as a list of `YFuncStat` objects. 
 
 #### `add(path, type="ystat")`
 
@@ -125,7 +121,7 @@ The `sort_type` must be one of the following:
 - `tsub`
 - `tavg`
 
-`sort_order` must be either `desc` or `asc`
+`sort_order` must be either `"desc"` or `"asc"`
 
 #### `clear()`
 
@@ -146,3 +142,55 @@ Strip the directory information from the results. Affects the child fu
 This method _debug_ prints the current profile stats to stdout. 
 
 Debug print prints out callee functions and more detailed info than the _print_all()_ function call.
+
+## `YThreadStat`
+
+This holds the stat items as a list of _YThreadStat_ object.
+
+| *Attribute*  | *Description*                                                                   |
+|-------------|---------------------------------------------------------------------------------|
+| `id`        | thread id given by the OS                                                 |
+| `name`      | class name of the current thread object which is derived from the `threading.Thread` class                                            |
+| `ttot`      | total time spent in the last executed function                                        |
+| `sched_count`       | number of times this thread is scheduled. |
+
+
+#### `get()`
+
+This method retrieves the current thread stats.     
+
+`yappi.get_thread_stats()` is actually just a wrapper for this function. 
+
+#### `print_all(out=sys.stdout)`
+
+ This method prints the current profile stats to the file `out`.
+
+#### `sort(sort_type, sort_order="desc")`
+
+This method sorts the current profile stats.
+
+`sort_type` must be either `"ttot"` or `"scnt"`
+
+`sort_order` must be either `"desc"` or `"asc"`
+
+
+#### `clear()`
+
+Clears the retrieved stats. 
+
+Note that this only clears the current object's stat list. 
+You need to explicitly call `yappi.clear_stats()` to clear the current profile stats.
+
+#### `empty()`
+
+Returns a `bool` indicating whether we have any stats available or not.
+
+## `YChildFuncStat`
+
+This holds a list of child functions called from the main executed function as a `YChildFuncStat` object. 
+
+`YChildFuncStat` class holds a list of `YChildFuncStat` objects.
+
+For example, if `a` calls `b`, then `a.children` will hold `b` as a `YChildFuncStat` object.
+
+Holds the same attributes and methods as `YFuncStat`.
