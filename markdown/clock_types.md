@@ -1,46 +1,138 @@
-1.  summary yappi clock types
+# Clock Types
 
-Clock Types
-===========
+Currently, yappi supports two basic clock types used for calculating the timing data:
 
-Currently, yappi supports two basic clock types used for calculating the
-timing data:
+- [CPU Clock](http://en.wikipedia.org/wiki/CPU_time)
 
-` * `[`CPU`` ``Clock`](http://en.wikipedia.org/wiki/CPU_time)\
-` * `[`Wall`` ``Clock`](http://en.wikipedia.org/wiki/Wall_time)
+    `yappi.set_clock_type("cpu")`
 
-Clock types of yappi can be change via calls to
-\_yappi.set\_clock\_type()\_ API call.
+- [Wall Clock](http://en.wikipedia.org/wiki/Wall_time)
 
-Let's explain the concept via an example as I believe it is the best way
-to explain something:
+    `yappi.set_clock_type("wall")`
 
-Suppose following code:
+## Example
+
+```python
+import time
+
+import yappi
+
+
+def my_func():
+    time.sleep(4.0)
+
+
+yappi.start()
+
+my_func()
+
+yappi.get_func_stats().print_all()
+```
 
 It prints put following:
 
-So, what happened? The answer is that yappi supports CPU clock by
+```
+$ python test.py
+
+Clock type: CPU
+Ordered by: totaltime, desc
+
+name                                  ncall  tsub      ttot      tavg
+test.py:6 my_func                     1      0.000012  0.000061  0.000061
+```
+
+So, what happened? Why does tsub only show `0.000012`?
+
+The answer is that yappi supports CPU clock by
 default for timing calculations as can be seen in the output:
 
-And as \_time.sleep()\_ is a blocking function(which means it actually
-block the calling thread, thread usually sleeps in the OS queue), the
-CPU clock cannot accumulate any timing data for the function a. In fact,
-there may be some very few CPU cycles involved before actually calling
-the \_time.sleep\_, however that level of precision is not shown at all.
+```
+Clock type: cpu
+```
 
-Let's see what happens when change the clock\_type to Wall Clock:
+`time.sleep()` is a blocking function
+(which means it actually blocks the calling thread, thread usually sleeps in the OS queue),
+but, since it instructs the CPU to "sleep", the CPU clock cannot accumulate any timing data for the function `my_func`.
+
+There are however, very few CPU cycles involved before calling
+`time.sleep()`; that level of precision is not shown.
+
+Let's see what happens when change the clock type to to Wall Clock:
+
+```python
+import time
+
+import yappi
+
+
+def my_func():
+    time.sleep(4.0)
+
+
+yappi.set_clock_type("wall")
+yappi.start()
+
+my_func()
+
+yappi.get_func_stats().print_all()
+```
 
 Output for above is:
 
-So, as can be seen, now \_time.sleep\_ blocking call gets into account.
+```
+$ python test.py
+
+Clock type: WALL
+Ordered by: totaltime, desc
+
+name                                  ncall  tsub      ttot      tavg
+test.py:6 my_func                     1      0.000007  4.004159  4.004159
+```
+
+So, as you can see, now `time.sleep()` blocking call gets into account.
+
+---
+
 Let's add a piece of code that actually burns CPU cycles:
 
-When you run the above script, you actually get:
+```python
+import yappi
 
- Note that the values actually may differ from computer to computer as
+import time
+
+
+def my_func():
+    for i in range(10000000):
+        pass
+
+yappi.set_clock_type("cpu")
+yappi.start()
+
+my_func()
+
+yappi.get_func_stats().print_all()
+```
+
+
+When you run the above script, you get:
+
+```
+$ python test.py
+
+Clock type: CPU
+Ordered by: totaltime, desc
+
+name                                  ncall  tsub      ttot      tavg
+test.py:5 my_func                     1      0.178615  0.178615  0.178615
+```
+
+---
+
+NOTE: The values actually may differ from computer to computer as
 CPU clock rates may differ significantly. Yappi actually uses native OS
 APIs to retrieve per-thread CPU time information. You can see
-\_timing.c\_ module in the repository for details.
+`timing.c` module in the repository for details.
 
-So, briefly, it is up to you to decide with which mode of clock type you
-need to profile your application.
+---
+
+It is up to you to decide with which mode of clock type you need to profile your application.
