@@ -2,6 +2,8 @@
 
 Currently, yappi supports two basic clock types used for calculating the timing data:
 
+The clock type can be set using the [`yappi.set_clock_type()`](https://github.com/devxpy/yappi/blob/master/markdown/api.md#set_clock_typetype) function.
+
 - [CPU Clock](http://en.wikipedia.org/wiki/CPU_time)
 
     `yappi.set_clock_type("cpu")`
