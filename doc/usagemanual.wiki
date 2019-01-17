@@ -1,6 +1,6 @@
 #summary yappi Usage Manual
-
-= Usage Manual (v0.82) =
+<font face='Consolas'>
+= Usage Manual (v0.92) =
 
 A typical example on profiling with yappi, includes at least 3 lines of code:
 
@@ -63,3 +63,5 @@ _MainThread    6016             0.296402  1
 || tid || the thread id. ||
 || ttot || how many time this thread has spent in total. See [https://code.google.com/p/yappi/wiki/ClockTypes_v082 Clock Types] to interpret this value correctly. ||
 || scnt || how many times this thread is scheduled. ||
+
+</font>

@@ -1,8 +1,8 @@
 #summary yappi.YThreadStats
 
-= class YThreadStats (v0.82)=
+= class YThreadStats (v0.92)=
 
-<font face='Courier New'>
+<font face='Consolas'>
 
 <b><i>class</i></b> yappi.<b>YThreadStats</b>
 
@@ -16,9 +16,15 @@
 || ttot || total time spent in the last executed function. See [https://code.google.com/p/yappi/wiki/ClockTypes_v082 Clock Types] to interpret this value correctly. || 
 || sched_count || number of times this thread is scheduled. || 
 
-<b>print_all(out=sys.stdout)</b>
+<b>print_all(out=sys.stdout, columns={0:("name",13), 1:("tid", 15), 2:("ttot", 8), 3:("scnt", 10)})</b>
     This method prints the current profile stats to <i>"out"</i> which is  <i>"stdout"</i> by default. 
-
+    <i>columns</i> dict specifies the formatting of the printable columns. Every column is formatted
+    according to the parameters of this dict's item.
+    
+    An example item:
+    0:("name",13) means that the first column in position '0' has title name and its 
+    size is 13. Yappi will allocate 13 characters for this column when printing.
+    
 <b>sort(sort_type, sort_order="desc")</b>
     This method sorts the current profile stats according to the  <i>"sort_type"</i> param. 
 

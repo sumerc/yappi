@@ -1,10 +1,8 @@
 #summary yappi Reference Manual
 
-_*Please note that current version of yappi (v0.82) is not compatible with the older versions. Lots of existing API have been changed.*_
+= Reference Manual (v0.92) =
 
-= Reference Manual (v0.82) =
-
-<font face='Courier New'>
+<font face='Consolas'>
 yappi.<b>start</b>(builtins=False, profile_threads=True)
 
     Starts profiling all threads in the current interpreter instance. This function can be called from any thread at any time. Resumes profiling if stop() is called previously.
@@ -14,59 +12,49 @@ yappi.<b>start</b>(builtins=False, profile_threads=True)
 || builtins || Profile builtin functions used by standart Python modules. It is _False_ by _default_. ||
 || profile_threads ||  Profile all of the threads if 'true', else, profile only the calling thread. ||
 
-<font face='Courier New'>
+<font face='Consolas'>
 yappi.<b>stop</b>()
 </font>
 
     Stops the currently running yappi instance. Same profiling session might be resumed later by calling start().
 
 
-<font face='Courier New'>
+<font face='Consolas'>
 yappi.<b>clear_stats</b>()
 </font>
 
     Clears the profiler results. The results stays in memory unless application(all threads including the main thread) exists or clear_stats() is called.
 
 
-<font face='Courier New'>
+<font face='Consolas'>
 yappi.<b>get_func_stats</b>()
 </font>
 
-    Returns the function stats as [https://code.google.com/p/yappi/wiki/YFuncStats_v082 YFuncStats]  object.
+    Returns the function stats as [https://code.google.com/p/yappi/wiki/YFuncStats_v092 YFuncStats]  object.
 
 
-<font face='Courier New'>
+<font face='Consolas'>
 yappi.<b>get_thread_stats</b>()
 </font>
 
-    Returns the thread stats as [https://code.google.com/p/yappi/wiki/YThreadStats_v082 YThreadStats]  object.
+    Returns the thread stats as [https://code.google.com/p/yappi/wiki/YThreadStats_v092 YThreadStats]  object.
 
 
-<font face='Courier New'>
+<font face='Consolas'>
 yappi.<b>is_running</b>()
 </font>
 
     Returns a boolean indicating whether profiler is running or not.
 
 
-<font face='Courier New'>
+<font face='Consolas'>
 yappi.<b>get_clock_type</b>()
 </font>
 
     Returns information about the underlying clock type Yappi uses to measure timing.
+    Return values can either be <i>CPU</i> or <i>Wall</i>.
 
-{{{
-'''
-Example on windows:
-'''
->>> import yappi
->>> yappi.get_clock_type()
-{'resolution': '100ns', 'api': 'getthreadtimes', 'type': 'cpu'}
->>>
-}}}
-
-
-<font face='Courier New'>
+<font face='Consolas'>
 yappi.<b>set_clock_type</b>(type)
 </font>
 
@@ -76,17 +64,107 @@ yappi.<b>set_clock_type</b>(type)
 || Wall || [http://en.wikipedia.org/wiki/Wall_time Details] ||
 || CPU || [http://en.wikipedia.org/wiki/CPU_time Details] ||
 
+<font face='Consolas'>
+yappi.<b>get_clock_time</b>()
+</font>
 
-<font face='Courier New'>
+    Returns the current clock time with regard to the underlying clock type.
+
+<font face='Consolas'>
+yappi.<b>get_clock_info</b>()
+</font>
+
+    Returns a dict containing the OS API used for timing, the precision of the underlying clock.
+    
+{{{
+'''
+Example on Windows:
+'''
+>>> import yappi
+>>> yappi.get_clock_info()
+{'resolution': '100ns', 'api': 'getthreadtimes'}
+>>>
+}}}
+
+<font face='Consolas'>
 yappi.<b>get_mem_usage</b>()
 </font>
 
     Returns the internal memory usage of the profiler itself.
+    
+    
+<font face='Consolas'>
+yappi.<b>shift_context_time</b>(context_id, amount)
+</font>
+    Adjust a context's start time, and the time of all functions currently on
+    the context's stack. 'amount' is in the same units as get_clock_type(). A
+    negative 'amount' increases the 'ttot' statistic for this context and all
+    functions on the stack, and a positive 'amount' decreases 'ttot'.
 
-<font face='Courier New'>
+<font face='Consolas'>
+yappi.<b>set_context_id_callback</b>(callback)
+</font>    
+    Use a number other than thread_id to determine the current context.
+    The callback must take no arguments and return an integer. 
+    
+{{{
+'''
+Example:
+'''
+>>> import greenlet, yappi
+>>> yappi.set_context_id_callback(lambda: id(greenlet.getcurrent()))
+}}}
+
+<font face='Consolas'>
+yappi.<b>set_context_name_callback</b>(callback)
+</font>    
+    Use a string other than the current thread's class name as the context's
+    name. The callback must take no arguments and return a string.
+
+{{{
+'''
+Example:
+'''
+>>> import greenlet, yappi
+>>> yappi.set_context_name_callback(lambda: greenlet.getcurrent().__class__.__name__)
+}}}
+
+<font face='Consolas'>
 yappi.<b>convert2pstats</b>(stats)
 </font>
 
     Converts the internal stat type of yappi(which is returned by a call to YFuncStats.get()) as [http://docs.python.org/3.4/library/profile.html#module-pstats pstats] object.
+
+<font face='Consolas'>
+yappi.<b>profile(clock_type="cpu", profile_builtins=False, return_callback=None)</b>
+</font>
+
+    A profile decorator that can be used to profile a single call.
+    <i>clock_type</i> and <i>profile_builtins</i> parameters are same as yappi.<i>start</i>()
+    return_callback is a callable that is called when function finishes executing. (If function
+    is recursive return_callback will be called when the last function finishes.)
+    Yappi provides the actual function object as first parameter and the function stats as second
+    to this callback.
+    
+{{{
+'''
+Example:
+Below example seem simple at first but it does a lot. It simply merges different
+profiling results of a function together into a single file and save it as 
+<function_name>.profile.
+'''
+import yappi
+def aggregate(func, stats):
+    fname = "%s.profile" % (func.__name__)
+    try: 
+        stats.add(fname)
+    except IOError:
+        pass
+    stats.save(fname)
+
+@yappi.profile(return_callback=aggregate)
+def sum(x, y):
+    return x+y
+}}}
 
 </font>
