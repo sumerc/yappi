@@ -1,8 +1,5 @@
 # API reference
 
-**Please note that current version of yappi (v0.82) is not compatible with the older versions.
-Lots of existing APIs have been changed.**
-
 ## Functions
 
 #### `start(builtins=False, profile_threads=True)`
