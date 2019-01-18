@@ -4,10 +4,12 @@ import unittest
 
 class YappiUnitTestCase(unittest.TestCase):
     def setUp(self):
-        if yappi.is_running():
-            yappi.stop()
+        # reset everything back to default
+        yappi.stop()
         yappi.clear_stats()
         yappi.set_clock_type('cpu') # reset to default clock type
+        yappi.set_context_id_callback(None)
+        yappi.set_context_name_callback(None)
 
     def tearDown(self):
         fstats = yappi.get_func_stats()
@@ -50,5 +52,13 @@ def is_py3x():
 def find_stat_by_name(stats, name):
     for stat in stats:
         if stat.name == name:
+            return stat
+
+def get_stat_names(stats):
+    return [stat.name for stat in stats]
+
+def find_stat_by_id(stats, id):
+    for stat in stats:
+        if stat.id == id:
             return stat
      

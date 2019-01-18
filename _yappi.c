@@ -49,18 +49,26 @@ typedef struct {
     long long tsubtotal;                    // time function spent excluding its children (include recursive calls)
     long long ttotal;                       // the total time that a function spent
     unsigned int builtin;                   // 0 for normal, 1 for ccall
-    unsigned int index;    
+    unsigned int index;
     _pit_children_info *children;
 } _pit; // profile_item
 
 typedef struct {
     _cstack *cs;
     _htab *rec_levels;
-    long id;
-    char *name;
+    _htab *pits;
+    long id;                                // internal tid given by user callback or yappi. Will be unique per profile session.
+    long tid;                               // the real OS thread id.
+    PyObject *name;
     long long t0;                           // profiling start CPU time
     unsigned long sched_cnt;                // how many times this thread is scheduled
 } _ctx; // context
+
+typedef struct
+{
+    PyObject *efn;
+    _ctx *ctx;
+} _ctxfuncenumarg;
 
 typedef struct {
     int builtins;
@@ -70,20 +78,21 @@ typedef struct {
 // globals
 static PyObject *YappiProfileError;
 static _htab *contexts;
-static _htab *pits;
 static _flag flags;
 static _freelist *flpit;
 static _freelist *flctx;
 static int yappinitialized;
 static unsigned int ycurfuncindex; // used for providing unique index for functions
-static int yapphavestats;	// start() called at least once or stats cleared?
+static long ycurthreadindex;
+static int yapphavestats;   // start() called at least once or stats cleared?
 static int yapprunning;
 static int paused;
 static time_t yappstarttime;
 static long long yappstarttick;
 static long long yappstoptick;
-static _ctx *prev_ctx;
-static _ctx *current_ctx;
+static _ctx *prev_ctx = NULL;
+static _ctx *current_ctx = NULL;
+static _ctx *initial_ctx = NULL; // used for holding the context that called start()
 static PyObject *context_id_callback = NULL;
 static PyObject *context_name_callback = NULL;
 static PyObject *test_timings; // used for testing
@@ -106,12 +115,12 @@ static PyObject *test_timings; // used for testing
 // forwards
 static _ctx * _profile_thread(PyThreadState *ts);
 
-static PyObject * 
+static PyObject *
 PyStr_FromFormat(const char *fmt, ...)
 {
     PyObject* ret;
     va_list vargs;
-    
+
     va_start(vargs, fmt);
     ret = PyStr_FromFormatV(fmt, vargs);
     va_end(vargs);
@@ -159,8 +168,14 @@ _create_ctx(void)
     ctx->cs = screate(100);
     if (!ctx->cs)
         return NULL;
+
+    ctx->pits = htcreate(HT_PIT_SIZE);
+    if (!ctx->pits)
+        return NULL;
+
     ctx->sched_cnt = 0;
     ctx->id = 0;
+    ctx->tid = 0;
     ctx->name = NULL;
     ctx->t0 = tickcount();
     ctx->rec_levels = htcreate(HT_RLEVEL_SIZE);
@@ -169,53 +184,40 @@ _create_ctx(void)
     return ctx;
 }
 
-char *
-_current_ctx_name(void)
+static PyObject *
+_current_context_name(void)
 {
-    char *rc = NULL;
-    PyObject *callback_rc = NULL;
-    PyObject *mthr, *cthr, *tattr1, *tattr2;
-    mthr = cthr = tattr1 = tattr2 = NULL;
-    
-    if (context_name_callback) {
-        callback_rc = PyObject_CallFunctionObjArgs(context_name_callback, NULL);
-        if (!callback_rc) {
-            PyErr_Print();
-            goto err;
-        }
-        if (!PyStr_Check(callback_rc)) {
-            yerr("context name callback returned non-string");
-            goto err;
-        }
+    PyObject *name;
 
-        rc = PyStr_AS_CSTRING(callback_rc);
-        Py_CLEAR(callback_rc);
-
-        return rc;
-    } else {        
-        mthr = PyImport_ImportModuleNoBlock("threading"); // Requires Python 2.6.
-        if (!mthr)
-            goto err;
-        cthr = PyObject_CallMethod(mthr, "currentThread", "");
-        if (!cthr)
-            goto err;
-        tattr1 = PyObject_GetAttrString(cthr, "__class__");
-        if (!tattr1)
-            goto err;
-        tattr2 = PyObject_GetAttrString(tattr1, "__name__");
-        if (!tattr2)
-            goto err;
-
-        return PyStr_AS_CSTRING(tattr2);
+    if (!context_name_callback) {
+        return NULL;
     }
+
+    name = PyObject_CallFunctionObjArgs(context_name_callback, NULL);
+    if (!name) {
+        PyErr_Print();
+        goto err;
+    }
+
+    if (name == Py_None) {
+        // Name not available yet - will try again on the next call
+        goto later;
+    }
+
+    if (!PyStr_Check(name)) {
+        yerr("context name callback returned non-string");
+        goto err;
+    }
+
+    return name;
+
 err:
     PyErr_Clear();
-    Py_XDECREF(mthr);
-    Py_XDECREF(cthr);
-    Py_XDECREF(tattr1);
-    Py_XDECREF(tattr2);
-    Py_XDECREF(callback_rc);
     Py_CLEAR(context_name_callback);  /* Don't use the callback again. */
+    Py_XDECREF(name);
+    return NULL;
+later:
+    Py_XDECREF(name);
     return NULL;
 }
 
@@ -240,17 +242,28 @@ _current_context_id(PyThreadState *ts)
     } else {
         // Use thread_id instead of ts pointer, because when we create/delete many threads, some
         // of them do not show up in the thread_stats, because ts pointers are recycled in the VM.
-        // Also, we do not want to delete thread stats unless clear_stats() is called explicitly.
-        // We rely on the OS to give us unique thread ids, this time.
-        // thread_id -> long
-        return (uintptr_t)ts->thread_id;
+        // Also, OS tids are recycled, too. The only valid way is to give ctx's custom tids which
+        // are hold in a per-thread structure. Again: we use an integer instead of directly mapping the ctx
+        // pointer to some per-thread structure because other threading libraries do not necessarily
+        // have direct ThreadState->Thread mapping. Greenlets, for example, will only have a single
+        // thread. Therefore, we need to identify the "context" concept independent from ThreadState 
+        // objects.
+
+        // TODO: Any more optimization? This has increased the runtime factor from 7x to 11x.
+        // and also we may have a memory leak below. We maybe can optimize the common case.
+        PyObject *d = PyThreadState_GetDict();
+        PyObject *ytid = PyDict_GetItemString(d, "_yappi_tid");
+        if (!ytid) {
+            ytid = PyLong_FromLong(ycurthreadindex++);
+            PyDict_SetItemString(d, "_yappi_tid", ytid);
+        }
+        rc = PyLong_AsLong(ytid);
+        return rc;
     }
-    
+
 error:
     PyErr_Clear();
-    // don't use callback again
-    Py_XDECREF(context_id_callback);
-    context_id_callback = NULL;
+    Py_CLEAR(context_id_callback); // don't use callback again
     return 0;
 }
 
@@ -281,8 +294,41 @@ _del_pit(_pit *pit)
         it = next;
     }
     pit->children = NULL;
-    Py_XDECREF(pit->name);
-    Py_XDECREF(pit->modname);
+    Py_CLEAR(pit->name);
+    Py_CLEAR(pit->modname);
+}
+
+static PyObject *
+_pycfunction_module_name(PyCFunctionObject *cfn)
+{
+    PyObject *obj;
+    PyObject *name;
+
+    // The __module__ attribute, can be anything
+    obj = cfn->m_module;
+
+    if (!obj) {
+        // TODO: Is this always correct?
+        name = PyStr_FromString("__builtin__");
+    } else if (PyStr_Check(obj)) {
+        Py_INCREF(obj);
+        name = obj;
+    } else if (PyModule_Check(obj)) {
+        const char *s = PyModule_GetName(obj);
+        if (!s) {
+            goto error;
+        }
+        name = PyStr_FromString(s);
+    } else {
+        // Something else - str(obj)
+        name = PyObject_Str(obj);
+    }
+
+    return name;
+
+error:
+    PyErr_Clear();
+    return PyStr_FromString("<unknown>");
 }
 
 static _pit *
@@ -290,8 +336,6 @@ _ccode2pit(void *cco)
 {
     PyCFunctionObject *cfn;
     _hitem *it;
-    PyObject *mod;
-    char *modname;
     PyObject *name;
 
     cfn = cco;
@@ -299,42 +343,26 @@ _ccode2pit(void *cco)
     // Hashing cfn to the pits table causes different object methods
     // to be hashed into the same slot. Use cfn->m_ml for hashing the
     // Python C functions.
-    it = hfind(pits, (uintptr_t)cfn->m_ml);
+    it = hfind(current_ctx->pits, (uintptr_t)cfn->m_ml);
     if (!it) {
         _pit *pit = _create_pit();
         if (!pit)
             return NULL;
-        if (!hadd(pits, (uintptr_t)cfn->m_ml, (uintptr_t)pit))
+        if (!hadd(current_ctx->pits, (uintptr_t)cfn->m_ml, (uintptr_t)pit))
             return NULL;
 
         pit->builtin = 1;
-
-        // get module name
-        modname = NULL;
-        mod = cfn->m_module;
-        
-        if (mod) {
-            if (PyStr_Check(mod)) {
-                modname = PyStr_AS_CSTRING(mod);
-            } else if (PyModule_Check(mod)) {
-                modname = (char *)PyModule_GetName(mod);
-            } 
-        }
-                
-        if (modname == NULL) {
-            PyErr_Clear();
-            modname = "__builtin__";
-        }
-        
-        pit->modname = PyStr_FromString(modname);
+        pit->modname = _pycfunction_module_name(cfn);
         pit->lineno = 0;
-        
+
         // built-in method?
         if (cfn->m_self != NULL) {
             name = PyStr_FromString(cfn->m_ml->ml_name);
             if (name != NULL) {
-                PyObject *mo = _PyType_Lookup((PyTypeObject *)PyObject_Type(cfn->m_self), name);
+                PyObject *obj_type = PyObject_Type(cfn->m_self);
+                PyObject *mo = _PyType_Lookup((PyTypeObject *)obj_type, name);
                 Py_XINCREF(mo);
+                Py_XDECREF(obj_type);
                 Py_DECREF(name);
                 if (mo != NULL) {
                     pit->name = PyObject_Repr(mo);
@@ -359,7 +387,7 @@ _code2pit(PyFrameObject *fobj)
     _pit *pit;
 
     cobj = fobj->f_code;
-    it = hfind(pits, (uintptr_t)cobj);
+    it = hfind(current_ctx->pits, (uintptr_t)cobj);
     if (it) {
         return ((_pit *)it->val);
     }
@@ -367,11 +395,12 @@ _code2pit(PyFrameObject *fobj)
     pit = _create_pit();
     if (!pit)
         return NULL;
-    if (!hadd(pits, (uintptr_t)cobj, (uintptr_t)pit))
+    if (!hadd(current_ctx->pits, (uintptr_t)cobj, (uintptr_t)pit))
         return NULL;
 
     pit->name = NULL;
-    pit->modname = PyStr_FromString(PyStr_AS_CSTRING(cobj->co_filename));    
+    Py_INCREF(cobj->co_filename);
+    pit->modname = cobj->co_filename;
     pit->lineno = cobj->co_firstlineno;
 
     PyFrame_FastToLocals(fobj);
@@ -383,17 +412,22 @@ _code2pit(PyFrameObject *fobj)
             if (locals) {
                 PyObject* self = PyDict_GetItemString(locals, "self");
                 if (self) {
-                    PyObject *as = PyObject_GetAttrString(self, "__class__");
-                    if (as) {
-                        as = PyObject_GetAttrString(as, "__name__");                    
-                        pit->name = PyStr_FromFormat("%s.%s", PyStr_AS_CSTRING(as), PyStr_AS_CSTRING(cobj->co_name));
+                    PyObject *class_obj = PyObject_GetAttrString(self, "__class__");
+                    if (class_obj) {
+                        PyObject *class_name = PyObject_GetAttrString(class_obj, "__name__");
+                        if (class_name) {
+                            pit->name = PyStr_FromFormat("%s.%s", PyStr_AS_CSTRING(class_name), PyStr_AS_CSTRING(cobj->co_name));
+                            Py_DECREF(class_name);
+                        }
+                        Py_DECREF(class_obj);
                     }
                 }
             }
         }
     }
     if (!pit->name) {
-        pit->name = PyStr_FromString(PyStr_AS_CSTRING(cobj->co_name));
+        Py_INCREF(cobj->co_name);
+        pit->name = cobj->co_name;
     }
 
     PyFrame_LocalsToFast(fobj, 0);
@@ -405,7 +439,7 @@ static _pit *
 _get_frame(void)
 {
     _cstackitem *ci;
-    
+
     ci = shead(current_ctx->cs);
     if (!ci) {
         return NULL;
@@ -423,7 +457,7 @@ static _pit *
 _pop_frame(void)
 {
     _cstackitem *ci;
-    
+
     ci = spop(current_ctx->cs);
     if (!ci) {
         return NULL;
@@ -435,9 +469,9 @@ static _pit_children_info *
 _get_child_info(_pit *parent, _pit *current)
 {
     _pit_children_info *citem;
-    
-    citem = parent->children;    
-    while(citem) { 
+
+    citem = parent->children;
+    while(citem) {
         if (citem->index == current->index) {
             break;
         }
@@ -450,7 +484,8 @@ static _pit_children_info *
 _add_child_info(_pit *parent, _pit *current)
 {
     _pit_children_info *newci;
-  
+
+    // TODO: Optimize by moving to a freelist?
     newci = ymalloc(sizeof(_pit_children_info));
     newci->index = current->index;
     newci->callcount = 0;
@@ -459,7 +494,7 @@ _add_child_info(_pit *parent, _pit *current)
     newci->tsubtotal = 0;
     newci->next = (struct _pit_children_info *)parent->children;
     parent->children = (_pit_children_info *)newci;
-    
+
     return newci;
 }
 
@@ -467,7 +502,7 @@ static long
 get_rec_level(uintptr_t key)
 {
     _hitem *it;
-    
+
     it = hfind(current_ctx->rec_levels, key);
     if (!it) {
         _log_err(1);
@@ -480,7 +515,7 @@ static int
 incr_rec_level(uintptr_t key)
 {
     _hitem *it;
-    
+
     it = hfind(current_ctx->rec_levels, key);
     if (it) {
         it->val++;
@@ -490,7 +525,7 @@ incr_rec_level(uintptr_t key)
             _log_err(2);
             return 0; // should not happen
         }
-    }    
+    }
     return 1;
 }
 
@@ -499,7 +534,7 @@ decr_rec_level(uintptr_t key)
 {
     _hitem *it;
     uintptr_t v;
-    
+
     it = hfind(current_ctx->rec_levels, key);
     if (it) {
         v = it->val--;  /*supress warning -- it is safe to cast long vs pointers*/
@@ -509,8 +544,8 @@ decr_rec_level(uintptr_t key)
         }
     } else {
         _log_err(3);
-        return 0; // should not happen 
-    }  
+        return 0; // should not happen
+    }
     return 1;
 }
 
@@ -518,40 +553,42 @@ static long long
 _get_frame_elapsed(void)
 {
     _cstackitem *ci;
-    _pit *cp;    
+    _pit *cp;
     long long result;
-    
+
     ci = shead(current_ctx->cs);
     if (!ci) {
         return 0LL;
     }
     cp = ci->ckey;
-    
-    if (test_timings) { 
-        uintptr_t rlevel = get_rec_level((uintptr_t)cp);        
-        PyObject *tval = PyDict_GetItem(test_timings, 
-            PyStr_FromFormat("%s_%d", PyStr_AS_CSTRING(cp->name), rlevel));
-        //printf("name:%s_%d \r\n", PyStr_AS_CSTRING(cp->name), rlevel);    
-        if (tval) {            
+
+    if (test_timings) {
+        uintptr_t rlevel = get_rec_level((uintptr_t)cp);
+        PyObject *formatted_string = PyStr_FromFormat(
+                "%s_%d", PyStr_AS_CSTRING(cp->name), rlevel);
+
+        PyObject *tval = PyDict_GetItem(test_timings, formatted_string);
+        Py_DECREF(formatted_string);
+        if (tval) {
             result = PyLong_AsLong(tval);
         } else {
             result = DEFAULT_TEST_ELAPSED_TIME;
         }
-        
+
     } else {
         result = tickcount() - ci->t0;
     }
-    
+
     return result;
 }
 
 static void
 _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 {
-    _pit *cp,*pp;    
+    _pit *cp,*pp;
     _cstackitem *ci;
     _pit_children_info *pci;
-    
+
     if (ccall) {
         cp = _ccode2pit((PyCFunctionObject *)arg);
     } else {
@@ -564,19 +601,19 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         _log_err(4);
         return;
     }
-    
+
     // create/update children info if we have a valid parent
-    pp = _get_frame();    
+    pp = _get_frame();
     if (pp) {
-        pci = _get_child_info(pp, cp);    
+        pci = _get_child_info(pp, cp);
         if(!pci)
         {
             pci = _add_child_info(pp, cp);
-        }    
+        }
         pci->callcount++;
         incr_rec_level((uintptr_t)pci);
     }
-    
+
     ci = _push_frame(cp);
     if (!ci) { // runaway! (defensive)
         _log_err(5);
@@ -591,19 +628,19 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 static void
 _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 {
-    long long elapsed;    
-    _pit *cp, *pp, *ppp;    
+    long long elapsed;
+    _pit *cp, *pp, *ppp;
     _pit_children_info *pci,*ppci;
-            
-    elapsed = _get_frame_elapsed();    
-    
-    // leaving a frame while callstack is empty? 
+
+    elapsed = _get_frame_elapsed();
+
+    // leaving a frame while callstack is empty?
     cp = _pop_frame();
     if (!cp)
     {
         return;
     }
-    
+
     // is this the last function in the callstack?
     pp = _pop_frame();
     if (!pp) {
@@ -613,9 +650,9 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         decr_rec_level((uintptr_t)cp);
         return;
     }
-    
+
     // get children info
-    pci = _get_child_info(pp, cp);    
+    pci = _get_child_info(pp, cp);
     if(!pci)
     {
         _log_err(6);
@@ -623,40 +660,47 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     }
     // a calls b. b's elapsed time is subtracted from a's tsub and a adds its own elapsed it is leaving.
     pp->tsubtotal -= elapsed;
-    cp->tsubtotal += elapsed;    
-        
+    cp->tsubtotal += elapsed;
+
     // a calls b calls c. child c's elapsed time is subtracted from child b's tsub and child b adds its
     // own elapsed when it is leaving
     ppp = _get_frame();
     if (ppp) {
-        ppci = _get_child_info(ppp, pp);    
+        ppci = _get_child_info(ppp, pp);
         if(!ppci)
         {
             _log_err(7);
             return;
-        }            
+        }
         ppci->tsubtotal -= elapsed;
     }
     pci->tsubtotal += elapsed;
-    
-    // wait for the top-level function/parent/child to update timing values accordingly.              
+
+    // wait for the top-level function/parent/child to update timing values accordingly.
     if (get_rec_level((uintptr_t)cp) == 1) {
         cp->ttotal += elapsed;
         cp->nonrecursive_callcount++;
         pci->nonrecursive_callcount++;
     }
-    
+
     if (get_rec_level((uintptr_t)pci) == 1) {
         pci->ttotal += elapsed;
     }
-    
+
     decr_rec_level((uintptr_t)pci);
     decr_rec_level((uintptr_t)cp);
-    
+
     if (!_push_frame(pp)) {
         _log_err(8);
         return; //defensive
     }
+}
+
+static int
+_pitenumdel(_hitem *item, void *arg)
+{
+    _del_pit((_pit *)item->val);
+    return 0;
 }
 
 // context will be cleared by the free list. we do not free it here.
@@ -666,6 +710,9 @@ _del_ctx(_ctx * ctx)
 {
     sdestroy(ctx->cs);
     htdestroy(ctx->rec_levels);
+    henum(ctx->pits, _pitenumdel, NULL);
+    htdestroy(ctx->pits);
+    Py_CLEAR(ctx->name);
 }
 
 static int
@@ -673,16 +720,21 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
                PyObject *arg)
 {
     PyObject *last_type, *last_value, *last_tb;
-        
     PyErr_Fetch(&last_type, &last_value, &last_tb);
-    
+
     // get current ctx
-    current_ctx = _thread2ctx(frame->f_tstate);
+    current_ctx = _thread2ctx(PyThreadState_GET());
     if (!current_ctx) {
         _log_err(9);
         goto finally;
     }
-    
+
+    // do not profile if multi-threaded is off and the context is different than
+    // the context that called start.
+    if (!flags.multithreaded && current_ctx != initial_ctx) {
+        goto finally;
+    }
+
     // update ctx stats
     if (prev_ctx != current_ctx) {
         current_ctx->sched_cnt++;
@@ -690,10 +742,9 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     prev_ctx = current_ctx;
     if (!current_ctx->name)
     {
-        current_ctx->name = _current_ctx_name();
+        current_ctx->name = _current_context_name();
     }
-    
-        
+
     switch (what) {
     case PyTrace_CALL:
         _call_enter(self, frame, arg, 0);
@@ -701,8 +752,11 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     case PyTrace_RETURN: // either normally or with an exception
         _call_leave(self, frame, arg, 0);
         break;
+    /* case PyTrace_EXCEPTION:
+        If the exception results in the function exiting, a
+        PyTrace_RETURN event will be generated, so we don't need to
+        handle it. */
 
-#ifdef PyTrace_C_CALL	// not defined in Python <= 2.3
     case PyTrace_C_CALL:
         if (PyCFunction_Check(arg))
             _call_enter(self, frame, arg, 1); // set ccall to true
@@ -713,20 +767,18 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         if (PyCFunction_Check(arg))
             _call_leave(self, frame, arg, 1);
         break;
-#endif
     default:
         break;
     }
 
     goto finally;
-    
+
 finally:
     if (last_type) {
         PyErr_Restore(last_type, last_value, last_tb);
     }
     return 0;
 }
-
 
 static _ctx *
 _profile_thread(PyThreadState *ts)
@@ -735,14 +787,13 @@ _profile_thread(PyThreadState *ts)
     _ctx *ctx;
     _hitem *it;
 
-    ctx = _create_ctx();
-    if (!ctx) {
-        return NULL;
-    }
-    
     ctx_id = _current_context_id(ts);
     it = hfind(contexts, ctx_id);
     if (!it) {
+        ctx = _create_ctx();
+        if (!ctx) {
+            return NULL;
+        }    
         if (!hadd(contexts, ctx_id, (uintptr_t)ctx)) {
             _del_ctx(ctx);
             if (!flput(flctx, ctx)) {
@@ -751,11 +802,14 @@ _profile_thread(PyThreadState *ts)
             _log_err(11);
             return NULL;
         }
+    } else {
+        ctx = (_ctx *)it->val;
     }
-
+    
     ts->use_tracing = 1;
     ts->c_profilefunc = _yapp_callback;
     ctx->id = ctx_id;
+    ctx->tid = ts->thread_id;
 
     return ctx;
 }
@@ -771,21 +825,21 @@ _unprofile_thread(PyThreadState *ts)
 static void
 _ensure_thread_profiled(PyThreadState *ts)
 {
-    PyThreadState *p = NULL;
-
-    for (p=ts->interp->tstate_head ; p != NULL; p = p->next) {
-        if (ts->c_profilefunc != _yapp_callback) {
-            _profile_thread(ts);
-        }
-    }
+    if (ts->c_profilefunc != _yapp_callback)
+        _profile_thread(ts);
 }
 
 static void
 _enum_threads(_ctx* (*f) (PyThreadState *))
 {
-    PyThreadState *p = NULL;
-    for (p=PyThreadState_GET()->interp->tstate_head ; p != NULL; p = p->next) {
-        f(p);
+    PyThreadState *ts;
+    PyInterpreterState* is;
+
+    for(is=PyInterpreterState_Head();is!=NULL;is = PyInterpreterState_Next(is))
+    {
+        for (ts=PyInterpreterState_ThreadHead(is) ; ts != NULL; ts = ts->next) {
+            f(ts);
+        }
     }
 }
 
@@ -797,22 +851,32 @@ _init_profiler(void)
     if (!yappinitialized) {
         contexts = htcreate(HT_CTX_SIZE);
         if (!contexts)
-            return 0;
-        pits = htcreate(HT_PIT_SIZE);
-        if (!pits)
-            return 0;
+            goto error;
         flpit = flcreate(sizeof(_pit), FL_PIT_SIZE);
         if (!flpit)
-            return 0;
+            goto error;
         flctx = flcreate(sizeof(_ctx), FL_CTX_SIZE);
         if (!flctx)
-            return 0;
+            goto error;
         yappinitialized = 1;
-        current_ctx = NULL;
-        prev_ctx = NULL;
-        ycurfuncindex = 0;
     }
     return 1;
+
+error:
+    if (contexts) {
+        htdestroy(contexts);
+        contexts = NULL;
+    }
+    if (flpit) {
+        fldestroy(flpit);
+        flpit = NULL;
+    }
+    if (flctx) {
+        fldestroy(flctx);
+        flctx = NULL;
+    }
+
+    return 0;
 }
 
 static PyObject*
@@ -826,11 +890,11 @@ profile_event(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "OOO", &frame, &event, &arg)) {
         return NULL;
     }
-    
+
     if (flags.multithreaded) {
         _ensure_thread_profiled(PyThreadState_GET());
     }
-    
+
     ev = PyStr_AS_CSTRING(event);
 
     if (strcmp("call", ev)==0)
@@ -847,36 +911,6 @@ profile_event(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
-static PyObject*
-start(PyObject *self, PyObject *args)
-{
-    if (yapprunning) {
-        Py_RETURN_NONE;
-    }
-
-    if (!PyArg_ParseTuple(args, "ii", &flags.builtins, &flags.multithreaded))
-        return NULL;
-
-    if (!_init_profiler()) {
-        PyErr_SetString(YappiProfileError, "profiler cannot be initialized.");
-        return NULL;
-    }
-    
-    if (flags.multithreaded) {
-        _enum_threads(&_profile_thread);
-    } else {
-        _ensure_thread_profiled(PyThreadState_GET());
-    }
-    
-    yapprunning = 1;
-    yapphavestats = 1;
-    time (&yappstarttime);
-    yappstarttick = tickcount();
-    
-    Py_RETURN_NONE;
-}
-
-
 static long long
 _calc_cumdiff(long long a, long long b)
 {
@@ -889,52 +923,84 @@ _calc_cumdiff(long long a, long long b)
 }
 
 static int
-_pitenumdel(_hitem *item, void *arg)
-{
-    _del_pit((_pit *)item->val);
-    return 0;
-}
-
-static int
 _ctxenumdel(_hitem *item, void *arg)
 {
     _del_ctx(((_ctx *)item->val) );
     return 0;
 }
 
-static PyObject*
-stop(PyObject *self, PyObject *args)
+// start profiling. return 1 on success, or 0 and set exception.
+static int
+_start(void)
 {
-    if (!yapprunning) {
-        Py_RETURN_NONE;
+    if (yapprunning)
+        return 1;
+
+    if (!_init_profiler()) {
+        PyErr_SetString(YappiProfileError, "profiler cannot be initialized.");
+        return 0;
     }
+
+    if (flags.multithreaded) {
+        _enum_threads(&_profile_thread);
+    } else {
+        _ensure_thread_profiled(PyThreadState_GET());
+        initial_ctx = _thread2ctx(PyThreadState_GET());
+    }
+
+    yapprunning = 1;
+    yapphavestats = 1;
+    time (&yappstarttime);
+    yappstarttick = tickcount();
+    return 1;
+}
+
+static void
+_stop(void)
+{
+    if (!yapprunning)
+        return;
 
     _enum_threads(&_unprofile_thread);
 
     yapprunning = 0;
     yappstoptick = tickcount();
-
-    Py_RETURN_NONE;
 }
 
 static PyObject*
 clear_stats(PyObject *self, PyObject *args)
-{    
+{
+    PyObject *d;
+
     if (!yapphavestats) {
         Py_RETURN_NONE;
     }
-    
-    henum(pits, _pitenumdel, NULL);
-    htdestroy(pits);
+
+    current_ctx = NULL;
+    prev_ctx = NULL;
+    initial_ctx = NULL;
+
     henum(contexts, _ctxenumdel, NULL);
     htdestroy(contexts);
-    
+    contexts = NULL;
+
     fldestroy(flpit);
+    flpit = NULL;
+
     fldestroy(flctx);
+    flctx = NULL;
+
     yappinitialized = 0;
     yapphavestats = 0;
-    Py_XDECREF(test_timings);
-    test_timings = NULL;
+    ycurfuncindex = 0;
+    ycurthreadindex = 0;
+
+    d = PyThreadState_GET()->dict;
+    if (PyDict_GetItemString(d, "_yappi_tid")) {
+        PyDict_DelItemString(d, "_yappi_tid");
+    }
+
+    Py_CLEAR(test_timings);
 
 // check for mem leaks if DEBUG_MEM is specified
 #ifdef DEBUG_MEM
@@ -958,13 +1024,13 @@ static int
 _ctxenumstat(_hitem *item, void *arg)
 {
     PyObject *efn;
-    char *tcname;
+    const char *tcname;
     _ctx *ctx;
     long long cumdiff;
     PyObject *exc;
-    
+
     ctx = (_ctx *)item->val;
-    
+
     if(ctx->sched_cnt == 0) {
         // we return here because if sched_cnt is zero, then this means not any single function
         // executed in the context of this thread. We do not want to show any thread stats for this case especially
@@ -974,21 +1040,24 @@ _ctxenumstat(_hitem *item, void *arg)
         // second invocation of test_start_flags() generates this situation.
         return 0;
     }
-    
-    tcname = ctx->name;
-    if (tcname == NULL)
+
+    if (ctx->name)
+        tcname = PyStr_AS_CSTRING(ctx->name);
+    else
         tcname = UNINITIALIZED_STRING_VAL;
+
     efn = (PyObject *)arg;
 
     cumdiff = _calc_cumdiff(tickcount(), ctx->t0);
-    
-    exc = PyObject_CallFunction(efn, "((skfk))", tcname, ctx->id, 
+
+    exc = PyObject_CallFunction(efn, "((skkfk))", tcname, ctx->id, ctx->tid,
         cumdiff * tickfactor(), ctx->sched_cnt);
     if (!exc) {
         PyErr_Print();
         return 1; // abort enumeration
     }
 
+    Py_DECREF(exc);
     return 0;
 }
 
@@ -1017,46 +1086,91 @@ enum_thread_stats(PyObject *self, PyObject *args)
 }
 
 static int
-_pitenumstat(_hitem *item, void * arg)
+_pitenumstat(_hitem *item, void *arg)
 {
-    PyObject *efn;
     _pit *pt;
     PyObject *exc;
     PyObject *children;
     _pit_children_info *pci;
+    _ctxfuncenumarg *eargs;
 
+    children = NULL;
     pt = (_pit *)item->val;
+    eargs = (_ctxfuncenumarg *)arg;
+
     // do not show builtin pits if specified
     if  ((!flags.builtins) && (pt->builtin)) {
         return 0;
     }
 
-    efn = (PyObject *)arg;
-
     // convert children function index list to PyList
     children = PyList_New(0);
     pci = pt->children;
     while(pci) {
+        PyObject *stats_tuple;
         // normalize tsubtotal. tsubtotal being negative is an expected situation.
         if (pci->tsubtotal < 0) {
             pci->tsubtotal = 0;
-        }        
-        PyList_Append(children, Py_BuildValue("Ikkff", pci->index, pci->callcount, 
-                pci->nonrecursive_callcount, _normt(pci->ttotal), _normt(pci->tsubtotal) ));
+        }
+        stats_tuple = Py_BuildValue("Ikkff", pci->index, pci->callcount,
+                pci->nonrecursive_callcount, _normt(pci->ttotal),
+                _normt(pci->tsubtotal));
+        PyList_Append(children, stats_tuple);
+        Py_DECREF(stats_tuple);
         pci = (_pit_children_info *)pci->next;
     }
     // normalize tsubtotal. tsubtotal being negative is an expected situation.
     if (pt->tsubtotal < 0) {
         pt->tsubtotal = 0;
     }
-    exc = PyObject_CallFunction(efn, "((OOkkkIffIO))", pt->name, pt->modname, pt->lineno, pt->callcount,
-                        pt->nonrecursive_callcount, pt->builtin, _normt(pt->ttotal), _normt(pt->tsubtotal), 
-                        pt->index, children);
+    exc = PyObject_CallFunction(eargs->efn, "((OOkkkIffIOk))", pt->name, pt->modname, pt->lineno, pt->callcount,
+                        pt->nonrecursive_callcount, pt->builtin, _normt(pt->ttotal), _normt(pt->tsubtotal),
+                        pt->index, children, eargs->ctx->id);
     if (!exc) {
         PyErr_Print();
+        Py_XDECREF(children);
         return 1; // abort enumeration
     }
+
+    Py_DECREF(exc);
+    Py_XDECREF(children);
     return 0;
+}
+
+static int 
+_ctxfuncenumstat(_hitem *item, void *arg)
+{
+    _ctxfuncenumarg ext_args;
+
+    ext_args.ctx = (_ctx *)item->val; 
+    ext_args.efn = (PyObject *)arg;
+
+    henum(ext_args.ctx->pits, _pitenumstat, &ext_args);
+
+    return 0;
+}
+
+static PyObject*
+start(PyObject *self, PyObject *args)
+{
+    if (yapprunning)
+        Py_RETURN_NONE;
+
+    if (!PyArg_ParseTuple(args, "ii", &flags.builtins, &flags.multithreaded))
+        return NULL;
+
+    if (!_start())
+        // error
+        return NULL;
+
+    Py_RETURN_NONE;
+}
+
+static PyObject*
+stop(PyObject *self)
+{
+    _stop();
+    Py_RETURN_NONE;
 }
 
 static PyObject*
@@ -1078,7 +1192,7 @@ enum_func_stats(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    henum(pits, _pitenumstat, enumfn);
+    henum(contexts, _ctxfuncenumstat, enumfn);
 
     Py_RETURN_NONE;
 }
@@ -1099,11 +1213,11 @@ static PyObject *
 set_context_id_callback(PyObject *self, PyObject *args)
 {
     PyObject* new_callback;
-    
+
     if (!PyArg_ParseTuple(args, "O", &new_callback)) {
         return NULL;
     }
-    
+
     if (new_callback == Py_None) {
         Py_CLEAR(context_id_callback);
         Py_RETURN_NONE;
@@ -1114,10 +1228,10 @@ set_context_id_callback(PyObject *self, PyObject *args)
     Py_XDECREF(context_id_callback);
     Py_INCREF(new_callback);
     context_id_callback = new_callback;
-    
+
     Py_RETURN_NONE;
 }
-    
+
 static PyObject *
 set_context_name_callback(PyObject *self, PyObject *args)
 {
@@ -1125,7 +1239,7 @@ set_context_name_callback(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "O", &new_callback)) {
         return NULL;
     }
-    
+
     if (new_callback == Py_None) {
         Py_CLEAR(context_name_callback);
         Py_RETURN_NONE;
@@ -1136,6 +1250,7 @@ set_context_name_callback(PyObject *self, PyObject *args)
     Py_XDECREF(context_name_callback);
     Py_INCREF(new_callback);
     context_name_callback = new_callback;
+    
     Py_RETURN_NONE;
 }
 
@@ -1145,14 +1260,14 @@ set_test_timings(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "O", &test_timings)) {
         return NULL;
     }
-    
+
     if (!PyDict_Check(test_timings))
     {
         PyErr_SetString(YappiProfileError, "timings should be dict.");
         return NULL;
     }
     Py_INCREF(test_timings);
-    
+
     Py_RETURN_NONE;
 }
 
@@ -1185,20 +1300,23 @@ set_clock_type(PyObject *self, PyObject *args)
 }
 
 static PyObject *
-get_clock(PyObject *self, PyObject *args)
+get_clock_time(PyObject *self, PyObject *args)
 {
-    PyObject *type = NULL;
+    return PyFloat_FromDouble(tickfactor() * tickcount());
+}
+
+static PyObject *
+get_clock_info(PyObject *self, PyObject *args)
+{
     PyObject *api = NULL;
     PyObject *result = NULL;
     PyObject *resolution = NULL;
-	PyObject *current_time = NULL;
     clock_type_t clk_type;
 
     result = PyDict_New();
     
     clk_type = get_timing_clock_type();
     if (clk_type == WALL_CLOCK) {
-        type = Py_BuildValue("s", "wall");
 #if defined(_WINDOWS)
         api = Py_BuildValue("s", "queryperformancecounter");
         resolution = Py_BuildValue("s", "100ns");    
@@ -1207,7 +1325,6 @@ get_clock(PyObject *self, PyObject *args)
         resolution = Py_BuildValue("s", "100ns");
 #endif
     }  else {
-        type = Py_BuildValue("s", "cpu");
 #if defined(USE_CLOCK_TYPE_GETTHREADTIMES)
         api = Py_BuildValue("s", "getthreadtimes");
         resolution = Py_BuildValue("s", "100ns");
@@ -1222,47 +1339,91 @@ get_clock(PyObject *self, PyObject *args)
         resolution = Py_BuildValue("s", "1000ns");
 #endif
     }
-    
-    current_time = PyFloat_FromDouble(tickfactor()*tickcount());
 
-    PyDict_SetItemString(result, "type", type);
     PyDict_SetItemString(result, "api", api);
     PyDict_SetItemString(result, "resolution", resolution);
-    PyDict_SetItemString(result, "time", current_time);
 
-    Py_XDECREF(type);
     Py_XDECREF(api);
     Py_XDECREF(resolution);
-    Py_XDECREF(current_time);
-
     return result;
+}
+
+static PyObject *
+get_clock_type(PyObject *self, PyObject *args)
+{
+    clock_type_t clk_type;
+    
+    clk_type = get_timing_clock_type();
+    if (clk_type == WALL_CLOCK) {
+        return Py_BuildValue("s", "wall");
+    }  else {
+        return Py_BuildValue("s", "cpu");
+    }
+}
+
+static PyObject *
+shift_context_time(PyObject *self, PyObject *args)
+{
+    int i;
+    long context_id;
+    double amount;
+    long long shifted_amount;
+    _hitem *it;
+    _ctx *ctx;
+
+    if (!PyArg_ParseTuple(args, "ld", &context_id, &amount)) {
+        return NULL;
+    }
+
+    shifted_amount = (long long)(amount / tickfactor());
+    it = hfind(contexts, context_id);
+    if (!it || !it->val) {
+        // This context hasn't executed yet during this Yappi run; just abort.
+        Py_RETURN_NONE;
+    }
+
+     // Advance the start time for each frame in this context's call stack
+     // by the duration for which this context was paused.
+    ctx = (_ctx *)it->val;
+    for (i = 0; i <= ctx->cs->head; i++) {
+        ctx->cs->_items[i].t0 += shifted_amount;
+    }
+
+    // advance the start time for the whole context by the pause duration
+    ctx->t0 += shifted_amount;
+    Py_RETURN_NONE;
 }
 
 static PyObject*
 get_start_flags(PyObject *self, PyObject *args)
 {
-    PyObject *result;
+    PyObject *result = NULL;
+    PyObject *profile_builtins = NULL;
+    PyObject *profile_multithread = NULL;
     
     if (!yapphavestats) {
         Py_RETURN_NONE;
     }
 
+    profile_builtins = Py_BuildValue("i", flags.builtins);
+    profile_multithread = Py_BuildValue("i", flags.multithreaded);
     result = PyDict_New();
-    PyDict_SetItemString(result, "profile_builtins", Py_BuildValue("i", flags.builtins));
-    PyDict_SetItemString(result, "profile_multithread", Py_BuildValue("i", flags.multithreaded));
+    PyDict_SetItemString(result, "profile_builtins", profile_builtins);
+    PyDict_SetItemString(result, "profile_multithread", profile_multithread);
     
+    Py_XDECREF(profile_builtins);
+    Py_XDECREF(profile_multithread);
     return result;
 }
 
 static PyObject*
 _pause(PyObject *self, PyObject *args)
 {
-    if (yapprunning)
-    {
+    if (yapprunning) {
         paused = 1;
-        stop(self, NULL);
+        _stop();
     }
-    
+
     Py_RETURN_NONE;
 }
 
@@ -1272,7 +1433,9 @@ _resume(PyObject *self, PyObject *args)
     if (paused)
     {
         paused = 0;        
-        start(self, Py_BuildValue("ii", flags.builtins, flags.multithreaded));
+        if (!_start())
+            // error
+            return NULL;
     }
     
     Py_RETURN_NONE;
@@ -1280,13 +1443,16 @@ _resume(PyObject *self, PyObject *args)
 
 static PyMethodDef yappi_methods[] = {
     {"start", start, METH_VARARGS, NULL},
-    {"stop", stop, METH_VARARGS, NULL},
+    {"stop", (PyCFunction)stop, METH_NOARGS, NULL},
     {"enum_func_stats", enum_func_stats, METH_VARARGS, NULL},
     {"enum_thread_stats", enum_thread_stats, METH_VARARGS, NULL},
     {"clear_stats", clear_stats, METH_VARARGS, NULL},
     {"is_running", is_running, METH_VARARGS, NULL},
-    {"get_clock", get_clock, METH_VARARGS, NULL},
+    {"get_clock_type", get_clock_type, METH_VARARGS, NULL},
     {"set_clock_type", set_clock_type, METH_VARARGS, NULL},
+    {"get_clock_time", get_clock_time, METH_VARARGS, NULL},
+    {"get_clock_info", get_clock_info, METH_VARARGS, NULL},
+    {"shift_context_time", shift_context_time, METH_VARARGS, NULL},
     {"get_mem_usage", get_mem_usage, METH_VARARGS, NULL},
     {"set_context_id_callback", set_context_id_callback, METH_VARARGS, NULL},
     {"set_context_name_callback", set_context_name_callback, METH_VARARGS, NULL},
@@ -1300,15 +1466,15 @@ static PyMethodDef yappi_methods[] = {
 
 #ifdef IS_PY3K
 static struct PyModuleDef _yappi_module = {
-        PyModuleDef_HEAD_INIT,
-        "_yappi",
-        _yappi__doc__,
-        -1,
-        yappi_methods,
-        NULL,
-        NULL,
-        NULL,
-        NULL
+    PyModuleDef_HEAD_INIT,
+    "_yappi",
+    _yappi__doc__,
+    -1,
+    yappi_methods,
+    NULL,
+    NULL,
+    NULL,
+    NULL
 };
 #endif
 
