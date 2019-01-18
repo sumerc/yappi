@@ -11,7 +11,7 @@ long_description = f.read()
 
 HOMEPAGE = "https://github.com/sumerc/yappi"
 NAME = "yappi"
-VERSION = "0.98"
+VERSION = "0.99"
 _DEBUG = False # compile/link code for debugging
 _PROFILE = False # profile yappi itself
 
@@ -47,11 +47,7 @@ CLASSIFIERS = [
     'Intended Audience :: Developers',
     'License :: OSI Approved :: MIT License',
     'Programming Language :: Python',
-    'Programming Language :: Python :: 2',
-    'Programming Language :: Python :: 2.6',
     'Programming Language :: Python :: 2.7',
-    'Programming Language :: Python :: 3.1',
-    'Programming Language :: Python :: 3.2',
     'Programming Language :: Python :: 3.3',
     'Programming Language :: Python :: 3.4',
     'Programming Language :: Python :: 3.5',
@@ -87,6 +83,6 @@ setup(name=NAME,
     classifiers=CLASSIFIERS,
     license = "MIT",
     url = HOMEPAGE,
-    download_url = "http://bitbucket.org/sumerc/yappi/downloads/%s-%s.tar.gz" % (NAME, VERSION),
+    # download_url = "http://bitbucket.org/sumerc/yappi/downloads/%s-%s.tar.gz" % (NAME, VERSION),
     test_suite = 'nose.collector'
 )

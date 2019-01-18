@@ -52,16 +52,10 @@ $ pip install git+https://github.com/sumerc/yappi#egg=yappi
 
 ## Documentation
 
-- [Introduction](markdown/introduction.md)
-- [Clock Types](markdown/clock_types.md)
-- [API](markdown/api.md)
-
-
-## Talks
-
-- Python Performance Profiling: The Guts And The Glory
-  [![Youtube link](https://img.youtube.com/vi/BOKcZjI5zME/0.jpg)](https://www.youtube.com/watch?v=BOKcZjI5zME)
-  
+- [Introduction](doc/introduction.md)
+- [Clock Types](doc/clock_types.md)
+- [API](doc/api.md)
+- [THANKS](THANKS.md)
 
 ## Features
 - Profiler results can be saved in [callgrind](http://valgrind.org/docs/manual/cl-format.html) or [pstat](http://docs.python.org/3.4/library/profile.html#pstats.Stats) formats. (*new in 0.82*)
@@ -72,8 +66,18 @@ $ pip install git+https://github.com/sumerc/yappi#egg=yappi
 - Profiler can be started from any thread at any time.
 - Ability to get statistics at any time without even stopping the profiler.
 - Various flags to arrange/sort profiler results.
-- Supports Python 2.6.x <= x <= Python 3.7
+- Supports Python >= 2.7.x
 
 ## Limitations:
 * Threads must be derived from "threading" module's Thread object.
-* Latest version of Yappi supports 2.6 <= Python <= 3.7
+
+## Talks
+
+- Python Performance Profiling: The Guts And The Glory
+
+  [![Youtube link](https://img.youtube.com/vi/BOKcZjI5zME/0.jpg)](https://www.youtube.com/watch?v=BOKcZjI5zME)
+
+## PyCharm Integration
+
+Yappi is the default profiler in `PyCharm`. If you have Yappi installed, `PyCharm` will use it. See [the official](https://www.jetbrains.com/help/pycharm/profiler.html) documentation for more details.
+
