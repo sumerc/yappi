@@ -1,7 +1,14 @@
+![Logo](https://i.imgur.com/xxmgGmn.png)
 # Yappi
 **Y**et **A**nother **P**ython **P**rof**i**ler, but this time support Multithread/CPU time profiling.
 
-![Logo](https://i.imgur.com/xxmgGmn.png)
+[![Build Status](https://www.travis-ci.org/sumerc/yappi.svg?branch=master)](https://www.travis-ci.org/sumerc/yappi)
+![](https://img.shields.io/pypi/v/yappi.svg)
+![](https://img.shields.io/pypi/dw/yappi.svg)
+![](https://img.shields.io/pypi/pyversions/yappi.svg)
+![](https://img.shields.io/github/last-commit/sumerc/yappi.svg)
+![](https://img.shields.io/github/license/sumerc/yappi.svg)
+
 
 ## Motivation
 
@@ -65,8 +72,8 @@ $ pip install git+https://github.com/sumerc/yappi#egg=yappi
 - Profiler can be started from any thread at any time.
 - Ability to get statistics at any time without even stopping the profiler.
 - Various flags to arrange/sort profiler results.
-- Supports Python 2.6.x <= x <= Python 3.4
+- Supports Python 2.6.x <= x <= Python 3.7
 
 ## Limitations:
 * Threads must be derived from "threading" module's Thread object.
-* Latest version of Yappi supports 2.6 <= Python <= 3.4
+* Latest version of Yappi supports 2.6 <= Python <= 3.7
