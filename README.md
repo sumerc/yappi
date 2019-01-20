@@ -34,7 +34,7 @@ powerful profiler for python.
 - Profiler can be started/stopped at any time from any thread in the application.
 - Profile statistics can be obtained from any thread at any time.
 - Profile statistics will be calculated from *per-thread CPU time*. (new in v0.62)
-- “Profiler pollution” (effect on the application run-time) is very minimal.
+- "Profiler pollution" (effect on the application run-time) is very minimal.
 
 ## Installation
 
