@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
+import io
 import os
 import sys
 from setuptools import setup
 from distutils.core import Extension
 from distutils.ccompiler import new_compiler
 
-f = open('README.md')
-long_description = f.read()
+with io.open('README.md', encoding='UTF-8') as f:
+    long_description = f.read()
 
 HOMEPAGE = "https://github.com/sumerc/yappi"
 NAME = "yappi"
