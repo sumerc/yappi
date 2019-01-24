@@ -22,7 +22,7 @@ If you want to profile a  multi-threaded application, you must give an entry poi
 the outputs. None of these profilers are designed to work on long-running multi-threaded application.It is impossible to profile an application retrieve the statistics then stop and then start later on the fly (without affecting the profiled
 application). 
 
-## Main Features
+## Highlights
 
 - Profiler can be started/stopped at any time from any thread in the application.
 - Profile statistics can be obtained from any thread at any time.
