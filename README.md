@@ -16,24 +16,17 @@ CPython standard distribution comes with three profilers. `cProfile`, `Profile` 
 `cProfile` is implemented as a C module based on `lsprof`, `Profile` is in pure Python and 
 `hotshot` can be seen as a small subset of a cProfile. 
 
-*The major issue is that all of these profilers lack support for multi-threaded programs.*
+*The major issue is that all of these profilers lack support for multi-threaded programs and CPU time.*
 
 If you want to profile a  multi-threaded application, you must give an entry point to these profilers and then maybe merge 
-the outputs. None of these profilers are designed to work on long-running multi-threaded application. 
+the outputs. None of these profilers are designed to work on long-running multi-threaded application.It is impossible to profile an application retrieve the statistics then stop and then start later on the fly (without affecting the profiled
+application). 
 
-While implementing a game server, it turns out that is is impossible to profile an application 
-retrieve the statistics then stop and then start later on on the fly (without affecting the profiled
-application).
-
-With the experience of implementing a game server in Python, we have identified most 
-of the problems, tricky parts regarding profiler usage and so, we have come up with simple but 
-powerful profiler for python.
-
-## Guarantees
+## Main Features
 
 - Profiler can be started/stopped at any time from any thread in the application.
 - Profile statistics can be obtained from any thread at any time.
-- Profile statistics will be calculated from *per-thread CPU time*. (new in v0.62)
+- Profile statistics can show actual [CPU Time](http://en.wikipedia.org/wiki/CPU_time) used instead of Wall time.
 - "Profiler pollution" (effect on the application run-time) is very minimal.
 
 ## Installation
