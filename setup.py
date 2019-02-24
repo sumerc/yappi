@@ -12,9 +12,9 @@ with io.open('README.md', encoding='UTF-8') as f:
 
 HOMEPAGE = "https://github.com/sumerc/yappi"
 NAME = "yappi"
-VERSION = "0.99"
-_DEBUG = False # compile/link code for debugging
-_PROFILE = False # profile yappi itself
+VERSION = "1.0"
+_DEBUG = False    # compile/link code for debugging
+_PROFILE = False    # profile yappi itself
 
 user_macros = []
 user_libraries = []
@@ -23,8 +23,8 @@ link_args = []
 
 if os.name == 'posix' and sys.platform != 'darwin':
     compiler = new_compiler()
-    if compiler.has_function('timer_create', libraries=('rt',)):
-        user_macros.append(('LIB_RT_AVAILABLE','1'))
+    if compiler.has_function('timer_create', libraries=('rt', )):
+        user_macros.append(('LIB_RT_AVAILABLE', '1'))
         user_libraries.append('rt')
 if _DEBUG:
     if os.name == 'posix':
@@ -60,31 +60,36 @@ CLASSIFIERS = [
     'Topic :: Software Development :: Libraries :: Python Modules',
 ]
 
-setup(name=NAME,
+setup(
+    name=NAME,
     version=VERSION,
     author="Sumer Cip",
     author_email="sumerc@gmail.com",
-    ext_modules = [Extension(
-        "_yappi",
-        sources = ["_yappi.c", "callstack.c", "hashtab.c", "mem.c", "freelist.c", "timing.c"],
-        define_macros = user_macros,
-        libraries = user_libraries,
-        extra_compile_args = compile_args,
-        extra_link_args = link_args,
-        )],
-    py_modules =  ["yappi"],
-    entry_points = {
-    'console_scripts': [
-        'yappi = yappi:main',
+    ext_modules=[
+        Extension(
+            "_yappi",
+            sources=[
+                "_yappi.c", "callstack.c", "hashtab.c", "mem.c", "freelist.c",
+                "timing.c"
+            ],
+            define_macros=user_macros,
+            libraries=user_libraries,
+            extra_compile_args=compile_args,
+            extra_link_args=link_args,
+        )
+    ],
+    py_modules=["yappi"],
+    entry_points={
+        'console_scripts': [
+            'yappi = yappi:main',
         ],
     },
     description="Yet Another Python Profiler",
-    long_description = long_description,
+    long_description=long_description,
     long_description_content_type='text/markdown',
-    keywords = "python thread multithread profiler",
+    keywords="python thread multithread profiler",
     classifiers=CLASSIFIERS,
-    license = "MIT",
-    url = HOMEPAGE,
+    license="MIT",
+    url=HOMEPAGE,
     # download_url = "http://bitbucket.org/sumerc/yappi/downloads/%s-%s.tar.gz" % (NAME, VERSION),
-    test_suite = 'nose.collector'
-)
+    test_suite='nose.collector')
