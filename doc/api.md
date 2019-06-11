@@ -28,7 +28,15 @@ All results stay in memory unless application (all threads including th
 #### `get_func_stats(filter=None)`
 
 Returns the function stats as a `YFuncStat` object.
+filter parameter can be either following: name, module, lineno, ncall, nactualcall, builtin, ttot, tsub, index, children, ctx_id, tavg, full_name. You can use multiple filters at once in a single call and only those results are returned. 
 
+One of the interesting features of this filter function is that you can get per-thread function call statistics only by providing the ctx_id of the thread you want to get results. Under the hood, yappi already holds the function stats by per-thread and upon request, it aggregates this data, when you provide a filter, it simply returns only that per-thread stats.
+
+`
+threads = yappi.get_thread_stats()
+for thread in threads:
+    fstats = yappi.get_func_stats(filter={"ctx_id":thread.id})
+`
 
 #### `get_thread_stats()`
 
@@ -69,12 +77,12 @@ This holds the stat items as a list of `YFuncStat` objects. 
 | `lineno`      | Line number of the executed function                                            |
 | `ncall`       | number of times the executed function is called.                                |
 | `nactualcall` | number of times the executed function is called, excluding the recursive calls. |
-| `builtin`     | bool, indicating whether the executed function is a builtin                   |
+| `builtin`     | bool, indicating whether the executed function is a builtin                     |
 | `ttot`        | total time spent in the executed function                                       |
 | `tsub`        | total time spent in theexecuted function, excluding subcalls                    |
 | `index`       | A unique number for the stat                                                    |
 | `children`    | list of functionscalled from the executed function                              |
-| `ctx_id`      |                                                                                 |
+| `ctx_id`      | Id of the underlying context(thread)                                            |
 | `tavg`        | per-call average total time spent in the executed function.                     |
 | `full_name`   | unique full name of the executed function                                       |
 
