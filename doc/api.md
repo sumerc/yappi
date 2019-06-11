@@ -109,7 +109,7 @@ This method saves the current profile stats to file at `path`. 
 `type` indicates the target type that the profile stats will be saved in.
 
 Can be either
-[`"pstats"`](http://docs.python.org/3.3/library/profile.html?highlight=pstat#pstats.Stats.print_stats) or
+[`"pstat"`](http://docs.python.org/3.3/library/profile.html?highlight=pstat#pstats.Stats.print_stats) or
 [`"callgrind"`](http://kcachegrind.sourceforge.net/html/CallgrindFormat.html).
 
 #### `print_all(out=sys.stdout)`
