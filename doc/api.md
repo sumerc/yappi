@@ -27,8 +27,8 @@ All results stay in memory unless application (all threads including th
 
 #### `get_func_stats(filter=None)`
 
-Returns the function stats as a `YFuncStat` object.
-filter parameter can be either following: name, module, lineno, ncall, nactualcall, builtin, ttot, tsub, index, children, ctx_id, tavg, full_name. You can use multiple filters at once in a single call and only those results are returned. 
+Returns the function stats as a [`YFuncStat`](#yfuncstat) object.
+filter parameter can be used to filter on YFuncStat attributes. You can use multiple filters at once in a single call and only those results are returned. 
 
 One of the interesting features of this filter function is that you can get per-thread function call statistics only by providing the ctx_id of the thread you want to get results. Under the hood, yappi already holds the function stats by per-thread and upon request, it aggregates this data, when you provide a filter, it simply returns only that per-thread stats.
 
