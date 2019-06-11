@@ -32,10 +32,11 @@ filter parameter can be either following: name, module, lineno, ncall, nactualca
 
 One of the interesting features of this filter function is that you can get per-thread function call statistics only by providing the ctx_id of the thread you want to get results. Under the hood, yappi already holds the function stats by per-thread and upon request, it aggregates this data, when you provide a filter, it simply returns only that per-thread stats.
 
-`threads = yappi.get_thread_stats()`
-`for thread in threads:`
-`    fstats = yappi.get_func_stats(filter={"ctx_id":thread.id})`
-
+```
+threads = yappi.get_thread_stats()
+for thread in threads:
+    fstats = yappi.get_func_stats(filter={"ctx_id":thread.id})
+```
 
 #### `get_thread_stats()`
 
