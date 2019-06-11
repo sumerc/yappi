@@ -23,7 +23,7 @@ the outputs. None of these profilers are designed to work on long-running multi-
 application). 
 
 ## Highlights
-
+- Per-thread function stats can be obtained
 - Profiler can be started/stopped at any time from any thread in the application.
 - Profile statistics can be obtained from any thread at any time.
 - Profile statistics can show actual [CPU Time](http://en.wikipedia.org/wiki/CPU_time) used instead of Wall time.
