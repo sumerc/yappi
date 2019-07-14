@@ -23,6 +23,7 @@ _hgrow(_htab *ht)
     int i;
     _htab *dummy;
     _hitem *p, *next, *it;
+
     dummy = htcreate(ht->logsize+1);
     if (!dummy)
         return 0;
@@ -102,6 +103,7 @@ hadd(_htab *ht, uintptr_t key, uintptr_t val)
 {
     unsigned int h;
     _hitem *new, *p;
+
     h = HHASH(ht, key);
     p = ht->_table[h];
     new = NULL;
@@ -144,6 +146,7 @@ hfind(_htab *ht, uintptr_t key)
 {
     _hitem *p;
     unsigned int h;
+
     h = HHASH(ht, key);
     p = ht->_table[h];
     while(p) {

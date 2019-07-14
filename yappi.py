@@ -144,6 +144,7 @@ def convert2pstats(stats):
     """
     if not isinstance(stats, YFuncStats):
         raise YappiError("Source stats must be derived from YFuncStats.")
+
     import pstats
     class _PStatHolder:
         def __init__(self, d):
@@ -278,6 +279,7 @@ class YFuncStat(YStat):
         self.ttot += other.ttot
         self.tsub += other.tsub
         self.tavg = self.ttot / self.ncall
+
         for other_child_stat in other.children:
             # all children point to a valid entry, and we shall have merged previous entries by here.
             self.children.append(other_child_stat)
@@ -338,6 +340,7 @@ class YChildFuncStat(YFuncStat):
         self.tsub += other.tsub
         self.tavg = self.ttot / self.ncall
         return self
+
 class YThreadStat(YStat):
     """
     Class holding information for thread stats.
@@ -521,6 +524,7 @@ class YFuncStats(YStatsIndexable):
     _sort_order = None
     _SUPPORTED_LOAD_FORMATS = ['YSTAT']
     _SUPPORTED_SAVE_FORMATS = ['YSTAT', 'CALLGRIND', 'PSTAT']
+
     def __init__(self, files=[]):
         super(YFuncStats, self).__init__()
         self.add(files)
@@ -594,6 +598,7 @@ class YFuncStats(YStatsIndexable):
             saved_stats, saved_clock_type = pickle.load(file)
         except:
             raise YappiError("Unable to load the saved profile information from %s." % (file.name))
+
         # check if we really have some stats to be merged?
         if not self.empty():
             if self._clock_type != saved_clock_type and self._clock_type is not None:
@@ -632,6 +637,7 @@ class YFuncStats(YStatsIndexable):
         """
         _stats = convert2pstats(self)
         _stats.dump_stats(path)
+
     def _save_as_CALLGRIND(self, path):
         """
         Writes all the function stats in a callgrind-style format to the given
