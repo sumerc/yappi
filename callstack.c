@@ -24,6 +24,7 @@ screate(int size)
         yfree(cs);
         return NULL;
     }
+
     for(i=0; i<size; i++) {
         cs->_items[i].ckey = 0;
         cs->_items[i].t0 = 0;
