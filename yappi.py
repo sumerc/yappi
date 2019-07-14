@@ -4,6 +4,7 @@
 
  Sumer Cip 2014
 """
+import itertools
 import os
 import sys
 import _yappi
@@ -14,6 +15,7 @@ try:
 except ImportError:
     from threading import get_ident     # Python 3
 
+from collections import defaultdict
 from contextlib import contextmanager
 
 class YappiError(Exception): pass
@@ -648,26 +650,43 @@ class YFuncStats(YStatsIndexable):
 
         lines = [header]
 
-        # add function definitions
-        file_ids = ['']
-        func_ids = ['']
-        for func_stat in self:
-            file_ids += [ 'fl=(%d) %s' % (func_stat.index, func_stat.module) ]
-            func_ids += [ 'fn=(%d) %s %s:%s' % (func_stat.index, func_stat.name, func_stat.module, func_stat.lineno) ]
+        # Each function has a distinct number even if its name already has a
+        # number because kcachegrind merges functions with the same number.
+        numbers_seq = itertools.count()
+        func_defs = lambda: defaultdict(lambda: defaultdict(lambda: next(numbers_seq)))
+        modules_seq = enumerate(iter(func_defs, None))
+        modules = defaultdict(lambda: next(modules_seq))
+        # modules = {'file.py': [module_index, {'func': {line: func_index}}]}
+        fl = lambda x: modules[x.module][0]
+        fn = lambda x: modules[x.module][1][x.name][x.lineno]
 
-        lines += file_ids + func_ids
+        # enumerate modules and functions
+        for func_stat in self:
+            fn(func_stat)
+            for child in func_stat.children:
+                fn(child)
+
+        # add function definitions
+        for module in sorted(modules):
+            lines += ['', 'fl=(%d) %s' % (modules[module][0], module)]
+            for func, defs in sorted(modules[module][1].items()):
+                suffix = ''
+                for line in sorted(defs):
+                    if len(defs) > 1:  # disambiguate redefined functions
+                        suffix = ' +%d' % line
+                    lines += ['fn=(%d) %s%s' % (defs[line], func, suffix)]
 
         # add stats for each function we have a record of
         for func_stat in self:
             func_stats = [ '',
-                           'fl=(%d)' % func_stat.index,
-                           'fn=(%d)' % func_stat.index]
+                           'fl=(%d)' % fl(func_stat),
+                           'fn=(%d)' % fn(func_stat)]
             func_stats += [ '%s %s' % (func_stat.lineno, int(func_stat.tsub * 1e6)) ]
 
             # children functions stats
             for child in func_stat.children:
-                func_stats += [ 'cfl=(%d)' % child.index,
-                                'cfn=(%d)' % child.index,
+                func_stats += [ 'cfl=(%d)' % fl(child),
+                                'cfn=(%d)' % fn(child),
                                 'calls=%d 0' % child.ncall,
                                 '0 %d' % int(child.ttot * 1e6)
                                 ]
