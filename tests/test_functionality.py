@@ -2,16 +2,13 @@ import os
 import sys
 import time
 import threading
+import unittest
 import yappi
 import _yappi
 import utils
 import multiprocessing # added to fix http://bugs.python.org/issue15881 for > Py2.6
 import subprocess 
 
-if sys.version_info < (2, 7): # use unittest2 for < Py2.7
-    import unittest2 as _unittest
-else:
-    import unittest as _unittest
 
 class BasicUsage(utils.YappiUnitTestCase):
 
@@ -964,7 +961,7 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         #yappi.get_func_stats().sort("callcount").print_all()
         yappi.stop()
     
-    @_unittest.skipIf(os.name != "posix", "requires Posix compliant OS")
+    @unittest.skipIf(os.name != "posix", "requires Posix compliant OS")
     def test_signals_with_blocking_calls(self): 
         import signal, os, time 
         # just to verify if signal is handled correctly and stats/yappi are not corrupted.
@@ -978,7 +975,7 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         fsh = utils.find_stat_by_name(stats, "handler")
         self.assertTrue(fsh is not None)
            
-    @_unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
+    @unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
     def test_concurrent_futures(self):
         yappi.start()
         from concurrent.futures import ThreadPoolExecutor
@@ -988,7 +985,7 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         time.sleep(1.0)
         yappi.stop()
         
-    @_unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
+    @unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
     def test_barrier(self):
         yappi.start()
         b = threading.Barrier(2, timeout=1)
@@ -1414,4 +1411,4 @@ class RecursiveFunctions(utils.YappiUnitTestCase):
 if __name__ == '__main__':
 #     import sys;sys.argv = ['', 'BasicUsage.test_run_as_script']
 #     import sys;sys.argv = ['', 'MultithreadedScenarios.test_subsequent_profile']
-    _unittest.main()
+    unittest.main()
