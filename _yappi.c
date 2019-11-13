@@ -50,6 +50,10 @@ typedef struct {
     long long ttotal;                       // the total time that a function spent
     unsigned int builtin;                   // 0 for normal, 1 for ccall
     unsigned int index;
+
+    // TODO: Comment
+    long long coroutine_yield_t0;
+
     _pit_children_info *children;
 } _pit; // profile_item
 
@@ -153,6 +157,7 @@ _create_pit(void)
     pit->builtin = 0;
     pit->index = ycurfuncindex++;
     pit->children = NULL;
+    pit->coroutine_yield_t0 = 0;
 
     return pit;
 }
@@ -582,6 +587,27 @@ _get_frame_elapsed(void)
     return result;
 }
 
+static void _DebugPrintObjects(unsigned int arg_count, ...)
+{
+    
+    // PyObject *key, *value;
+    // Py_ssize_t pos = 0;
+
+    // while (PyDict_Next(dict, &pos, &key, &value)) {
+    //     printf("%s=%s\n", PyStr_AS_CSTRING(key), PyStr_AS_CSTRING(value));
+    // }
+
+    unsigned int i;
+    va_list vargs;
+    va_start(vargs, arg_count);
+
+    for (i=0; i<arg_count; i++) {
+        PyObject_Print(va_arg(vargs, PyObject *), stdout, Py_PRINT_RAW);
+    }
+    printf("\n");
+    va_end(vargs);
+}
+
 static void
 _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 {
@@ -620,7 +646,11 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         return;
     }
 
+    //printf("call enter: %s\n", PyStr_AS_CSTRING(cp->name));
+
     ci->t0 = tickcount();
+    
+    // TODO: make callcount not count yields?
     cp->callcount++;
     incr_rec_level((uintptr_t)cp);
 }
@@ -635,13 +665,37 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     elapsed = _get_frame_elapsed();
 
     // leaving a frame while callstack is empty?
-    cp = _pop_frame();
-    if (!cp)
-    {
+    cp = _get_frame();
+    if (!cp) {
         return;
     }
 
-    // is this the last function in the callstack?
+    // is this a coroutine yield? 
+    // TODO: Comment more on wall time with issue details
+    if (get_timing_clock_type() == WALL_CLOCK) {
+        if (frame->f_code->co_flags & CO_COROUTINE || 
+            frame->f_code->co_flags & CO_ITERABLE_COROUTINE ||
+            frame->f_code->co_flags & CO_ASYNC_GENERATOR) {
+                if (frame->f_stacktop) {
+                    //printf("YIELD %s\n", PyStr_AS_CSTRING(cp->name));
+                    if (!cp->coroutine_yield_t0) { // first time only
+                        cp->coroutine_yield_t0 = shead(current_ctx->cs)->t0;
+                    }
+                    elapsed = 0;
+                } else {
+                    //printf("EXIT %s\n", PyStr_AS_CSTRING(cp->name));
+                    if (cp->coroutine_yield_t0) {
+                        elapsed = tickcount() - cp->coroutine_yield_t0;
+                    }
+                    cp->coroutine_yield_t0 = 0;
+                }
+        }
+    }
+
+    // pop the frame
+    _pop_frame();
+
+    // is this the last function in the callstack?`
     pp = _pop_frame();
     if (!pp) {
         cp->ttotal += elapsed;
@@ -1274,7 +1328,7 @@ set_test_timings(PyObject *self, PyObject *args)
 static PyObject *
 set_clock_type(PyObject *self, PyObject *args)
 {
-    int clock_type;
+    clock_type_t clock_type;
     
     if (!PyArg_ParseTuple(args, "i", &clock_type)) {
         return NULL;
