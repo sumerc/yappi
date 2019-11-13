@@ -684,10 +684,12 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
                     elapsed = 0;
                 } else {
                     //printf("EXIT %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
-                    if (cp->coroutine_yield_t0) {
-                        elapsed = tickcount() - cp->coroutine_yield_t0;
+                    if (get_rec_level((uintptr_t)cp) == 1) {
+                        if (cp->coroutine_yield_t0) {
+                            elapsed = tickcount() - cp->coroutine_yield_t0;
+                        }
+                        cp->coroutine_yield_t0 = 0;
                     }
-                    cp->coroutine_yield_t0 = 0;
                 }
         }
     }
