@@ -677,13 +677,13 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
             frame->f_code->co_flags & CO_ITERABLE_COROUTINE ||
             frame->f_code->co_flags & CO_ASYNC_GENERATOR) {
                 if (frame->f_stacktop) {
-                    //printf("YIELD %s\n", PyStr_AS_CSTRING(cp->name));
+                    //printf("YIELD %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
                     if (!cp->coroutine_yield_t0) { // first time only
                         cp->coroutine_yield_t0 = shead(current_ctx->cs)->t0;
                     }
                     elapsed = 0;
                 } else {
-                    //printf("EXIT %s\n", PyStr_AS_CSTRING(cp->name));
+                    //printf("EXIT %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
                     if (cp->coroutine_yield_t0) {
                         elapsed = tickcount() - cp->coroutine_yield_t0;
                     }
