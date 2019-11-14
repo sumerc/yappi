@@ -79,25 +79,24 @@ class AsyncUsage(utils.YappiUnitTestCase):
     duration = 0.1
 
     def test_async_cpu(self):
-        task_count = 5
-        yappi.set_clock_type("cpu")
-        yappi.set_context_id_callback(get_async_context_id)
-        asyncio.run(self._run_async_calls())
-        for i in range(task_count):
-            fstats = yappi.get_func_stats(filter={"ctx_id": i, "name": "sleep_for"})
-            stats = fstats.pop()
-            self.assertEqual(stats.ncall, 2)  # Change to 1 if context switches should not count as calls
-            self.assertLessEqual(stats.ttot, self.duration * 0.01)
+        self._run_and_validate("cpu")
 
     def test_async_wall(self):
-        yappi.set_clock_type("wall")
+        self._run_and_validate("wall")
+
+    def _run_and_validate(self, clock_type):
+        yappi.set_clock_type(clock_type)
         yappi.set_context_id_callback(get_async_context_id)
         asyncio.run(self._run_async_calls())
         for i in range(self.task_count):
             fstats = yappi.get_func_stats(filter={"ctx_id": i, "name": "sleep_for"})
             stats = fstats.pop()
             self.assertEqual(stats.ncall, 2)  # Change to 1 if context switches should not count as calls
-            self.assertGreaterEqual(stats.ttot, self.duration)
+            if clock_type == "wall":
+                self.assertGreaterEqual(stats.ttot, self.duration)
+            else:
+                assert clock_type == "cpu"
+                self.assertLessEqual(stats.ttot, self.duration * 0.01)
 
     async def _run_async_calls(self):
         async def await_with_context_id(context_id, awaitable):
