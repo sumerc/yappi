@@ -11,33 +11,35 @@ import utils
 def a():
     pass
 
+
 class ContextIdCallbackTest(utils.YappiUnitTestCase):
     """Test yappi.set_context_id_callback()."""
 
     def test_profile_single_context(self):
-        
+
         def id_callback():
             return self.callback_count
+
         def a():
             pass
 
         self.callback_count = 1
         yappi.set_context_id_callback(id_callback)
         yappi.start(profile_threads=False)
-        a() # context-id:1
+        a()  # context-id:1
         self.callback_count = 2
-        a() # context-id:2
+        a()  # context-id:2
         stats = yappi.get_func_stats()
         fsa = utils.find_stat_by_name(stats, "a")
         self.assertEqual(fsa.ncall, 1)
         yappi.stop()
         yappi.clear_stats()
-        
+
         self.callback_count = 1
-        yappi.start() # profile_threads=True
-        a() # context-id:1
+        yappi.start()  # profile_threads=True
+        a()  # context-id:1
         self.callback_count = 2
-        a() # context-id:2
+        a()  # context-id:2
         stats = yappi.get_func_stats()
         fsa = utils.find_stat_by_name(stats, "a")
         self.assertEqual(fsa.ncall, 2)
@@ -150,7 +152,7 @@ class ContextIdCallbackTest(utils.YappiUnitTestCase):
         self.assertEqual(1, t_stats[1].id)
         self.assertEqual(1, t_stats[1].sched_count)
         # Context 1 was first scheduled 0.08 sec after context 0.
-        self.assertTrue(0.1 < t_stats[1].ttot < 0.2 )
+        self.assertTrue(0.1 < t_stats[1].ttot < 0.2)
 
 
 class ContextNameCallbackTest(utils.YappiUnitTestCase):
@@ -254,61 +256,7 @@ class ContextNameCallbackTest(utils.YappiUnitTestCase):
         self.assertEqual('a', threadstats[0].name)
         self.assertEqual(1, threadstats[1].id)
         self.assertEqual('b', threadstats[1].name)
-      
-class ShiftContextTimeTest(utils.YappiUnitTestCase):
-    """Test yappi.shift_context_time()."""
 
-    def tearDown(self):
-        yappi.set_context_id_callback(None)
-        super(ShiftContextTimeTest, self).tearDown()
-    """
-    def test_shift_time_arguments(self):
-        # Requires an integer and a float.
-        self.assertRaises(TypeError, yappi.shift_context_time, None, 1)
-        self.assertRaises(TypeError, yappi.shift_context_time, 1, None)
-        self.assertRaises(TypeError, yappi.shift_context_time, 1.5, 1)
 
-        # No error shifting time for unknown context id.
-        yappi.shift_context_time(1234, 1)
-    
-    def test_shift_time(self):
-        yappi.set_clock_type('wall')
-        self.context_id = 0
-        yappi.set_context_id_callback(lambda: self.context_id)
-
-        def b():
-            # Shift the start time for context 1 backwards one second.
-            yappi.shift_context_time(1, -1)
-
-        yappi.start()
-        a()
-        self.context_id = 1
-        b()
-        yappi.stop()
-
-        threadstats = yappi.get_thread_stats().sort('id', 'ascending')
-        self.assertEqual(2, len(threadstats))
-        self.assertEqual(0, threadstats[0].id)
-        self.assertEqual(1, threadstats[1].id)
-
-        # Context 1's total time is one second longer.
-        self.assertAlmostEqual(0, threadstats[0].ttot, places=3)
-        self.assertAlmostEqual(1, threadstats[1].ttot, places=3)
-
-        self.assertEqual(1, threadstats[0].sched_count)
-        self.assertEqual(1, threadstats[1].sched_count)
-
-        funcstats = yappi.get_func_stats()
-        a_stat = utils.find_stat_by_name(funcstats, 'a')
-        self.assertTrue(a_stat)
-        self.assertEqual(1, a_stat.ncall)
-        self.assertAlmostEqual(0, a_stat.ttot, places=3)
-
-        # b's time was shifted.
-        b_stat = utils.find_stat_by_name(funcstats, 'b')
-        self.assertTrue(b_stat)
-        self.assertEqual(1, b_stat.ncall)
-        self.assertAlmostEqual(1, b_stat.ttot, places=3)
-    """
 if __name__ == '__main__':
     unittest.main()

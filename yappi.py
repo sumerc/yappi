@@ -10,16 +10,22 @@ import _yappi
 import pickle
 import threading
 try:
-    from thread import get_ident        # Python 2
+    from thread import get_ident  # Python 2
 except ImportError:
-    from threading import get_ident     # Python 3
+    from threading import get_ident  # Python 3
 
 from contextlib import contextmanager
 
-class YappiError(Exception): pass
 
-__all__ = ['start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats', 'is_running',
-           'get_clock_time', 'get_clock_type', 'set_clock_type', 'get_clock_info', 'get_mem_usage']
+class YappiError(Exception):
+    pass
+
+
+__all__ = [
+    'start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats',
+    'is_running', 'get_clock_time', 'get_clock_type', 'set_clock_type',
+    'get_clock_info', 'get_mem_usage'
+]
 
 LINESEP = os.linesep
 COLUMN_GAP = 2
@@ -27,17 +33,43 @@ YPICKLE_PROTOCOL = 2
 
 COLUMNS_FUNCSTATS = ["name", "ncall", "ttot", "tsub", "tavg"]
 COLUMNS_THREADSTATS = ["name", "id", "tid", "ttot", "scnt"]
-SORT_TYPES_FUNCSTATS = {"name":0, "callcount":3, "totaltime":6, "subtime":7, "avgtime":10,
-                        "ncall":3, "ttot":6, "tsub":7, "tavg":10}
-SORT_TYPES_CHILDFUNCSTATS = {"name":10, "callcount":1, "totaltime":3, "subtime":4, "avgtime":5,
-                        "ncall":1, "ttot":3, "tsub":4, "tavg":5}
-SORT_TYPES_THREADSTATS = {"name":0, "id":1, "tid":2, "totaltime":3, "schedcount":4,
-                          "ttot":3, "scnt":4}
-SORT_ORDERS = {"ascending":0, "asc":0, "descending":1, "desc":1}
+SORT_TYPES_FUNCSTATS = {
+    "name": 0,
+    "callcount": 3,
+    "totaltime": 6,
+    "subtime": 7,
+    "avgtime": 10,
+    "ncall": 3,
+    "ttot": 6,
+    "tsub": 7,
+    "tavg": 10
+}
+SORT_TYPES_CHILDFUNCSTATS = {
+    "name": 10,
+    "callcount": 1,
+    "totaltime": 3,
+    "subtime": 4,
+    "avgtime": 5,
+    "ncall": 1,
+    "ttot": 3,
+    "tsub": 4,
+    "tavg": 5
+}
+SORT_TYPES_THREADSTATS = {
+    "name": 0,
+    "id": 1,
+    "tid": 2,
+    "totaltime": 3,
+    "schedcount": 4,
+    "ttot": 3,
+    "scnt": 4
+}
+SORT_ORDERS = {"ascending": 0, "asc": 0, "descending": 1, "desc": 1}
 DEFAULT_SORT_TYPE = "totaltime"
 DEFAULT_SORT_ORDER = "desc"
 
-CLOCK_TYPES = {"WALL":0, "CPU":1}
+CLOCK_TYPES = {"WALL": 0, "CPU": 1}
+
 
 def _validate_sorttype(sort_type, list):
     sort_type = sort_type.lower()
@@ -45,12 +77,14 @@ def _validate_sorttype(sort_type, list):
         raise YappiError("Invalid SortType parameter: '%s'" % (sort_type))
     return sort_type
 
+
 def _validate_sortorder(sort_order):
     sort_order = sort_order.lower()
     if sort_order not in SORT_ORDERS:
         raise YappiError("Invalid SortOrder parameter: '%s'" % (sort_order))
     return sort_order
-    
+
+
 def _validate_columns(name, list):
     name = name.lower()
     if name not in list:
@@ -66,9 +100,10 @@ def _ctx_name_callback():
     try:
         current_thread = threading._active[get_ident()]
         return current_thread.__class__.__name__
-    except KeyError: 
+    except KeyError:
         # Threads may not be registered yet in first few profile callbacks.
         return None
+
 
 def _profile_thread_callback(frame, event, arg):
     """
@@ -77,13 +112,14 @@ def _profile_thread_callback(frame, event, arg):
     structure. This is an internal function please don't mess with it.
     """
     _yappi._profile_event(frame, event, arg)
-    
+
+
 def _fft(x, COL_SIZE=8):
     """
     function to prettify time columns in stats.
     """
     _rprecision = 6
-    while(_rprecision > 0):
+    while (_rprecision > 0):
         _fmt = "%0." + "%d" % (_rprecision) + "f"
         s = _fmt % (x)
         if len(s) <= COL_SIZE:
@@ -91,11 +127,13 @@ def _fft(x, COL_SIZE=8):
         _rprecision -= 1
     return s
 
+
 def _func_fullname(builtin, module, lineno, name):
     if builtin:
         return "%s.%s" % (module, name)
     else:
         return "%s:%d %s" % (module, lineno, name)
+
 
 """
 Converts our internal yappi's YFuncStats (YSTAT type) to PSTAT. So there are
@@ -136,6 +174,8 @@ of b() when called by a, just like yappi.
 
 PSTAT only expects to have the above dict to be saved.
 """
+
+
 def convert2pstats(stats):
     from collections import defaultdict
     """
@@ -146,11 +186,15 @@ def convert2pstats(stats):
         raise YappiError("Source stats must be derived from YFuncStats.")
 
     import pstats
+
     class _PStatHolder:
+
         def __init__(self, d):
             self.stats = d
+
         def create_stats(self):
             pass
+
     def pstat_id(fs):
         return (fs.module, fs.lineno, fs.name)
 
@@ -160,13 +204,21 @@ def convert2pstats(stats):
     _callers = defaultdict(dict)
     for fs in stats:
         for ct in fs.children:
-            _callers[ct][pstat_id(fs)] = (ct.ncall, ct.nactualcall, ct.tsub ,ct.ttot)
+            _callers[ct][pstat_id(fs)
+                         ] = (ct.ncall, ct.nactualcall, ct.tsub, ct.ttot)
 
     # populate the pstat dict.
     for fs in stats:
-        _pdict[pstat_id(fs)] = (fs.ncall, fs.nactualcall, fs.tsub, fs.ttot, _callers[fs], )
+        _pdict[pstat_id(fs)] = (
+            fs.ncall,
+            fs.nactualcall,
+            fs.tsub,
+            fs.ttot,
+            _callers[fs],
+        )
 
     return pstats.Stats(_PStatHolder(_pdict))
+
 
 def profile(clock_type="cpu", profile_builtins=False, return_callback=None):
     """
@@ -179,7 +231,9 @@ def profile(clock_type="cpu", profile_builtins=False, return_callback=None):
     results. So, if you use a decorator, then global profiling may return bogus
     results or no results at all.
     """
+
     def _profile_dec(func):
+
         def wrapper(*args, **kwargs):
             if func._rec_level == 0:
                 clear_stats()
@@ -198,17 +252,24 @@ def profile(clock_type="cpu", profile_builtins=False, return_callback=None):
                         stop()
                         if return_callback is None:
                             sys.stdout.write(LINESEP)
-                            sys.stdout.write("Executed in %s %s clock seconds" %
-                                (_fft(get_thread_stats()[0].ttot), clock_type.upper()))
+                            sys.stdout.write(
+                                "Executed in %s %s clock seconds" % (
+                                    _fft(get_thread_stats()[0].ttot
+                                         ), clock_type.upper()
+                                )
+                            )
                             sys.stdout.write(LINESEP)
                             get_func_stats().print_all()
                         else:
                             return_callback(func, get_func_stats())
                     finally:
                         clear_stats()
+
         func._rec_level = 0
         return wrapper
+
     return _profile_dec
+
 
 class StatString(object):
     """
@@ -237,6 +298,7 @@ class StatString(object):
     def rtrim(self, length):
         return self._trim(length, self._RIGHT)
 
+
 class YStat(dict):
     """
     Class to hold a profile result line in a dict object, which all items can also be accessed as
@@ -247,24 +309,40 @@ class YStat(dict):
     def __init__(self, values):
         super(YStat, self).__init__()
 
-        for key,i in self._KEYS.items():
+        for key, i in self._KEYS.items():
             setattr(self, key, values[i])
 
     def __setattr__(self, name, value):
         self[self._KEYS[name]] = value
         super(YStat, self).__setattr__(name, value)
 
+
 class YFuncStat(YStat):
     """
     Class holding information for function stats.
     """
-    _KEYS = {'name':0, 'module':1, 'lineno':2, 'ncall':3, 'nactualcall':4, 'builtin':5, 'ttot':6, 'tsub':7, 'index':8, 'children':9, 'ctx_id':10, 'tavg':11, 'full_name':12}
+    _KEYS = {
+        'name': 0,
+        'module': 1,
+        'lineno': 2,
+        'ncall': 3,
+        'nactualcall': 4,
+        'builtin': 5,
+        'ttot': 6,
+        'tsub': 7,
+        'index': 8,
+        'children': 9,
+        'ctx_id': 10,
+        'ctx_name': 11,
+        'tavg': 12,
+        'full_name': 13
+    }
 
     def __eq__(self, other):
         if other is None:
             return False
         return self.full_name == other.full_name
-    
+
     def __ne__(self, other):
         return not self == other
 
@@ -298,8 +376,9 @@ class YFuncStat(YStat):
 
     def strip_dirs(self):
         self.module = os.path.basename(self.module)
-        self.full_name = _func_fullname(self.builtin, self.module, self.lineno,
-            self.name)
+        self.full_name = _func_fullname(
+            self.builtin, self.module, self.lineno, self.name
+        )
         return self
 
     def _print(self, out, columns):
@@ -310,8 +389,10 @@ class YFuncStat(YStat):
                 out.write(" " * COLUMN_GAP)
             elif title == "ncall":
                 if self.is_recursive():
-                    out.write(StatString("%d/%d" % (self.ncall,
-                            self.nactualcall)).rtrim(size))
+                    out.write(
+                        StatString("%d/%d" % (self.ncall, self.nactualcall)
+                                   ).rtrim(size)
+                    )
                 else:
                     out.write(StatString(self.ncall).rtrim(size))
                 out.write(" " * COLUMN_GAP)
@@ -325,11 +406,24 @@ class YFuncStat(YStat):
                 out.write(StatString(_fft(self.tavg, size)).rtrim(size))
         out.write(LINESEP)
 
+
 class YChildFuncStat(YFuncStat):
     """
     Class holding information for children function stats.
     """
-    _KEYS = {'index':0, 'ncall':1, 'nactualcall':2, 'ttot':3, 'tsub':4, 'tavg':5, 'builtin':6, 'full_name':7, 'module':8, 'lineno':9, 'name':10}
+    _KEYS = {
+        'index': 0,
+        'ncall': 1,
+        'nactualcall': 2,
+        'ttot': 3,
+        'tsub': 4,
+        'tavg': 5,
+        'builtin': 6,
+        'full_name': 7,
+        'module': 8,
+        'lineno': 9,
+        'name': 10
+    }
 
     def __add__(self, other):
         if other is None:
@@ -341,20 +435,27 @@ class YChildFuncStat(YFuncStat):
         self.tavg = self.ttot / self.ncall
         return self
 
+
 class YThreadStat(YStat):
     """
     Class holding information for thread stats.
     """
-    _KEYS = {'name':0, 'id':1, 'tid':2, 'ttot':3,'sched_count':4,}
+    _KEYS = {
+        'name': 0,
+        'id': 1,
+        'tid': 2,
+        'ttot': 3,
+        'sched_count': 4,
+    }
 
     def __eq__(self, other):
         if other is None:
             return False
         return self.id == other.id
-    
+
     def __ne__(self, other):
         return not self == other
-    
+
     def __hash__(self, *args, **kwargs):
         return hash(self.id)
 
@@ -377,10 +478,12 @@ class YThreadStat(YStat):
                 out.write(StatString(self.sched_count).rtrim(size))
         out.write(LINESEP)
 
+
 class YStats(object):
     """
     Main Stats class where we collect the information from _yappi and apply the user filters.
     """
+
     def __init__(self):
         self._clock_type = None
         self._as_dict = {}
@@ -392,8 +495,10 @@ class YStats(object):
         return self
 
     def sort(self, sort_type, sort_order):
-        self._as_list.sort(key=lambda stat: stat[sort_type], 
-            reverse=(sort_order==SORT_ORDERS["desc"]))
+        self._as_list.sort(
+            key=lambda stat: stat[sort_type],
+            reverse=(sort_order == SORT_ORDERS["desc"])
+        )
         return self
 
     def clear(self):
@@ -408,16 +513,16 @@ class YStats(object):
             return self._as_list[key]
         except IndexError:
             return None
-        
+
     def count(self, item):
         return self._as_list.count(item)
-    
+
     def __iter__(self):
         return iter(self._as_list)
-    
+
     def __len__(self):
         return len(self._as_list)
-    
+
     def pop(self):
         item = self._as_list.pop()
         del self._as_dict[item]
@@ -425,7 +530,7 @@ class YStats(object):
 
     def append(self, item):
         # increment/update the stat if we already have it
-        
+
         existing = self._as_dict.get(item)
         if existing:
             existing += item
@@ -451,24 +556,24 @@ class YStats(object):
             if self.count(x) > 1:
                 return False
         return True
-    
+
 
 class YStatsIndexable(YStats):
-    
+
     def __init__(self):
         super(YStatsIndexable, self).__init__()
         self._additional_indexing = {}
-    
+
     def clear(self):
         super(YStatsIndexable, self).clear()
         self._additional_indexing.clear()
-         
+
     def pop(self):
         item = super(YStatsIndexable, self).pop()
         self._additional_indexing.pop(item.index, None)
         self._additional_indexing.pop(item.full_name, None)
         return item
-     
+
     def append(self, item):
         super(YStatsIndexable, self).append(item)
         # setdefault so that we don't replace them if they're already there.
@@ -487,16 +592,28 @@ class YStatsIndexable(YStats):
 
         return super(YStatsIndexable, self).__getitem__(key)
 
+
 class YChildFuncStats(YStatsIndexable):
 
     def sort(self, sort_type, sort_order="desc"):
         sort_type = _validate_sorttype(sort_type, SORT_TYPES_CHILDFUNCSTATS)
         sort_order = _validate_sortorder(sort_order)
 
-        return super(YChildFuncStats, self).sort(SORT_TYPES_CHILDFUNCSTATS[sort_type], SORT_ORDERS[sort_order])
+        return super(YChildFuncStats, self).sort(
+            SORT_TYPES_CHILDFUNCSTATS[sort_type], SORT_ORDERS[sort_order]
+        )
 
-    def print_all(self, out=sys.stdout, columns= {0:("name",36), 1:("ncall", 5), 
-                    2:("tsub", 8), 3: ("ttot", 8), 4:("tavg",8)}):
+    def print_all(
+        self,
+        out=sys.stdout,
+        columns={
+            0: ("name", 36),
+            1: ("ncall", 5),
+            2: ("tsub", 8),
+            3: ("ttot", 8),
+            4: ("tavg", 8)
+        }
+    ):
         """
         Prints all of the child function profiler results to a given file. (stdout by default)
         """
@@ -515,7 +632,7 @@ class YChildFuncStats(YStatsIndexable):
         for stat in self:
             stat.strip_dirs()
         return self
-    
+
 
 class YFuncStats(YStatsIndexable):
 
@@ -528,7 +645,7 @@ class YFuncStats(YStatsIndexable):
     def __init__(self, files=[]):
         super(YFuncStats, self).__init__()
         self.add(files)
-        
+
     def strip_dirs(self):
         for stat in self:
             stat.strip_dirs()
@@ -557,8 +674,16 @@ class YFuncStats(YStatsIndexable):
                         continue
 
                     tavg = rstat.ttot / rstat.ncall
-                    cfstat = YChildFuncStat(child_tpl+(tavg, rstat.builtin, rstat.full_name, rstat.module,
-                        rstat.lineno, rstat.name,))
+                    cfstat = YChildFuncStat(
+                        child_tpl + (
+                            tavg,
+                            rstat.builtin,
+                            rstat.full_name,
+                            rstat.module,
+                            rstat.lineno,
+                            rstat.name,
+                        )
+                    )
                     _childs.append(cfstat)
                 stat.children = _childs
             result = super(YFuncStats, self).get()
@@ -569,7 +694,7 @@ class YFuncStats(YStatsIndexable):
     def _enumerator(self, stat_entry):
 
         fname, fmodule, flineno, fncall, fnactualcall, fbuiltin, fttot, ftsub, \
-            findex, fchildren, fctxid = stat_entry
+            findex, fchildren, fctxid, fctxname = stat_entry
 
         # builtin function?
         ffull_name = _func_fullname(bool(fbuiltin), fmodule, flineno, fname)
@@ -577,13 +702,15 @@ class YFuncStats(YStatsIndexable):
         fstat = YFuncStat(stat_entry + (ftavg, ffull_name))
 
         # do not show profile stats of yappi itself.
-        if os.path.basename(fstat.module) == "yappi.py" or fstat.module == "_yappi":
+        if os.path.basename(
+            fstat.module
+        ) == "yappi.py" or fstat.module == "_yappi":
             return
 
         fstat.builtin = bool(fstat.builtin)
 
         if self._filter:
-            for k,v in self._filter.items():
+            for k, v in self._filter.items():
                 if getattr(fstat, k) != v:
                     return
 
@@ -597,7 +724,10 @@ class YFuncStats(YStatsIndexable):
         try:
             saved_stats, saved_clock_type = pickle.load(file)
         except:
-            raise YappiError("Unable to load the saved profile information from %s." % (file.name))
+            raise YappiError(
+                "Unable to load the saved profile information from %s." %
+                (file.name)
+            )
 
         # check if we really have some stats to be merged?
         if not self.empty():
@@ -652,25 +782,35 @@ class YFuncStats(YStatsIndexable):
         file_ids = ['']
         func_ids = ['']
         for func_stat in self:
-            file_ids += [ 'fl=(%d) %s' % (func_stat.index, func_stat.module) ]
-            func_ids += [ 'fn=(%d) %s %s:%s' % (func_stat.index, func_stat.name, func_stat.module, func_stat.lineno) ]
+            file_ids += ['fl=(%d) %s' % (func_stat.index, func_stat.module)]
+            func_ids += [
+                'fn=(%d) %s %s:%s' % (
+                    func_stat.index, func_stat.name, func_stat.module,
+                    func_stat.lineno
+                )
+            ]
 
         lines += file_ids + func_ids
 
         # add stats for each function we have a record of
         for func_stat in self:
-            func_stats = [ '',
-                           'fl=(%d)' % func_stat.index,
-                           'fn=(%d)' % func_stat.index]
-            func_stats += [ '%s %s' % (func_stat.lineno, int(func_stat.tsub * 1e6)) ]
+            func_stats = [
+                '',
+                'fl=(%d)' % func_stat.index,
+                'fn=(%d)' % func_stat.index
+            ]
+            func_stats += [
+                '%s %s' % (func_stat.lineno, int(func_stat.tsub * 1e6))
+            ]
 
             # children functions stats
             for child in func_stat.children:
-                func_stats += [ 'cfl=(%d)' % child.index,
-                                'cfn=(%d)' % child.index,
-                                'calls=%d 0' % child.ncall,
-                                '0 %d' % int(child.ttot * 1e6)
-                                ]
+                func_stats += [
+                    'cfl=(%d)' % child.index,
+                    'cfn=(%d)' % child.index,
+                    'calls=%d 0' % child.ncall,
+                    '0 %d' % int(child.ttot * 1e6)
+                ]
             lines += func_stats
 
         with open(path, "w") as f:
@@ -679,9 +819,13 @@ class YFuncStats(YStatsIndexable):
     def add(self, files, type="ystat"):
         type = type.upper()
         if type not in self._SUPPORTED_LOAD_FORMATS:
-            raise NotImplementedError('Loading from (%s) format is not possible currently.')
+            raise NotImplementedError(
+                'Loading from (%s) format is not possible currently.'
+            )
         if isinstance(files, str):
-            files = [files, ]
+            files = [
+                files,
+            ]
         for fd in files:
             with open(fd, "rb") as f:
                 add_func = getattr(self, "_add_from_%s" % (type))
@@ -692,13 +836,24 @@ class YFuncStats(YStatsIndexable):
     def save(self, path, type="ystat"):
         type = type.upper()
         if type not in self._SUPPORTED_SAVE_FORMATS:
-            raise NotImplementedError('Saving in "%s" format is not possible currently.' % (type))
+            raise NotImplementedError(
+                'Saving in "%s" format is not possible currently.' % (type)
+            )
 
         save_func = getattr(self, "_save_as_%s" % (type))
         save_func(path=path)
 
-    def print_all(self, out=sys.stdout, columns={0:("name",36), 1:("ncall", 5), 
-                    2:("tsub", 8), 3:("ttot", 8), 4:("tavg",8)}):
+    def print_all(
+        self,
+        out=sys.stdout,
+        columns={
+            0: ("name", 36),
+            1: ("ncall", 5),
+            2: ("tsub", 8),
+            3: ("ttot", 8),
+            4: ("tavg", 8)
+        }
+    ):
         """
         Prints all of the function profiler results to a given file. (stdout by default)
         """
@@ -726,7 +881,9 @@ class YFuncStats(YStatsIndexable):
         self._sort_type = sort_type
         self._sort_order = sort_order
 
-        return super(YFuncStats, self).sort(SORT_TYPES_FUNCSTATS[sort_type], SORT_ORDERS[sort_order])
+        return super(YFuncStats, self).sort(
+            SORT_TYPES_FUNCSTATS[sort_type], SORT_ORDERS[sort_order]
+        )
 
     def debug_print(self):
         if self.empty():
@@ -756,7 +913,9 @@ class YFuncStats(YStatsIndexable):
                 console.write("child_full_name: %s" % child_stat.full_name)
                 console.write(LINESEP)
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
-                console.write("ncall: %d/%d" % (child_stat.ncall, child_stat.nactualcall))
+                console.write(
+                    "ncall: %d/%d" % (child_stat.ncall, child_stat.nactualcall)
+                )
                 console.write(LINESEP)
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
                 console.write("ttot: %s" % _fft(child_stat.ttot))
@@ -765,6 +924,7 @@ class YFuncStats(YStatsIndexable):
                 console.write("tsub: %s" % _fft(child_stat.tsub))
                 console.write(LINESEP)
             console.write(LINESEP)
+
 
 class YThreadStats(YStats):
 
@@ -786,17 +946,28 @@ class YThreadStats(YStats):
         sort_type = _validate_sorttype(sort_type, SORT_TYPES_THREADSTATS)
         sort_order = _validate_sortorder(sort_order)
 
-        return super(YThreadStats, self).sort(SORT_TYPES_THREADSTATS[sort_type], SORT_ORDERS[sort_order])
+        return super(YThreadStats, self).sort(
+            SORT_TYPES_THREADSTATS[sort_type], SORT_ORDERS[sort_order]
+        )
 
-    def print_all(self, out=sys.stdout, columns={0:("name",13), 1:("id", 5), 
-                2:("tid", 15), 3:("ttot", 8), 4:("scnt", 10)}):
+    def print_all(
+        self,
+        out=sys.stdout,
+        columns={
+            0: ("name", 13),
+            1: ("id", 5),
+            2: ("tid", 15),
+            3: ("ttot", 8),
+            4: ("scnt", 10)
+        }
+    ):
         """
         Prints all of the thread profiler results to a given file. (stdout by default)
         """
 
         if self.empty():
             return
-        
+
         for _, col in columns.items():
             _validate_columns(col[0], COLUMNS_THREADSTATS)
 
@@ -806,13 +977,15 @@ class YThreadStats(YStats):
             stat._print(out, columns)
 
     def strip_dirs(self):
-        pass # do nothing
+        pass  # do nothing
+
 
 def is_running():
     """
     Returns true if the profiler is running, false otherwise.
     """
     return bool(_yappi.is_running())
+
 
 def start(builtins=False, profile_threads=True):
     """
@@ -821,6 +994,7 @@ def start(builtins=False, profile_threads=True):
     if profile_threads:
         threading.setprofile(_profile_thread_callback)
     _yappi.start(builtins, profile_threads)
+
 
 def get_func_stats(filter=None):
     """
@@ -835,6 +1009,7 @@ def get_func_stats(filter=None):
         _yappi._resume()
     return stats
 
+
 def get_thread_stats():
     """
     Gets the thread profiler results with given filters and returns an iterable.
@@ -846,12 +1021,14 @@ def get_thread_stats():
         _yappi._resume()
     return stats
 
+
 def stop():
     """
     Stop profiler.
     """
     _yappi.stop()
     threading.setprofile(None)
+
 
 @contextmanager
 def run(builtins=False, profile_threads=True):
@@ -880,6 +1057,7 @@ def run(builtins=False, profile_threads=True):
     finally:
         stop()
 
+
 def clear_stats():
     """
     Clears all of the profile results.
@@ -890,11 +1068,13 @@ def clear_stats():
     finally:
         _yappi._resume()
 
+
 def get_clock_time():
     """
     Returns the current clock time with regard to current clock type.
     """
     return _yappi.get_clock_time()
+
 
 def get_clock_type():
     """
@@ -902,12 +1082,14 @@ def get_clock_type():
     """
     return _yappi.get_clock_type()
 
+
 def get_clock_info():
     """
     Returns a dict containing the OS API used for timing, the precision of the
     underlying clock.
     """
     return _yappi.get_clock_info()
+
 
 def set_clock_type(type):
     """
@@ -920,20 +1102,13 @@ def set_clock_type(type):
 
     _yappi.set_clock_type(CLOCK_TYPES[type])
 
-def shift_context_time(context_id, amount):
-    """
-    Adjust a context's start time, and the time of all functions currently on
-    the context's stack. 'amount' is in the same units as get_clock_type(). A
-    negative 'amount' increases the 'ttot' statistic for this context and all
-    functions on the stack, and a positive 'amount' decreases 'ttot'.
-    """
-    _yappi.shift_context_time(context_id, amount)
 
 def get_mem_usage():
     """
     Returns the internal memory usage of the profiler itself.
     """
     return _yappi.get_mem_usage()
+
 
 def set_context_id_callback(callback):
     """
@@ -945,6 +1120,7 @@ def set_context_id_callback(callback):
     >>> yappi.set_context_id_callback(lambda: id(greenlet.getcurrent()))
     """
     return _yappi.set_context_id_callback(callback)
+
 
 def set_context_name_callback(callback):
     """
@@ -963,31 +1139,59 @@ def set_context_name_callback(callback):
         return _yappi.set_context_name_callback(_ctx_name_callback)
     return _yappi.set_context_name_callback(callback)
 
-# set _ctx_name_callback by default at import time. 
+
+# set _ctx_name_callback by default at import time.
 set_context_name_callback(None)
+
 
 def main():
     from optparse import OptionParser
-    usage = "%s [-b] [-c clock_type] [-o output_file] [-f output_format] [-s] [scriptfile] args ..." % os.path.basename(sys.argv[0])
+    usage = "%s [-b] [-c clock_type] [-o output_file] [-f output_format] [-s] [scriptfile] args ..." % os.path.basename(
+        sys.argv[0]
+    )
     parser = OptionParser(usage=usage)
     parser.allow_interspersed_args = False
-    parser.add_option("-c", "--clock-type", default="cpu",
-                      choices=sorted(c.lower() for c in CLOCK_TYPES),
-                      metavar="clock_type", help="Clock type to use during profiling"
-                                "(\"cpu\" or \"wall\", default is \"cpu\").")
-    parser.add_option("-b", "--builtins",
-                  action="store_true", dest="profile_builtins", default=False,
-                  help="Profiles builtin functions when set. [default: False]")
-    parser.add_option("-o", "--output-file", metavar="output_file",
-                  help="Write stats to output_file.")
-    parser.add_option("-f", "--output-format", default="pstat",
-                  choices=("pstat", "callgrind", "ystat"),
-                  metavar="output_format", help="Write stats in the specified"
-                  "format (\"pstat\", \"callgrind\" or \"ystat\", default is "
-                  "\"pstat\").")
-    parser.add_option("-s", "--single_thread",
-                  action="store_true", dest="profile_single_thread", default=False,
-                  help="Profiles only the thread that calls start(). [default: False]")
+    parser.add_option(
+        "-c",
+        "--clock-type",
+        default="cpu",
+        choices=sorted(c.lower() for c in CLOCK_TYPES),
+        metavar="clock_type",
+        help="Clock type to use during profiling"
+        "(\"cpu\" or \"wall\", default is \"cpu\")."
+    )
+    parser.add_option(
+        "-b",
+        "--builtins",
+        action="store_true",
+        dest="profile_builtins",
+        default=False,
+        help="Profiles builtin functions when set. [default: False]"
+    )
+    parser.add_option(
+        "-o",
+        "--output-file",
+        metavar="output_file",
+        help="Write stats to output_file."
+    )
+    parser.add_option(
+        "-f",
+        "--output-format",
+        default="pstat",
+        choices=("pstat", "callgrind", "ystat"),
+        metavar="output_format",
+        help="Write stats in the specified"
+        "format (\"pstat\", \"callgrind\" or \"ystat\", default is "
+        "\"pstat\")."
+    )
+    parser.add_option(
+        "-s",
+        "--single_thread",
+        action="store_true",
+        dest="profile_single_thread",
+        default=False,
+        help="Profiles only the thread that calls start(). [default: False]"
+    )
     if not sys.argv[1:]:
         parser.print_usage()
         sys.exit(2)
@@ -1001,10 +1205,17 @@ def main():
         start(options.profile_builtins, not options.profile_single_thread)
         try:
             if sys.version_info >= (3, 0):
-                exec(compile(open(sys.argv[0]).read(), sys.argv[0], 'exec'),
-                   sys._getframe(1).f_globals, sys._getframe(1).f_locals)
+                exec(
+                    compile(open(sys.argv[0]).read(), sys.argv[0], 'exec'),
+                    sys._getframe(1).f_globals,
+                    sys._getframe(1).f_locals
+                )
             else:
-                execfile(sys.argv[0], sys._getframe(1).f_globals, sys._getframe(1).f_locals)
+                execfile(
+                    sys.argv[0],
+                    sys._getframe(1).f_globals,
+                    sys._getframe(1).f_locals
+                )
         finally:
             stop()
             if options.output_file:
@@ -1016,6 +1227,7 @@ def main():
                 get_thread_stats().print_all()
     else:
         parser.print_usage()
+
 
 if __name__ == "__main__":
     main()
