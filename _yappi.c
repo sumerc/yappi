@@ -52,7 +52,9 @@ typedef struct {
     unsigned int index;
 
     // TODO: Comment
-    long long coroutine_yield_t0;
+    long long yield_t0;
+    int yielded;
+    long long yield_duration;
 
     _pit_children_info *children;
 } _pit; // profile_item
@@ -157,7 +159,9 @@ _create_pit(void)
     pit->builtin = 0;
     pit->index = ycurfuncindex++;
     pit->children = NULL;
-    pit->coroutine_yield_t0 = 0;
+    pit->yield_t0 = 0;
+    pit->yielded = 0;
+    pit->yield_duration = 0;
 
     return pit;
 }
@@ -648,11 +652,20 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 
     //printf("call enter: %s\n", PyStr_AS_CSTRING(cp->name));
 
+    // TODO: Make these tickcount() single
     ci->t0 = tickcount();
-    
-    // TODO: make callcount not count yields?
+
     cp->callcount++;
     incr_rec_level((uintptr_t)cp);
+
+    if (cp->yielded && get_rec_level((uintptr_t)cp) == 1) {
+        cp->callcount--;
+        if (pci) {
+            pci->callcount--;
+        }
+        cp->yield_duration += tickcount() - cp->yield_t0;
+        cp->yielded = 0;
+    }
 }
 
 static void
@@ -676,19 +689,16 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         if (frame->f_code->co_flags & CO_COROUTINE || 
             frame->f_code->co_flags & CO_ITERABLE_COROUTINE ||
             frame->f_code->co_flags & CO_ASYNC_GENERATOR) {
-                if (frame->f_stacktop) {
-                    //printf("YIELD %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
-                    if (!cp->coroutine_yield_t0) { // first time only
-                        cp->coroutine_yield_t0 = shead(current_ctx->cs)->t0;
-                    }
-                    elapsed = 0;
-                } else {
-                    //printf("EXIT %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
-                    if (get_rec_level((uintptr_t)cp) == 1) {
-                        if (cp->coroutine_yield_t0) {
-                            elapsed = tickcount() - cp->coroutine_yield_t0;
-                        }
-                        cp->coroutine_yield_t0 = 0;
+                if (get_rec_level((uintptr_t)cp) == 1) {
+                    if (frame->f_stacktop) {
+                        //printf("YIELD %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
+                        cp->yielded = 1;
+                        cp->yield_t0 = tickcount();
+                    } else {
+                        //printf("EXIT %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
+                        elapsed += cp->yield_duration;
+                        cp->yielded = 0;
+                        cp->yield_duration = 0;
                     }
                 }
         }
@@ -735,8 +745,10 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     // wait for the top-level function/parent/child to update timing values accordingly.
     if (get_rec_level((uintptr_t)cp) == 1) {
         cp->ttotal += elapsed;
-        cp->nonrecursive_callcount++;
-        pci->nonrecursive_callcount++;
+        if (!cp->yielded) {
+            cp->nonrecursive_callcount++;
+            pci->nonrecursive_callcount++;
+        }
     }
 
     if (get_rec_level((uintptr_t)pci) == 1) {
