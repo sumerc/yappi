@@ -93,7 +93,7 @@ def _validate_columns(name, list):
 
 def _ctx_name_callback():
     """
-    We don't use threading.current_thread() becuase it will deadlock if
+    We don't use threading.current_thread() because it will deadlock if
     called when profiling threading._active_limbo_lock.acquire().
     See: #Issue48.
     """

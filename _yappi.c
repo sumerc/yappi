@@ -119,6 +119,28 @@ static PyObject *test_timings; // used for testing
 // forwards
 static _ctx * _profile_thread(PyThreadState *ts);
 
+// funcs
+static void _DebugPrintObjects(unsigned int arg_count, ...)
+{
+    
+    // PyObject *key, *value;
+    // Py_ssize_t pos = 0;
+
+    // while (PyDict_Next(dict, &pos, &key, &value)) {
+    //     printf("%s=%s\n", PyStr_AS_CSTRING(key), PyStr_AS_CSTRING(value));
+    // }
+
+    unsigned int i;
+    va_list vargs;
+    va_start(vargs, arg_count);
+
+    for (i=0; i<arg_count; i++) {
+        PyObject_Print(va_arg(vargs, PyObject *), stdout, Py_PRINT_RAW);
+    }
+    printf("\n");
+    va_end(vargs);
+}
+
 static PyObject *
 PyStr_FromFormat(const char *fmt, ...)
 {
@@ -208,6 +230,7 @@ _current_context_name(void)
         // Name not available yet - will try again on the next call
         goto later;
     }
+
 
     if (!PyStr_Check(name)) {
         yerr("context name callback returned non-string");
@@ -585,27 +608,6 @@ _get_frame_elapsed(void)
     }
 
     return result;
-}
-
-static void _DebugPrintObjects(unsigned int arg_count, ...)
-{
-    
-    // PyObject *key, *value;
-    // Py_ssize_t pos = 0;
-
-    // while (PyDict_Next(dict, &pos, &key, &value)) {
-    //     printf("%s=%s\n", PyStr_AS_CSTRING(key), PyStr_AS_CSTRING(value));
-    // }
-
-    unsigned int i;
-    va_list vargs;
-    va_start(vargs, arg_count);
-
-    for (i=0; i<arg_count; i++) {
-        PyObject_Print(va_arg(vargs, PyObject *), stdout, Py_PRINT_RAW);
-    }
-    printf("\n");
-    va_end(vargs);
 }
 
 static void
@@ -1307,7 +1309,7 @@ set_context_name_callback(PyObject *self, PyObject *args)
     Py_XDECREF(context_name_callback);
     Py_INCREF(new_callback);
     context_name_callback = new_callback;
-    
+
     Py_RETURN_NONE;
 }
 

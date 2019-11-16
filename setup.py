@@ -91,5 +91,4 @@ setup(
     classifiers=CLASSIFIERS,
     license="MIT",
     url=HOMEPAGE,
-    # download_url = "http://bitbucket.org/sumerc/yappi/downloads/%s-%s.tar.gz" % (NAME, VERSION),
-    test_suite='nose.collector')
+    # download_url = "http://bitbucket.org/sumerc/yappi/downloads/%s-%s.tar.gz" % (NAME, VERSION),)
