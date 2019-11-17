@@ -697,7 +697,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
             }
 
         } else {
-            yielded = 0; 
+            yielded = 0;
             //printf("EXIT %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
             if (cp->yield_t0 && get_rec_level((uintptr_t)cp) == 1) {
                 if (get_timing_clock_type() == WALL_CLOCK) {
