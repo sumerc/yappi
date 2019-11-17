@@ -612,6 +612,13 @@ static void _DebugPrintObjects(unsigned int arg_count, ...)
     va_end(vargs);
 }
 
+int IS_AWAITABLE(PyFrameObject *frame)
+{
+    return frame->f_code->co_flags & CO_COROUTINE || 
+        frame->f_code->co_flags & CO_ITERABLE_COROUTINE ||
+        frame->f_code->co_flags & CO_ASYNC_GENERATOR;
+} 
+
 static void
 _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 {
@@ -640,7 +647,9 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         {
             pci = _add_child_info(pp, cp);
         }
-        pci->callcount++;
+        if (!cp->yielded) {
+            pci->callcount++;
+        }
         incr_rec_level((uintptr_t)pci);
     }
 
@@ -650,19 +659,21 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         return;
     }
 
-    //printf("call enter: %s\n", PyStr_AS_CSTRING(cp->name));
-
     // TODO: Make these tickcount() single
     ci->t0 = tickcount();
 
-    cp->callcount++;
+    if (!cp->yielded) {
+        cp->callcount++;
+    }
     incr_rec_level((uintptr_t)cp);
 
+    if (IS_AWAITABLE(frame)) {
+        printf("call enter: %s, rec_level:%d, yield_status:%d\n", 
+            PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp),
+            cp->yielded);
+    }
+
     if (cp->yielded && get_rec_level((uintptr_t)cp) == 1) {
-        cp->callcount--;
-        if (pci) {
-            pci->callcount--;
-        }
         cp->yield_duration += tickcount() - cp->yield_t0;
         cp->yielded = 0;
     }
@@ -678,34 +689,34 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     elapsed = _get_frame_elapsed();
 
     // leaving a frame while callstack is empty?
-    cp = _get_frame();
+    cp = _pop_frame();
     if (!cp) {
         return;
     }
 
-    // is this a coroutine yield? 
-    // TODO: Comment more on wall time with issue details
-    if (get_timing_clock_type() == WALL_CLOCK) {
-        if (frame->f_code->co_flags & CO_COROUTINE || 
-            frame->f_code->co_flags & CO_ITERABLE_COROUTINE ||
-            frame->f_code->co_flags & CO_ASYNC_GENERATOR) {
-                if (get_rec_level((uintptr_t)cp) == 1) {
-                    if (frame->f_stacktop) {
-                        //printf("YIELD %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
-                        cp->yielded = 1;
-                        cp->yield_t0 = tickcount();
-                    } else {
-                        //printf("EXIT %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
-                        elapsed += cp->yield_duration;
-                        cp->yielded = 0;
-                        cp->yield_duration = 0;
-                    }
-                }
-        }
+    if (frame->f_code->co_flags & CO_GENERATOR) {
+        //printf("is a generator func.\n");
     }
 
-    // pop the frame
-    _pop_frame();
+    // is this a coroutine yield? 
+    // TODO: Comment more on wall time with issue details
+    if (IS_AWAITABLE(frame)) {
+        if (get_rec_level((uintptr_t)cp) == 1) {
+            if (frame->f_stacktop) {
+                printf("YIELD %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
+                cp->yielded = 1;
+                cp->yield_t0 = tickcount();
+            } else {
+                printf("EXIT %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
+                
+                if (get_timing_clock_type() == WALL_CLOCK) {
+                    elapsed += cp->yield_duration;
+                }
+                cp->yielded = 0;
+                cp->yield_duration = 0;
+            }
+        }
+    }
 
     // is this the last function in the callstack?`
     pp = _pop_frame();
