@@ -53,8 +53,6 @@ typedef struct {
 
     // TODO: Comment
     long long yield_t0;
-    int yielded;
-    long long yield_duration;
 
     _pit_children_info *children;
 } _pit; // profile_item
@@ -160,8 +158,6 @@ _create_pit(void)
     pit->index = ycurfuncindex++;
     pit->children = NULL;
     pit->yield_t0 = 0;
-    pit->yielded = 0;
-    pit->yield_duration = 0;
 
     return pit;
 }
@@ -647,9 +643,6 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         {
             pci = _add_child_info(pp, cp);
         }
-        if (!cp->yielded) {
-            pci->callcount++;
-        }
         incr_rec_level((uintptr_t)pci);
     }
 
@@ -659,24 +652,14 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         return;
     }
 
-    // TODO: Make these tickcount() single
     ci->t0 = tickcount();
 
-    if (!cp->yielded) {
-        cp->callcount++;
-    }
     incr_rec_level((uintptr_t)cp);
 
-    if (IS_AWAITABLE(frame)) {
-        printf("call enter: %s, rec_level:%d, yield_status:%d\n", 
-            PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp),
-            cp->yielded);
-    }
+    //printf("call enter %s %ld %p\n", PyStr_AS_CSTRING(cp->name), 
+    //    get_rec_level((uintptr_t)cp),
+    //    frame->f_stacktop);
 
-    if (cp->yielded && get_rec_level((uintptr_t)cp) == 1) {
-        cp->yield_duration += tickcount() - cp->yield_t0;
-        cp->yielded = 0;
-    }
 }
 
 static void
@@ -685,6 +668,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     long long elapsed;
     _pit *cp, *pp, *ppp;
     _pit_children_info *pci,*ppci;
+    int yielded = 0;
 
     elapsed = _get_frame_elapsed();
 
@@ -701,21 +685,32 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     // is this a coroutine yield? 
     // TODO: Comment more on wall time with issue details
     if (IS_AWAITABLE(frame)) {
-        if (get_rec_level((uintptr_t)cp) == 1) {
-            if (frame->f_stacktop) {
-                printf("YIELD %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
-                cp->yielded = 1;
-                cp->yield_t0 = tickcount();
-            } else {
-                printf("EXIT %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
-                
+        if (frame->f_stacktop) {
+            yielded = 1;
+            //printf("YIELD %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
+            if (!cp->yield_t0) {
+                cp->yield_t0 = tickcount(); // first YIELD
+            }
+
+            if (get_timing_clock_type() == WALL_CLOCK) {
+                elapsed = 0;
+            }
+
+        } else {
+            yielded = 0; 
+            //printf("EXIT %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
+            if (cp->yield_t0 && get_rec_level((uintptr_t)cp) == 1) {
                 if (get_timing_clock_type() == WALL_CLOCK) {
-                    elapsed += cp->yield_duration;
+                    elapsed = tickcount() - cp->yield_t0;
                 }
-                cp->yielded = 0;
-                cp->yield_duration = 0;
+
+                cp->yield_t0 = 0;
             }
         }
+    }
+
+    if (!yielded) {
+        cp->callcount++;
     }
 
     // is this the last function in the callstack?`
@@ -723,7 +718,9 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     if (!pp) {
         cp->ttotal += elapsed;
         cp->tsubtotal += elapsed;
-        cp->nonrecursive_callcount++;
+        if (!yielded) {
+            cp->nonrecursive_callcount++;
+        }
         decr_rec_level((uintptr_t)cp);
         return;
     }
@@ -738,6 +735,10 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     // a calls b. b's elapsed time is subtracted from a's tsub and a adds its own elapsed it is leaving.
     pp->tsubtotal -= elapsed;
     cp->tsubtotal += elapsed;
+
+    if (!yielded) {
+        pci->callcount++;
+    }
 
     // a calls b calls c. child c's elapsed time is subtracted from child b's tsub and child b adds its
     // own elapsed when it is leaving
@@ -756,7 +757,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     // wait for the top-level function/parent/child to update timing values accordingly.
     if (get_rec_level((uintptr_t)cp) == 1) {
         cp->ttotal += elapsed;
-        if (!cp->yielded) {
+        if (!yielded) {
             cp->nonrecursive_callcount++;
             pci->nonrecursive_callcount++;
         }
@@ -1191,6 +1192,8 @@ _pitenumstat(_hitem *item, void *arg)
         if (pci->tsubtotal < 0) {
             pci->tsubtotal = 0;
         }
+        if (pci->callcount == 0)
+            pci->callcount = 1;
         stats_tuple = Py_BuildValue("Ikkff", pci->index, pci->callcount,
                 pci->nonrecursive_callcount, _normt(pci->ttotal),
                 _normt(pci->tsubtotal));
@@ -1198,10 +1201,11 @@ _pitenumstat(_hitem *item, void *arg)
         Py_DECREF(stats_tuple);
         pci = (_pit_children_info *)pci->next;
     }
-    // normalize tsubtotal. tsubtotal being negative is an expected situation.
-    if (pt->tsubtotal < 0) {
+    // normalize values
+    if (pt->tsubtotal < 0)
         pt->tsubtotal = 0;
-    }
+    if (pt->callcount == 0)
+        pt->callcount = 1;
 
     exc = PyObject_CallFunction(eargs->efn, "((OOkkkIffIOkO))", pt->name, pt->modname, pt->lineno, pt->callcount,
                         pt->nonrecursive_callcount, pt->builtin, _normt(pt->ttotal), _normt(pt->tsubtotal),
