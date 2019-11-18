@@ -39,20 +39,41 @@ typedef struct {
     struct _pit_children_info *next;
 } _pit_children_info;
 
+typedef struct {
+    // we currently use frame pointer for identifying the running coroutine on
+    // a specific _pit.
+    PyFrameObject *frame;
+
+    // the first time this coroutine is seen on stack
+    long long t0;
+
+    struct _coro *next;
+} _coro;
+
 // module definitions
 typedef struct {
     PyObject *name;
     PyObject *modname;
     unsigned long lineno;
     unsigned long callcount;
-    unsigned long nonrecursive_callcount;   // the number of actual calls when the function is recursive.
-    long long tsubtotal;                    // time function spent excluding its children (include recursive calls)
-    long long ttotal;                       // the total time that a function spent
-    unsigned int builtin;                   // 0 for normal, 1 for ccall
+
+    // the number of actual calls when the function is recursive.
+    unsigned long nonrecursive_callcount;
+
+    // time function spent excluding its children (include recursive calls)
+    long long tsubtotal;
+
+    // the total time that a function spent
+    long long ttotal;
+    unsigned int builtin;
+
+    // a number that uniquely identifies the _pit during the lifetime of a profile
+    // session (for multiple start/stop pairs)
     unsigned int index;
 
     // TODO: Comment
-    long long coroutine_yield_t0;
+    long long yield_t0;
+    _coro *coroutines;
 
     _pit_children_info *children;
 } _pit; // profile_item
@@ -141,6 +162,13 @@ static void _DebugPrintObjects(unsigned int arg_count, ...)
     va_end(vargs);
 }
 
+int IS_ASYNC(PyFrameObject *frame)
+{
+    return frame->f_code->co_flags & CO_COROUTINE || 
+        frame->f_code->co_flags & CO_ITERABLE_COROUTINE ||
+        frame->f_code->co_flags & CO_ASYNC_GENERATOR;
+}
+
 static PyObject *
 PyStr_FromFormat(const char *fmt, ...)
 {
@@ -179,7 +207,7 @@ _create_pit(void)
     pit->builtin = 0;
     pit->index = ycurfuncindex++;
     pit->children = NULL;
-    pit->coroutine_yield_t0 = 0;
+    pit->yield_t0 = 0;
 
     return pit;
 }
@@ -610,6 +638,78 @@ _get_frame_elapsed(void)
     return result;
 }
 
+static int 
+_coro_enter(_pit *cp, PyFrameObject *frame)
+{
+    _coro *coro;
+
+    if (!get_timing_clock_type() == WALL_CLOCK || 
+        get_rec_level((uintptr_t)cp) != 1) {
+            return 0;
+    }
+
+    // if we already have this coro then it was yielded before
+    coro = cp->coroutines;
+    while(coro) {
+        if (coro->frame == frame) {
+            return 0;
+        }
+        coro = (_coro *)coro->next;
+    }
+
+    printf("CORO ENTER %s %p\n", PyStr_AS_CSTRING(cp->name), frame);
+
+    coro = ymalloc(sizeof(_coro));
+    if (!coro) {
+        return -1;
+    }
+
+    coro->frame = frame;
+    coro->t0 = tickcount();
+    
+    if (cp->coroutines) {
+        coro->next = (struct _coro *)cp->coroutines;
+    }
+    cp->coroutines = coro;
+
+    return 1;
+}
+
+static long long 
+_coro_exit(_pit *cp, PyFrameObject *frame)
+{
+    _coro *coro, *prev;
+    long long _t0;
+
+    if (!get_timing_clock_type() == WALL_CLOCK || 
+        get_rec_level((uintptr_t)cp) != 1) {
+            return 0;
+    }
+
+    printf("CORO EXIT %s %p\n", PyStr_AS_CSTRING(cp->name), frame);
+
+    prev = NULL;
+    coro = cp->coroutines;
+    while(coro) {
+        if (coro->frame == frame) {
+            _t0 = coro->t0;
+            if (prev) {
+                prev->next = coro->next;
+            } else {
+                cp->coroutines = NULL;
+            }
+            yfree(coro);
+            return tickcount() - _t0;
+        }
+        prev = coro;
+        coro = (_coro *)coro->next;
+    }
+
+    // expected: a func leaves without enter
+    return 0;
+}
+
+
 static void
 _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 {
@@ -638,7 +738,6 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         {
             pci = _add_child_info(pp, cp);
         }
-        pci->callcount++;
         incr_rec_level((uintptr_t)pci);
     }
 
@@ -648,13 +747,15 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         return;
     }
 
-    //printf("call enter: %s\n", PyStr_AS_CSTRING(cp->name));
-
     ci->t0 = tickcount();
-    
-    // TODO: make callcount not count yields?
-    cp->callcount++;
+
     incr_rec_level((uintptr_t)cp);
+
+    // TODO: Comment
+    if (IS_ASYNC(frame)) {
+        _coro_enter(cp, frame);
+    }
+
 }
 
 static void
@@ -663,48 +764,46 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     long long elapsed;
     _pit *cp, *pp, *ppp;
     _pit_children_info *pci,*ppci;
+    int yielded = 0;
 
     elapsed = _get_frame_elapsed();
 
     // leaving a frame while callstack is empty?
-    cp = _get_frame();
+    cp = _pop_frame();
     if (!cp) {
         return;
     }
 
-    // is this a coroutine yield? 
-    // TODO: Comment more on wall time with issue details
-    if (get_timing_clock_type() == WALL_CLOCK) {
-        if (frame->f_code->co_flags & CO_COROUTINE || 
-            frame->f_code->co_flags & CO_ITERABLE_COROUTINE ||
-            frame->f_code->co_flags & CO_ASYNC_GENERATOR) {
-                if (frame->f_stacktop) {
-                    //printf("YIELD %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
-                    if (!cp->coroutine_yield_t0) { // first time only
-                        cp->coroutine_yield_t0 = shead(current_ctx->cs)->t0;
-                    }
-                    elapsed = 0;
-                } else {
-                    //printf("EXIT %s %ld\n", PyStr_AS_CSTRING(cp->name), get_rec_level((uintptr_t)cp));
-                    if (get_rec_level((uintptr_t)cp) == 1) {
-                        if (cp->coroutine_yield_t0) {
-                            elapsed = tickcount() - cp->coroutine_yield_t0;
-                        }
-                        cp->coroutine_yield_t0 = 0;
-                    }
-                }
+    if (frame->f_code->co_flags & CO_GENERATOR) {
+        //printf("is a generator func.\n");
+    }
+
+    // TODO: Comment
+    if (IS_ASYNC(frame)) {
+        if (frame->f_stacktop) {
+            yielded = 1;
+        } else {
+            long long coro_elapsed = _coro_exit(cp, frame);
+            
+            //printf("%s %p %llu\n", PyStr_AS_CSTRING(cp->name), frame, coro_elapsed);
+            if (coro_elapsed > 0) {
+                elapsed = coro_elapsed;
+            }
         }
     }
 
-    // pop the frame
-    _pop_frame();
+    if (!yielded) {
+        cp->callcount++;
+    }
 
     // is this the last function in the callstack?`
     pp = _pop_frame();
     if (!pp) {
         cp->ttotal += elapsed;
         cp->tsubtotal += elapsed;
-        cp->nonrecursive_callcount++;
+        if (!yielded) {
+            cp->nonrecursive_callcount++;
+        }
         decr_rec_level((uintptr_t)cp);
         return;
     }
@@ -719,6 +818,10 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     // a calls b. b's elapsed time is subtracted from a's tsub and a adds its own elapsed it is leaving.
     pp->tsubtotal -= elapsed;
     cp->tsubtotal += elapsed;
+
+    if (!yielded) {
+        pci->callcount++;
+    }
 
     // a calls b calls c. child c's elapsed time is subtracted from child b's tsub and child b adds its
     // own elapsed when it is leaving
@@ -737,8 +840,10 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     // wait for the top-level function/parent/child to update timing values accordingly.
     if (get_rec_level((uintptr_t)cp) == 1) {
         cp->ttotal += elapsed;
-        cp->nonrecursive_callcount++;
-        pci->nonrecursive_callcount++;
+        if (!yielded) {
+            cp->nonrecursive_callcount++;
+            pci->nonrecursive_callcount++;
+        }
     }
 
     if (get_rec_level((uintptr_t)pci) == 1) {
@@ -1170,6 +1275,8 @@ _pitenumstat(_hitem *item, void *arg)
         if (pci->tsubtotal < 0) {
             pci->tsubtotal = 0;
         }
+        if (pci->callcount == 0)
+            pci->callcount = 1;
         stats_tuple = Py_BuildValue("Ikkff", pci->index, pci->callcount,
                 pci->nonrecursive_callcount, _normt(pci->ttotal),
                 _normt(pci->tsubtotal));
@@ -1177,10 +1284,11 @@ _pitenumstat(_hitem *item, void *arg)
         Py_DECREF(stats_tuple);
         pci = (_pit_children_info *)pci->next;
     }
-    // normalize tsubtotal. tsubtotal being negative is an expected situation.
-    if (pt->tsubtotal < 0) {
+    // normalize values
+    if (pt->tsubtotal < 0)
         pt->tsubtotal = 0;
-    }
+    if (pt->callcount == 0)
+        pt->callcount = 1;
 
     exc = PyObject_CallFunction(eargs->efn, "((OOkkkIffIOkO))", pt->name, pt->modname, pt->lineno, pt->callcount,
                         pt->nonrecursive_callcount, pt->builtin, _normt(pt->ttotal), _normt(pt->tsubtotal),

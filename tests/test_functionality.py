@@ -927,7 +927,7 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         WORK_ITEM_COUNT = 2000
         def worker():
             while True:
-                item = q.get()                
+                item = q.get()
                 # do the work with item
                 q.task_done()
 
