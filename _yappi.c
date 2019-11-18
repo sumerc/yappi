@@ -657,7 +657,7 @@ _coro_enter(_pit *cp, PyFrameObject *frame)
         coro = (_coro *)coro->next;
     }
 
-    printf("CORO ENTER %s %p\n", PyStr_AS_CSTRING(cp->name), frame);
+    //printf("CORO ENTER %s %p\n", PyStr_AS_CSTRING(cp->name), frame);
 
     coro = ymalloc(sizeof(_coro));
     if (!coro) {
@@ -686,7 +686,7 @@ _coro_exit(_pit *cp, PyFrameObject *frame)
             return 0;
     }
 
-    printf("CORO EXIT %s %p\n", PyStr_AS_CSTRING(cp->name), frame);
+    //printf("CORO EXIT %s %p\n", PyStr_AS_CSTRING(cp->name), frame);
 
     prev = NULL;
     coro = cp->coroutines;
