@@ -72,7 +72,6 @@ typedef struct {
     unsigned int index;
 
     // TODO: Comment
-    long long yield_t0;
     _coro *coroutines;
 
     _pit_children_info *children;
@@ -207,7 +206,7 @@ _create_pit(void)
     pit->builtin = 0;
     pit->index = ycurfuncindex++;
     pit->children = NULL;
-    pit->yield_t0 = 0;
+    pit->coroutines = NULL;
 
     return pit;
 }
@@ -666,6 +665,7 @@ _coro_enter(_pit *cp, PyFrameObject *frame)
 
     coro->frame = frame;
     coro->t0 = tickcount();
+    coro->next = NULL;
     
     if (cp->coroutines) {
         coro->next = (struct _coro *)cp->coroutines;
