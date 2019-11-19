@@ -28,6 +28,31 @@ class YappiUnitTestCase(unittest.TestCase):
             sys.stdout.write("ERR: Duplicates found in Thread stats\r\n")
             tstats.print_all()
 
+    def assert_traces_almost_equal(self, traces_str, traces, walltime_err=0.4):
+        for t in traces_str.split('\n'):
+            tline = t.strip()
+            if tline:
+                t = tline.split()
+                ttot_orig = float(t[-2].strip())
+                tsub_orig = float(t[-3].strip())
+                ncall_orig = int(t[-4].strip())
+
+                t = find_stat_by_name(traces, t[-5])
+                self.assertEqual(ncall_orig, t.ncall, tline)
+                if ttot_orig:
+                    self.assert_almost_equal(ttot_orig, t.ttot, err_msg=tline)
+                if tsub_orig:
+                    self.assert_almost_equal(tsub_orig, t.tsub, err_msg=tline)
+
+    def assert_almost_equal(
+        self, x, y, negative_err=0.05, positive_err=0.1, err_msg=None
+    ):
+        pos_epsilon = (x * positive_err)
+        neg_epsilon = (x * negative_err)
+        assert x - neg_epsilon <= y <= x + pos_epsilon, "%s <= %s <= %s is not True. [%s]" % (
+            x - neg_epsilon, y, x + pos_epsilon, err_msg
+        )
+
 
 def assert_raises_exception(func):
     try:
@@ -59,6 +84,10 @@ def is_py3x():
 
 def find_stat_by_name(stats, name):
     for stat in stats:
+        if hasattr(stat, 'module'):
+            if stat.module + '.' + stat.name == name:
+                return stat
+
         if stat.name == name:
             return stat
 

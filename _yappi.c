@@ -699,6 +699,7 @@ _coro_exit(_pit *cp, PyFrameObject *frame)
                 cp->coroutines = NULL;
             }
             yfree(coro);
+            //printf("CORO EXIT val %s %p %llu\n", PyStr_AS_CSTRING(cp->name), frame, tickcount()-_t0);
             return tickcount() - _t0;
         }
         prev = coro;
@@ -782,6 +783,9 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     if (IS_ASYNC(frame)) {
         if (frame->f_stacktop) {
             yielded = 1;
+            if (get_timing_clock_type() == WALL_CLOCK) {
+                elapsed = 0;
+            }
         } else {
             long long coro_elapsed = _coro_exit(cp, frame);
             

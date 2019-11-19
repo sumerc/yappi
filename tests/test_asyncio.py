@@ -2,10 +2,23 @@ import unittest
 import time
 import yappi
 import asyncio
-from utils import YappiUnitTestCase
+from utils import YappiUnitTestCase, find_stat_by_name
 
 
-class SingleEventLoopTest(YappiUnitTestCase):
+def burn_cpu(sec):
+    t0 = time.time()
+    elapsed_ms = 0
+    while (elapsed_ms < sec):
+        for _ in range(1000):
+            pass
+        elapsed_ms = time.time() - t0
+
+
+def burn_io(sec):
+    time.sleep(sec)
+
+
+class SingleThread(YappiUnitTestCase):
 
     def test_recursive_coroutine(self):
         pass
@@ -25,28 +38,32 @@ class SingleEventLoopTest(YappiUnitTestCase):
     def test_basic_old_style(self):
 
         @asyncio.coroutine
-        def mytask():
+        def a():
             yield from asyncio.sleep(0.1)
-            time.sleep(0.1)
+            burn_io(0.1)
             yield from asyncio.sleep(0.1)
+            burn_io(0.1)
+            yield from asyncio.sleep(0.1)
+            burn_cpu(0.3)
 
         yappi.set_clock_type("wall")
-
-        yappi.set_context_name_callback(lambda: "1")
-        yappi.start()
-        asyncio.run(mytask())
-        yappi.stop()
-        yappi.set_context_name_callback(lambda: "2")
-        yappi.start()
-        asyncio.run(mytask())
+        yappi.start(builtins=True)
+        asyncio.run(a())
+        asyncio.run(a())
         yappi.stop()
 
-        yappi.get_func_stats(filter={"ctx_name": "1"}).print_all()
-        #print(stats)
-        #print(">>>>>>")
+        r1 = '''
+        ..p/yappi/tests/test_asyncio.py:40 a  2      0.000000  1.600000  0.803634
+        ..thon3.7/asyncio/tasks.py:582 sleep  6      0.600000  0.600000  0.100855
+        ..i/tests/test_asyncio.py:8 burn_cpu  2      0.600000  0.600000  0.300011
+        ..i/tests/test_asyncio.py:17 burn_io  4      0.000000  0.400000  0.100490
+        time.sleep                            4      0.400000  0.400000  0.100481
+        '''
+        stats = yappi.get_func_stats()
+        self.assert_traces_almost_equal(r1, stats)
 
 
-class MultipleEventLoopTest(YappiUnitTestCase):
+class MultiThread(YappiUnitTestCase):
 
     def test_basic(self):
         pass
