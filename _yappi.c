@@ -68,10 +68,12 @@ typedef struct {
     unsigned int builtin;
 
     // a number that uniquely identifies the _pit during the lifetime of a profile
-    // session (for multiple start/stop pairs)
+    // session (for multiple start/stop pairs) We could use PyCodeObject for this
+    // too, but then there are builtin calls, it is better to have a custom id
+    // per-pit instead of dealing with the keys and their references.
     unsigned int index;
 
-    // TODO: Comment
+    // concurrent running coroutines on this _pit
     _coro *coroutines;
 
     _pit_children_info *children;
@@ -125,7 +127,7 @@ static PyObject *test_timings; // used for testing
 #define UNINITIALIZED_STRING_VAL "N/A"
 
 #ifdef IS_PY3K // string formatting helper functions compatible with with both 2.x and 3.x
-#define PyStr_AS_CSTRING(s) PyBytes_AS_STRING(PyUnicode_AsUTF8String(s))
+#define PyStr_AS_CSTRING(s) PyUnicode_AsUTF8(s)
 #define PyStr_Check(s) PyUnicode_Check(s)
 #define PyStr_FromString(s) PyUnicode_FromString(s)
 #define PyStr_FromFormatV(fmt, vargs) PyUnicode_FromFormatV(fmt, vargs)
@@ -784,6 +786,10 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         if (frame->f_stacktop) {
             yielded = 1;
             if (get_timing_clock_type() == WALL_CLOCK) {
+                // In fact setting this zero means following:
+                // for this specific pit, we say that if WALL_CLOCK is on,
+                // we only aggregate time between first non-recursive enter and
+                // last non-recursive exit
                 elapsed = 0;
             }
         } else {

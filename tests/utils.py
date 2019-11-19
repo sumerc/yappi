@@ -28,29 +28,47 @@ class YappiUnitTestCase(unittest.TestCase):
             sys.stdout.write("ERR: Duplicates found in Thread stats\r\n")
             tstats.print_all()
 
-    def assert_traces_almost_equal(self, traces_str, traces, walltime_err=0.4):
+    def assert_traces_almost_equal(self, traces_str, traces):
         for t in traces_str.split('\n'):
             tline = t.strip()
             if tline:
                 t = tline.split()
                 ttot_orig = float(t[-2].strip())
                 tsub_orig = float(t[-3].strip())
-                ncall_orig = int(t[-4].strip())
+                ncall_orig = t[-4].strip()
+
+                if '/' in ncall_orig:  # recursive func?
+                    ncall_orig = ncall_orig.split('/')
+                    ncall = int(ncall_orig[0])
+                    non_recursive_ncall = int(ncall_orig[1])
+                else:
+                    ncall = int(ncall_orig)
+                    non_recursive_ncall = ncall
 
                 t = find_stat_by_name(traces, t[-5])
-                self.assertEqual(ncall_orig, t.ncall, tline)
+                self.assertEqual(ncall, t.ncall, tline)
+                self.assertEqual(non_recursive_ncall, t.nactualcall, tline)
                 if ttot_orig:
                     self.assert_almost_equal(ttot_orig, t.ttot, err_msg=tline)
                 if tsub_orig:
                     self.assert_almost_equal(tsub_orig, t.tsub, err_msg=tline)
 
     def assert_almost_equal(
-        self, x, y, negative_err=0.05, positive_err=0.1, err_msg=None
+        self, x, y, negative_err=0.05, positive_err=0.3, err_msg=None
     ):
         pos_epsilon = (x * positive_err)
         neg_epsilon = (x * negative_err)
-        assert x - neg_epsilon <= y <= x + pos_epsilon, "%s <= %s <= %s is not True. [%s]" % (
-            x - neg_epsilon, y, x + pos_epsilon, err_msg
+
+        # if too small, then use 0 as negative threshold
+        neg_threshold = x - neg_epsilon
+        if neg_threshold < 0.1:
+            neg_threshold = 0
+
+        # TODO: do the same as above with positive threshold: for smaller values
+        # just don't mind too much.
+
+        assert neg_threshold <= y <= x + pos_epsilon, "%s <= %s <= %s is not True. [%s]" % (
+            neg_threshold, y, x + pos_epsilon, err_msg
         )
 
 
