@@ -874,8 +874,6 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     pci = ppci = tpci = tppci = NULL;
     curr_tag = _current_tag();
 
-    //_DebugPrintObjects(2, curr_tag, PyStr_FromString(">>>>>>>>>>"));
-
     elapsed = _get_frame_elapsed();
 
     // leaving a frame while callstack is empty?
@@ -1426,6 +1424,8 @@ _pitenumstat(_hitem *item, void *arg)
     pt = (_pit *)item->val;
     eargs = (_ctxfuncenumarg *)arg;
 
+    //printf("bbb name=%s, ptr=%p\n", PyStr_AS_CSTRING(pt->name), pt);
+
     while(pt) {
 
         // do not show builtin pits if specified
@@ -1433,6 +1433,9 @@ _pitenumstat(_hitem *item, void *arg)
             pt = (_pit *)pt->next;
             continue;
         }
+
+        //printf("name=%s, mod=%s, ptr=%p\n", PyStr_AS_CSTRING(pt->name), 
+        //    PyStr_AS_CSTRING(pt->modname), pt);
 
         // convert children function index list to PyList
         children = PyList_New(0);
