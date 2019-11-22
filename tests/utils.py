@@ -1,5 +1,6 @@
 import sys
 import yappi
+import time
 import unittest
 
 
@@ -54,7 +55,7 @@ class YappiUnitTestCase(unittest.TestCase):
                     self.assert_almost_equal(tsub_orig, t.tsub, err_msg=tline)
 
     def assert_almost_equal(
-        self, x, y, negative_err=0.05, positive_err=0.3, err_msg=None
+        self, x, y, negative_err=0.1, positive_err=0.3, err_msg=None
     ):
         pos_epsilon = (x * positive_err)
         neg_epsilon = (x * negative_err)
@@ -64,11 +65,12 @@ class YappiUnitTestCase(unittest.TestCase):
         if neg_threshold < 0.1:
             neg_threshold = 0
 
-        # TODO: do the same as above with positive threshold: for smaller values
-        # just don't mind too much.
+        pos_threshold = x + pos_epsilon
+        if pos_threshold < 0.1:
+            pos_threshold = 0.1
 
-        assert neg_threshold <= y <= x + pos_epsilon, "%s <= %s <= %s is not True. [%s]" % (
-            neg_threshold, y, x + pos_epsilon, err_msg
+        assert neg_threshold <= y <= pos_threshold, "%s <= %s <= %s is not True. [%s]" % (
+            neg_threshold, y, pos_threshold, err_msg
         )
 
 
@@ -118,3 +120,16 @@ def find_stat_by_id(stats, id):
     for stat in stats:
         if stat.id == id:
             return stat
+
+
+def burn_cpu(sec):
+    t0 = time.time()
+    elapsed_ms = 0
+    while (elapsed_ms < sec):
+        for _ in range(1000):
+            pass
+        elapsed_ms = time.time() - t0
+
+
+def burn_io(sec):
+    time.sleep(sec)

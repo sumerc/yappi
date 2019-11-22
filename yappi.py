@@ -334,8 +334,9 @@ class YFuncStat(YStat):
         'children': 9,
         'ctx_id': 10,
         'ctx_name': 11,
-        'tavg': 12,
-        'full_name': 13
+        'tag': 12,
+        'tavg': 13,
+        'full_name': 14
     }
 
     def __eq__(self, other):
@@ -652,13 +653,13 @@ class YFuncStats(YStatsIndexable):
             stat.children.strip_dirs()
         return self
 
-    def get(self, filter=None):
+    def get(self, filter={}):
         _yappi._pause()
         self.clear()
         try:
             self._filter = filter
             _yappi.enum_func_stats(self._enumerator)
-            self._filter = None
+            self._filter = {}
 
             # convert the children info from tuple to YChildFuncStat
             for stat in self:
@@ -694,7 +695,7 @@ class YFuncStats(YStatsIndexable):
     def _enumerator(self, stat_entry):
 
         fname, fmodule, flineno, fncall, fnactualcall, fbuiltin, fttot, ftsub, \
-            findex, fchildren, fctxid, fctxname = stat_entry
+            findex, fchildren, fctxid, fctxname, ftag = stat_entry
 
         # builtin function?
         ffull_name = _func_fullname(bool(fbuiltin), fmodule, flineno, fname)
@@ -709,10 +710,11 @@ class YFuncStats(YStatsIndexable):
 
         fstat.builtin = bool(fstat.builtin)
 
-        if self._filter:
-            for k, v in self._filter.items():
-                if getattr(fstat, k) != v:
-                    return
+        if 'tag' not in self._filter:
+            self._filter['tag'] = -1 # set default tag
+        for k, v in self._filter.items():
+            if getattr(fstat, k) != v:
+                return
 
         self.append(fstat)
 
@@ -996,7 +998,7 @@ def start(builtins=False, profile_threads=True):
     _yappi.start(builtins, profile_threads)
 
 
-def get_func_stats(filter=None):
+def get_func_stats(filter={}):
     """
     Gets the function profiler results with given filters and returns an iterable.
     """
@@ -1108,6 +1110,14 @@ def get_mem_usage():
     Returns the internal memory usage of the profiler itself.
     """
     return _yappi.get_mem_usage()
+
+
+def set_tag_callback(cbk):
+    """
+    Every stat. entry will have a specific tag field and users might be able
+    to filter on stats via tag field.
+    """
+    return _yappi.set_tag_callback(cbk)
 
 
 def set_context_id_callback(callback):

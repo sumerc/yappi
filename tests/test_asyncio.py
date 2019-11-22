@@ -1,21 +1,7 @@
 import unittest
-import time
 import yappi
 import asyncio
-from utils import YappiUnitTestCase, find_stat_by_name
-
-
-def burn_cpu(sec):
-    t0 = time.time()
-    elapsed_ms = 0
-    while (elapsed_ms < sec):
-        for _ in range(1000):
-            pass
-        elapsed_ms = time.time() - t0
-
-
-def burn_io(sec):
-    time.sleep(sec)
+from utils import YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io
 
 
 class SingleThread(YappiUnitTestCase):
