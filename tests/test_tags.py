@@ -25,6 +25,13 @@ class SingleThread(YappiUnitTestCase):
         ../yappi/tests/utils.py:125 burn_cpu  2      0.179780  0.198727  0.099363
         '''
         self.assert_traces_almost_equal(t1, traces)
+
+        tagged_traces = yappi.get_func_stats(filter={'tag': 1})
+        t1 = '''
+        ../yappi/tests/utils.py:125 burn_cpu  1      0.087518  0.096127  0.096127
+        '''
+        self.assert_traces_almost_equal(t1, tagged_traces)
+
         yappi.clear_stats()
 
         # test wall
@@ -40,4 +47,11 @@ class SingleThread(YappiUnitTestCase):
         ..p/yappi/tests/utils.py:134 burn_io  2      0.000021  0.208146  0.104073
         '''
         self.assert_traces_almost_equal(t1, traces)
+
+        tagged_traces = yappi.get_func_stats(filter={'tag': 2})
+        t1 = '''
+        ..p/yappi/tests/utils.py:134 burn_io  1      0.000007  0.105063  0.105063
+        '''
+        self.assert_traces_almost_equal(t1, tagged_traces)
+
         yappi.clear_stats()
