@@ -310,7 +310,7 @@ _current_tag(void)
         yerr("-1 cannot be set as a tag. it is a builtin value.");
         goto error;
     }
-    Py_INCREF(r);
+    //Py_INCREF(r);
     return r;
 error:
     PyErr_Clear();
@@ -431,23 +431,26 @@ _thread2ctx(PyThreadState *ts)
 static void
 _del_pit(_pit *pit)
 {
+    _pit *cp, *next_pit;
     _pit_children_info *it,*next;
 
-    // TODO: delete pit->next here
+    // As these are only INCREFed per pit we only DECR once
+    Py_CLEAR(pit->name);
+    Py_CLEAR(pit->modname);
+    Py_CLEAR(pit->tag);
 
-    while(pit) {
-        it = pit->children;
+    cp = pit;
+    while(cp) {
+        it = cp->children;
         while(it) {
             next = (_pit_children_info *)it->next;
             yfree(it);
             it = next;
         }
-        pit->children = NULL;
-        Py_CLEAR(pit->name);
-        Py_CLEAR(pit->modname);
-        Py_CLEAR(pit->tag);
+        cp->children = NULL;
 
-        pit = (_pit *)pit->next;
+        next_pit = (_pit *)cp->next;
+        cp = next_pit;
     }
 }
 
