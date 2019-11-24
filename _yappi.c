@@ -307,8 +307,8 @@ _current_tag(void)
     }
 
     if (PyLong_Check(r) && PyLong_AsLong(r) == -1) {
-        yerr("-1 cannot be set as a tag. it is a builtin value.");
-        goto error;
+        yinfo("-1 cannot be set as a tag. it is reserved and will not have any effect.");
+        return NULL;
     }
     //Py_INCREF(r);
     return r;

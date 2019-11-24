@@ -1,9 +1,29 @@
 import unittest
 import yappi
+import threading
 from utils import YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io
 
 
+class MultiThread(YappiUnitTestCase):
+
+    def test_simple_tagging(self):
+        pass
+
+
 class SingleThread(YappiUnitTestCase):
+
+    def test_invalid_tag(self):
+
+        def tag_cbk():
+            return -1  # reserved val.
+
+        yappi.set_tag_callback(tag_cbk)
+        yappi.start()
+        tag_cbk()
+        yappi.stop()
+        stats = yappi.get_func_stats()
+        stat = find_stat_by_name(stats, 'tag_cbk')
+        self.assertEqual(stat.ncall, 1)
 
     def test_simple_tagging(self):
 
