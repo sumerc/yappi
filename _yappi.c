@@ -172,9 +172,13 @@ static void _DebugPrintObjects(unsigned int arg_count, ...)
 
 int IS_ASYNC(PyFrameObject *frame)
 {
+#if defined(IS_PY3) && PY_MINOR_VERSION >= 4
     return frame->f_code->co_flags & CO_COROUTINE || 
         frame->f_code->co_flags & CO_ITERABLE_COROUTINE ||
         frame->f_code->co_flags & CO_ASYNC_GENERATOR;
+#else
+    return 0;
+#endif
 }
 
 static PyObject *
@@ -302,11 +306,10 @@ _current_tag(void)
         goto error;
     }
 
-    // TODO:
-    //if (PyInt_Check(r) && PyInt_AS_LONG(r) == -1) {
-    //    yerr("-1 cannot be set as a tag. it is a builtin value.");
-    //    goto error;
-    //}
+    if (PyLong_Check(r) && PyLong_AsLong(r) == -1) {
+        yerr("-1 cannot be set as a tag. it is a builtin value.");
+        goto error;
+    }
     Py_INCREF(r);
     return r;
 error:
@@ -432,15 +435,20 @@ _del_pit(_pit *pit)
 
     // TODO: delete pit->next here
 
-    it = pit->children;
-    while(it) {
-        next = (_pit_children_info *)it->next;
-        yfree(it);
-        it = next;
+    while(pit) {
+        it = pit->children;
+        while(it) {
+            next = (_pit_children_info *)it->next;
+            yfree(it);
+            it = next;
+        }
+        pit->children = NULL;
+        Py_CLEAR(pit->name);
+        Py_CLEAR(pit->modname);
+        Py_CLEAR(pit->tag);
+
+        pit = (_pit *)pit->next;
     }
-    pit->children = NULL;
-    Py_CLEAR(pit->name);
-    Py_CLEAR(pit->modname);
 }
 
 static PyObject *
