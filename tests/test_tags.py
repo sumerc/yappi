@@ -7,7 +7,33 @@ from utils import YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io
 class MultiThread(YappiUnitTestCase):
 
     def test_simple_tagging(self):
-        pass
+
+        def tag_cbk():
+            return threading.get_ident()
+
+        def a():
+            burn_cpu(0.1)
+
+        _TCOUNT = 5
+
+        ts = []
+        yappi.set_clock_type("cpu")
+        yappi.set_tag_callback(tag_cbk)
+        yappi.start()
+        for i in range(_TCOUNT):
+            t = threading.Thread(target=a)
+            t.start()
+            ts.append((t))
+
+        for t in ts:
+            t.join()
+            print(t._ident)
+
+        yappi.stop()
+
+        stats = yappi.get_func_stats(filter={'ctx_id': 1})
+        stats.print_all()
+        yappi.get_thread_stats().print_all()
 
 
 class SingleThread(YappiUnitTestCase):
