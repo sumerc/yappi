@@ -3,40 +3,64 @@ import yappi
 import threading
 from utils import YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io
 
+import sys
 
-class MultiThread(YappiUnitTestCase):
+
+class MultiThreadTests(YappiUnitTestCase):
 
     def test_simple_tagging(self):
 
+        def ctx_id_cbk():
+            cthread = threading.current_thread()
+            try:
+                return cthread._tag
+            except:
+                # therre are some dummythreads that might have no _tags associated
+                return 0
+
         def tag_cbk():
-            return threading.get_ident()
+            cthread = threading.current_thread()
+            try:
+                return cthread._tag
+            except:
+                return -1
 
         def a():
-            burn_cpu(0.1)
+            print("thread start", threading.current_thread()._tag)
+            burn_cpu(0.4)
+            print("thread end", threading.current_thread()._tag)
+
+        def b():
+            pass
 
         _TCOUNT = 5
 
+        #sys.setswitchinterval(1000)
         ts = []
-        yappi.set_clock_type("cpu")
+        yappi.set_clock_type("wall")
+        threading.current_thread()._tag = 0
         yappi.set_tag_callback(tag_cbk)
+        #yappi.set_context_id_callback(ctx_id_cbk)
         yappi.start()
         for i in range(_TCOUNT):
             t = threading.Thread(target=a)
+            t._tag = i + 1
+            ts.append(t)
+
+        for t in ts:
             t.start()
-            ts.append((t))
 
         for t in ts:
             t.join()
-            print(t._ident)
 
         yappi.stop()
 
-        stats = yappi.get_func_stats(filter={'ctx_id': 1})
+        stats = yappi.get_func_stats(filter={'tag': 1})
         stats.print_all()
-        yappi.get_thread_stats().print_all()
+        #yappi.get_thread_stats().print_all()
 
 
-class SingleThread(YappiUnitTestCase):
+class SingleThreadTests(YappiUnitTestCase):
 
     def test_invalid_tag(self):
 
@@ -68,13 +92,13 @@ class SingleThread(YappiUnitTestCase):
         yappi.stop()
         traces = yappi.get_func_stats()
         t1 = '''
-        ../yappi/tests/utils.py:125 burn_cpu  2      0.179780  0.198727  0.099363
+        ../yappi/tests/utils.py:125 burn_cpu  2      0.145467  0.200099  0.100049
         '''
         self.assert_traces_almost_equal(t1, traces)
 
         tagged_traces = yappi.get_func_stats(filter={'tag': 1})
         t1 = '''
-        ../yappi/tests/utils.py:125 burn_cpu  1      0.087518  0.096127  0.096127
+        ../yappi/tests/utils.py:125 burn_cpu  1      0.073759  0.100028  0.100028
         '''
         self.assert_traces_almost_equal(t1, tagged_traces)
 

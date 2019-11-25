@@ -94,6 +94,8 @@ typedef struct {
     PyObject *name;
     long long t0;                           // profiling start CPU time
     unsigned long sched_cnt;                // how many times this thread is scheduled
+
+    PyThreadState *ts_ptr;
 } _ctx; // context
 
 typedef struct
@@ -362,6 +364,10 @@ _get_tagged_pit(_pit *cp, PyObject *curr_tag)
     cp->next = head->next;
     cp->tag = curr_tag;
     head->next = (struct _pit *)cp;
+
+    //if (strcmp(PyStr_AS_CSTRING(cp->name), "a") == 0) {
+    //    _DebugPrintObjects(3, cp->name, cp->tag, PyLong_FromLong(current_ctx->id));
+    //}
 
     return cp;
 }
@@ -881,9 +887,19 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     _pit *tcp, *tpp, *tppp;
     PyObject *curr_tag;
     
+    
     tcp = tpp = tppp = NULL;
     pci = ppci = tpci = tppci = NULL;
+
+if (current_ctx->ts_ptr != PyThreadState_GET()) {
+        printf("bbb incredible context switch occurred!!!!! %p %p\n", 
+            current_ctx->ts_ptr,
+            PyThreadState_GET());
+    }
+    
     curr_tag = _current_tag();
+
+    
 
     elapsed = _get_frame_elapsed();
 
@@ -918,6 +934,12 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         }
     }
 
+    /*
+    if (curr_tag && PyLong_AsLong(curr_tag) != current_ctx->id) {
+        printf("ctx id and curr tag are different\n");
+        _DebugPrintObjects(3, cp->name, curr_tag, PyLong_FromLong(current_ctx->id));
+    }*/
+
     // get the tagged pit if there is any
     tcp = _get_tagged_pit(cp, curr_tag);
     if (!yielded) {
@@ -948,7 +970,6 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         return;
     }
     tpp = _get_tagged_pit(pp, curr_tag);
-    
     // get children info
     pci = _get_child_info(pp, cp, 0);
     if(!pci)
@@ -1078,7 +1099,7 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     prev_ctx = current_ctx;
     if (!current_ctx->name)
     {
-        current_ctx->name = _current_context_name();
+        //current_ctx->name = _current_context_name();
     }
 
     switch (what) {
@@ -1146,6 +1167,7 @@ _profile_thread(PyThreadState *ts)
     ts->c_profilefunc = _yapp_callback;
     ctx->id = ctx_id;
     ctx->tid = ts->thread_id;
+    ctx->ts_ptr = ts;
 
     return ctx;
 }

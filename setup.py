@@ -13,7 +13,7 @@ with io.open('README.md', encoding='UTF-8') as f:
 HOMEPAGE = "https://github.com/sumerc/yappi"
 NAME = "yappi"
 VERSION = "1.1"
-_DEBUG = False  # compile/link code for debugging
+_DEBUG = True  # compile/link code for debugging
 _PROFILE = False  # profile yappi itself
 
 user_macros = []
@@ -28,7 +28,8 @@ if os.name == 'posix' and sys.platform != 'darwin':
         user_libraries.append('rt')
 if _DEBUG:
     if os.name == 'posix':
-        compile_args.append('-g')
+        compile_args.append('-g0')
+        link_args.append('-rdynamic')
     elif os.name == 'nt':
         compile_args.append('/Zi')
         link_args.append('/DEBUG')

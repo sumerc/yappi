@@ -716,6 +716,8 @@ class YFuncStats(YStatsIndexable):
             if getattr(fstat, k) != v:
                 return
 
+        #print(fstat.name, ftag, fctxid)
+
         self.append(fstat)
 
         # hold the max idx number for merging new entries(for making the merging entries indexes unique)

@@ -123,12 +123,12 @@ def find_stat_by_id(stats, id):
 
 
 def burn_cpu(sec):
-    t0 = time.time()
-    elapsed_ms = 0
-    while (elapsed_ms < sec):
+    t0 = yappi.get_clock_time()
+    elapsed = 0
+    while (elapsed < sec):
         for _ in range(1000):
             pass
-        elapsed_ms = time.time() - t0
+        elapsed = yappi.get_clock_time() - t0
 
 
 def burn_io(sec):
