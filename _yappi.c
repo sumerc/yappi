@@ -1061,9 +1061,9 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     PyErr_Fetch(&last_type, &last_value, &last_tb);
 
 #if defined(IS_PY3K) && PY_MINOR_VERSION >= 2
-    PyRun_SimpleString("import sys; _prevsi = sys.getswitchinterval(); sys.setswitchinterval(99999999)");
+    PyRun_SimpleString("sys.setswitchinterval(99999999)");
 #else
-    PyRun_SimpleString("import sys; _prevci = sys.getcheckinterval(); sys.setcheckinterval(99999999)");
+    PyRun_SimpleString("sys.setcheckinterval(99999999)");
 #endif
 
     // get current ctx
@@ -1860,6 +1860,12 @@ init_yappi(void)
     m = Py_InitModule("_yappi",  yappi_methods);
     if (m == NULL)
         return;
+#endif
+
+#if defined(IS_PY3K) && PY_MINOR_VERSION >= 2
+    PyRun_SimpleString("import sys; _prevsi = sys.getswitchinterval();");
+#else
+    PyRun_SimpleString("import sys; _prevci = sys.getcheckinterval();");
 #endif
 
     d = PyModule_GetDict(m);

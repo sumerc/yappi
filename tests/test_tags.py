@@ -11,14 +11,6 @@ class MultiThreadTests(YappiUnitTestCase):
 
     def test_simple_tagging(self):
 
-        def ctx_id_cbk():
-            cthread = threading.current_thread()
-            try:
-                return cthread._tag
-            except:
-                # therre are some dummythreads that might have no _tags associated
-                return 0
-
         def tag_cbk():
             cthread = threading.current_thread()
             try:
@@ -27,21 +19,14 @@ class MultiThreadTests(YappiUnitTestCase):
                 return -1
 
         def a():
-            print("thread start", threading.current_thread()._tag)
             burn_cpu(0.1)
-            print("thread end", threading.current_thread()._tag)
-
-        def b():
-            pass
 
         _TCOUNT = 5
 
-        #sys.setswitchinterval(1000)
         ts = []
         yappi.set_clock_type("cpu")
         threading.current_thread()._tag = 0
         yappi.set_tag_callback(tag_cbk)
-        #yappi.set_context_id_callback(ctx_id_cbk)
         yappi.start()
         for i in range(_TCOUNT):
             t = threading.Thread(target=a)
@@ -56,8 +41,9 @@ class MultiThreadTests(YappiUnitTestCase):
 
         yappi.stop()
 
-        stats = yappi.get_func_stats(filter={'tag': 1})
-        stats.print_all()
+        # filter={'tag': 1}
+        stats = yappi.get_func_stats()
+        #stats.print_all()
         #yappi.get_thread_stats().print_all()
 
 
@@ -93,13 +79,13 @@ class SingleThreadTests(YappiUnitTestCase):
         yappi.stop()
         traces = yappi.get_func_stats()
         t1 = '''
-        ../yappi/tests/utils.py:125 burn_cpu  2      0.145467  0.200099  0.100049
+        ../yappi/tests/utils.py:125 burn_cpu  2      0.082981  0.200156  0.100078
         '''
         self.assert_traces_almost_equal(t1, traces)
 
         tagged_traces = yappi.get_func_stats(filter={'tag': 1})
         t1 = '''
-        ../yappi/tests/utils.py:125 burn_cpu  1      0.073759  0.100028  0.100028
+        ../yappi/tests/utils.py:125 burn_cpu  1      0.041269  0.100062  0.100062
         '''
         self.assert_traces_almost_equal(t1, tagged_traces)
 

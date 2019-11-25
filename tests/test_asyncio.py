@@ -22,9 +22,9 @@ class SingleThread(YappiUnitTestCase):
         yappi.stop()
 
         r1 = '''
-        ..p/yappi/tests/test_asyncio.py:25 a  9/1    0.000081  0.400395  0.044488
-        ..i/tests/test_asyncio.py:8 burn_cpu  4      0.381794  0.400035  0.100009
-        ..thon3.7/asyncio/tasks.py:582 sleep  4      0.000100  0.000279  0.000070
+        ..p/yappi/tests/test_asyncio.py:11 a  9/1    0.000953  0.404821  0.044980
+        ../yappi/tests/utils.py:125 burn_cpu  4      0.163852  0.400735  0.100184
+        ..thon3.7/asyncio/tasks.py:582 sleep  4      0.000637  0.003133  0.000783
         '''
         stats = yappi.get_func_stats()
         self.assert_traces_almost_equal(r1, stats)
@@ -56,11 +56,11 @@ class SingleThread(YappiUnitTestCase):
         yappi.stop()
 
         r1 = '''
-        ..p/yappi/tests/test_asyncio.py:40 a  2      0.000000  1.600000  0.803634
-        ..thon3.7/asyncio/tasks.py:582 sleep  6      0.600000  0.600000  0.100855
-        ..i/tests/test_asyncio.py:8 burn_cpu  2      0.600000  0.600000  0.300011
-        ..i/tests/test_asyncio.py:17 burn_io  4      0.000000  0.400000  0.100490
-        time.sleep                            4      0.400000  0.400000  0.100481
+        ..p/yappi/tests/test_asyncio.py:43 a  2      0.000577  1.631672  0.815836
+        ..thon3.7/asyncio/tasks.py:582 sleep  6      0.622954  0.629176  0.104863
+        ../yappi/tests/utils.py:125 burn_cpu  2      0.257561  0.600316  0.300158
+        ..p/yappi/tests/utils.py:134 burn_io  4      0.000447  0.401603  0.100401
+        time.sleep                            4      0.401156  0.401156  0.100289
         '''
         stats = yappi.get_func_stats()
         self.assert_traces_almost_equal(r1, stats)
@@ -73,11 +73,10 @@ class SingleThread(YappiUnitTestCase):
         yappi.stop()
         stats = yappi.get_func_stats()
         r1 = '''
-        ..p/yappi/tests/test_asyncio.py:51 a  2      0.000188  0.601679  0.300839
-        ..i/tests/test_asyncio.py:8 burn_cpu  2      0.572000  0.599999  0.300000
-        ..thon3.7/asyncio/tasks.py:582 sleep  6      0.000232  0.001143  0.000190
-        ..i/tests/test_asyncio.py:17 burn_io  4      0.000059  0.000349  0.000087
-        time.sleep                            4      0.000290  0.000290  0.000073
+        ..p/yappi/tests/test_asyncio.py:43 a  2      0.001122  0.610890  0.305445
+        ../yappi/tests/utils.py:125 burn_cpu  2      0.263175  0.600361  0.300180
+        ..thon3.7/asyncio/tasks.py:582 sleep  6      0.001472  0.008230  0.001372
+        time.sleep                            4      0.000672  0.000672  0.000168
         '''
         self.assert_traces_almost_equal(r1, stats)
 
