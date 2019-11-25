@@ -29,7 +29,6 @@ if os.name == 'posix' and sys.platform != 'darwin':
 if _DEBUG:
     if os.name == 'posix':
         compile_args.append('-g0')
-        link_args.append('-rdynamic')
     elif os.name == 'nt':
         compile_args.append('/Zi')
         link_args.append('/DEBUG')

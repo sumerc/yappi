@@ -4,6 +4,7 @@ import threading
 from utils import YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io
 
 import sys
+_lock = threading.Lock()
 
 
 class MultiThreadTests(YappiUnitTestCase):
@@ -27,7 +28,7 @@ class MultiThreadTests(YappiUnitTestCase):
 
         def a():
             print("thread start", threading.current_thread()._tag)
-            burn_cpu(0.4)
+            burn_cpu(0.1)
             print("thread end", threading.current_thread()._tag)
 
         def b():
@@ -37,7 +38,7 @@ class MultiThreadTests(YappiUnitTestCase):
 
         #sys.setswitchinterval(1000)
         ts = []
-        yappi.set_clock_type("wall")
+        yappi.set_clock_type("cpu")
         threading.current_thread()._tag = 0
         yappi.set_tag_callback(tag_cbk)
         #yappi.set_context_id_callback(ctx_id_cbk)

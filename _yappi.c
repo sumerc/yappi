@@ -174,7 +174,7 @@ static void _DebugPrintObjects(unsigned int arg_count, ...)
 
 int IS_ASYNC(PyFrameObject *frame)
 {
-#if defined(IS_PY3) && PY_MINOR_VERSION >= 4
+#if defined(IS_PY3K) && PY_MINOR_VERSION >= 4
     return frame->f_code->co_flags & CO_COROUTINE || 
         frame->f_code->co_flags & CO_ITERABLE_COROUTINE ||
         frame->f_code->co_flags & CO_ASYNC_GENERATOR;
@@ -364,10 +364,6 @@ _get_tagged_pit(_pit *cp, PyObject *curr_tag)
     cp->next = head->next;
     cp->tag = curr_tag;
     head->next = (struct _pit *)cp;
-
-    //if (strcmp(PyStr_AS_CSTRING(cp->name), "a") == 0) {
-    //    _DebugPrintObjects(3, cp->name, cp->tag, PyLong_FromLong(current_ctx->id));
-    //}
 
     return cp;
 }
@@ -886,20 +882,11 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     int yielded = 0;
     _pit *tcp, *tpp, *tppp;
     PyObject *curr_tag;
-    
-    
+
     tcp = tpp = tppp = NULL;
     pci = ppci = tpci = tppci = NULL;
 
-if (current_ctx->ts_ptr != PyThreadState_GET()) {
-        printf("bbb incredible context switch occurred!!!!! %p %p\n", 
-            current_ctx->ts_ptr,
-            PyThreadState_GET());
-    }
-    
     curr_tag = _current_tag();
-
-    
 
     elapsed = _get_frame_elapsed();
 
@@ -933,12 +920,6 @@ if (current_ctx->ts_ptr != PyThreadState_GET()) {
             }
         }
     }
-
-    /*
-    if (curr_tag && PyLong_AsLong(curr_tag) != current_ctx->id) {
-        printf("ctx id and curr tag are different\n");
-        _DebugPrintObjects(3, cp->name, curr_tag, PyLong_FromLong(current_ctx->id));
-    }*/
 
     // get the tagged pit if there is any
     tcp = _get_tagged_pit(cp, curr_tag);
@@ -1079,6 +1060,12 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     PyObject *last_type, *last_value, *last_tb;
     PyErr_Fetch(&last_type, &last_value, &last_tb);
 
+#if defined(IS_PY3K) && PY_MINOR_VERSION >= 2
+    PyRun_SimpleString("import sys; _prevsi = sys.getswitchinterval(); sys.setswitchinterval(99999999)");
+#else
+    PyRun_SimpleString("import sys; _prevci = sys.getcheckinterval(); sys.setcheckinterval(99999999)");
+#endif
+
     // get current ctx
     current_ctx = _thread2ctx(PyThreadState_GET());
     if (!current_ctx) {
@@ -1099,7 +1086,7 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     prev_ctx = current_ctx;
     if (!current_ctx->name)
     {
-        //current_ctx->name = _current_context_name();
+        current_ctx->name = _current_context_name();
     }
 
     switch (what) {
@@ -1134,6 +1121,19 @@ finally:
     if (last_type) {
         PyErr_Restore(last_type, last_value, last_tb);
     }
+
+    // there shall be NO context switch happenning inside profile events
+    // we are calling Python functions so that might happen, we use 
+    // setswitchinterval/setcheckinterval to 
+    if (current_ctx->ts_ptr != PyThreadState_GET()) {
+        _log_err(15);
+    }
+
+#if defined(IS_PY3K) && PY_MINOR_VERSION >= 2
+    PyRun_SimpleString("sys.setswitchinterval(_prevsi)");
+#else
+    PyRun_SimpleString("sys.setcheckinterval(_prevci)");
+#endif
     return 0;
 }
 
@@ -1457,8 +1457,6 @@ _pitenumstat(_hitem *item, void *arg)
     pt = (_pit *)item->val;
     eargs = (_ctxfuncenumarg *)arg;
 
-    //printf("bbb name=%s, ptr=%p\n", PyStr_AS_CSTRING(pt->name), pt);
-
     while(pt) {
 
         // do not show builtin pits if specified
@@ -1466,9 +1464,6 @@ _pitenumstat(_hitem *item, void *arg)
             pt = (_pit *)pt->next;
             continue;
         }
-
-        //printf("name=%s, mod=%s, ptr=%p\n", PyStr_AS_CSTRING(pt->name), 
-        //    PyStr_AS_CSTRING(pt->modname), pt);
 
         // convert children function index list to PyList
         children = PyList_New(0);
