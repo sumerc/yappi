@@ -1061,8 +1061,12 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     PyErr_Fetch(&last_type, &last_value, &last_tb);
 
 #if defined(IS_PY3K) && PY_MINOR_VERSION >= 2
-    PyRun_SimpleString("sys.setswitchinterval(99999999)");
+    unsigned long prev_switch_interval = _PyEval_GetSwitchInterval();
+    _PyEval_SetSwitchInterval(999999999);
 #else
+    // Running this might throw some errors while interpreter shutdown
+    // is happening and yappi is running. This is because sys might not 
+    // be available while unloading
     PyRun_SimpleString("sys.setcheckinterval(99999999)");
 #endif
 
@@ -1118,22 +1122,23 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     goto finally;
 
 finally:
+    // there shall be NO context switch happenning inside profile events
+    // we are calling Python functions so that might happen, we use 
+    // setswitchinterval/setcheckinterval to very big values
+    // we use assert instead of log_err as this code might still be
+    // valid if context_id_cbk is used
+    assert (current_ctx->ts_ptr == PyThreadState_GET());
+
+#if defined(IS_PY3K) && PY_MINOR_VERSION >= 2
+    _PyEval_SetSwitchInterval(prev_switch_interval);
+#else
+    PyRun_SimpleString("sys.setcheckinterval(_prevci)");
+#endif
+
     if (last_type) {
         PyErr_Restore(last_type, last_value, last_tb);
     }
 
-    // there shall be NO context switch happenning inside profile events
-    // we are calling Python functions so that might happen, we use 
-    // setswitchinterval/setcheckinterval to 
-    if (current_ctx->ts_ptr != PyThreadState_GET()) {
-        _log_err(15);
-    }
-
-#if defined(IS_PY3K) && PY_MINOR_VERSION >= 2
-    PyRun_SimpleString("sys.setswitchinterval(_prevsi)");
-#else
-    PyRun_SimpleString("sys.setcheckinterval(_prevci)");
-#endif
     return 0;
 }
 
