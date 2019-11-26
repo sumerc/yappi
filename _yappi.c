@@ -1130,11 +1130,8 @@ finally:
         PyErr_Restore(last_type, last_value, last_tb);
     }
 
-    // there shall be no context switch happenning inside profile events
-    // we are calling Python functions so that might happen, we use 
-    // setswitchinterval/setcheckinterval to very big values
-    // we use assert instead of log_err as this code might still be
-    // valid if context_id_cbk is used
+    // there shall be no context switch happenning inside 
+    // profile events and no concurent running events is possible
     if (current_ctx->ts_ptr != PyThreadState_GET()) {
         //abort();
         _log_err(15);
