@@ -4,7 +4,7 @@ import asyncio
 from utils import YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io
 
 
-class SingleThread(YappiUnitTestCase):
+class SingleThreadTests(YappiUnitTestCase):
 
     def test_recursive_coroutine(self):
 
@@ -81,7 +81,7 @@ class SingleThread(YappiUnitTestCase):
         self.assert_traces_almost_equal(r1, stats)
 
 
-class MultiThread(YappiUnitTestCase):
+class MultiThreadTests(YappiUnitTestCase):
 
     def test_basic(self):
         pass
@@ -90,9 +90,6 @@ class MultiThread(YappiUnitTestCase):
         pass
 
     def test_same_coroutine_call_from_different_threads(self):
-        pass
-
-    def test_multiple_event_loops_in_same_thread(self):
         pass
 
 

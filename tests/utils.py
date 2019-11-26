@@ -13,6 +13,7 @@ class YappiUnitTestCase(unittest.TestCase):
         yappi.set_clock_type('cpu')  # reset to default clock type
         yappi.set_context_id_callback(None)
         yappi.set_context_name_callback(None)
+        yappi.set_tag_callback(None)
 
     def tearDown(self):
         fstats = yappi.get_func_stats()

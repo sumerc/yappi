@@ -9,7 +9,54 @@ _lock = threading.Lock()
 
 class MultiThreadTests(YappiUnitTestCase):
 
-    def test_simple_tagging(self):
+    def test_tagging_walltime(self):
+
+        def tag_cbk():
+            cthread = threading.current_thread()
+            try:
+                return cthread._tag
+            except:
+                return -1
+
+        def a():
+            burn_io(0.1)
+
+        _TCOUNT = 20
+
+        yappi.set_clock_type("wall")
+        threading.current_thread()._tag = 0
+        yappi.set_tag_callback(tag_cbk)
+        yappi.start()
+
+        ts = []
+        for i in range(_TCOUNT):
+            t = threading.Thread(target=a)
+            t._tag = i + 1
+            ts.append(t)
+
+        for t in ts:
+            t.start()
+
+        for t in ts:
+            t.join()
+
+        yappi.stop()
+
+        traces = yappi.get_func_stats()
+        t1 = '''
+        ..op/p/yappi/tests/test_tags.py:21 a  20     0.000516  2.004575  0.100229
+        ..p/yappi/tests/utils.py:134 burn_io  20     0.000638  2.004059  0.100203
+        '''
+        self.assert_traces_almost_equal(t1, traces)
+
+        traces = yappi.get_func_stats(filter={'tag': 3})
+        t1 = '''
+        ..op/p/yappi/tests/test_tags.py:21 a  1      0.000033  0.100479  0.100479
+        ..p/yappi/tests/utils.py:134 burn_io  1      0.000038  0.100446  0.100446
+        '''
+        self.assert_traces_almost_equal(t1, traces)
+
+    def test_tagging_cputime(self):
 
         def tag_cbk():
             cthread = threading.current_thread()
@@ -41,10 +88,26 @@ class MultiThreadTests(YappiUnitTestCase):
 
         yappi.stop()
 
-        # filter={'tag': 1}
-        stats = yappi.get_func_stats()
-        #stats.print_all()
-        #yappi.get_thread_stats().print_all()
+        traces = yappi.get_func_stats()
+        t1 = '''
+        ..op/p/yappi/tests/test_tags.py:21 a  5      0.000137  0.500562  0.000000
+        ../yappi/tests/utils.py:125 burn_cpu  5      0.000000  0.500424  0.000000
+        '''
+        self.assert_traces_almost_equal(t1, traces)
+
+        traces = yappi.get_func_stats(filter={'tag': 1})
+        t1 = '''
+        ..op/p/yappi/tests/test_tags.py:21 a  1      0.000058  0.100183  0.100183
+        ../yappi/tests/utils.py:125 burn_cpu  1      0.042062  0.100125  0.100125
+        '''
+        self.assert_traces_almost_equal(t1, traces)
+
+        traces = yappi.get_func_stats(filter={'tag': 3})
+        t1 = '''
+        ..op/p/yappi/tests/test_tags.py:21 a  1      0.000033  0.100161  0.100161
+        ../yappi/tests/utils.py:125 burn_cpu  1      0.040189  0.100128  0.100128
+        '''
+        self.assert_traces_almost_equal(t1, traces)
 
 
 class SingleThreadTests(YappiUnitTestCase):
