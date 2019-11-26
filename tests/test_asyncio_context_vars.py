@@ -93,9 +93,6 @@ class ContextVarsMixin:
         await super().profile_tasks_coroutine()
 
     def get_profiling_outputs(self):
-        yappi.get_func_stats(filter={'tag': 0}).print_all()
-        yappi.get_thread_stats().print_all()
-
         ttots = []
         for i in range(self.task_count):
             fstats = yappi.get_func_stats(
