@@ -8,8 +8,6 @@ if __name__ == '__main__':
         test_suite = test_loader.discover('tests')
     else:
         test_suite = test_loader.loadTestsFromName('tests')
-    #test_suite = test_loader.loadTestsFromName(
-    #    'tests.test_asyncio_context_vars'
-    #)
+    #test_suite = test_loader.loadTestsFromName('tests.test_asyncio')
     result = test_runner.run(test_suite)
     sys.exit(not result.wasSuccessful())

@@ -142,13 +142,13 @@ class SingleThreadTests(YappiUnitTestCase):
         yappi.stop()
         traces = yappi.get_func_stats()
         t1 = '''
-        ../yappi/tests/utils.py:125 burn_cpu  2      0.082981  0.200156  0.100078
+        ../yappi/tests/utils.py:125 burn_cpu  2      0.000000  0.200156  0.100078
         '''
         self.assert_traces_almost_equal(t1, traces)
 
         tagged_traces = yappi.get_func_stats(filter={'tag': 1})
         t1 = '''
-        ../yappi/tests/utils.py:125 burn_cpu  1      0.041269  0.100062  0.100062
+        ../yappi/tests/utils.py:125 burn_cpu  1      0.000000  0.100062  0.100062
         '''
         self.assert_traces_almost_equal(t1, tagged_traces)
 
@@ -164,13 +164,13 @@ class SingleThreadTests(YappiUnitTestCase):
         yappi.stop()
         traces = yappi.get_func_stats()
         t1 = '''
-        ..p/yappi/tests/utils.py:134 burn_io  2      0.000021  0.208146  0.104073
+        ..p/yappi/tests/utils.py:134 burn_io  2      0.000000  0.208146  0.104073
         '''
         self.assert_traces_almost_equal(t1, traces)
 
         tagged_traces = yappi.get_func_stats(filter={'tag': 2})
         t1 = '''
-        ..p/yappi/tests/utils.py:134 burn_io  1      0.000007  0.105063  0.105063
+        ..p/yappi/tests/utils.py:134 burn_io  1      0.000000  0.105063  0.105063
         '''
         self.assert_traces_almost_equal(t1, tagged_traces)
 
