@@ -131,11 +131,10 @@ static PyObject *context_id_callback = NULL;
 static PyObject *tag_callback = NULL;
 static PyObject *context_name_callback = NULL;
 static PyObject *test_timings; // used for testing
-static int profile_event_running = 0;
+static int _profile_event_running = 0;
 
 // defines
 #define UNINITIALIZED_STRING_VAL "N/A"
-#define MAX_CTX_SWITCH_INTERVAL 1000000000
 
 #ifdef IS_PY3K // string formatting helper functions compatible with with both 2.x and 3.x
 #define PyStr_AS_CSTRING(s) PyUnicode_AsUTF8(s)
@@ -1067,12 +1066,14 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     // profiler callback functions are not reentrant safe, 
     // while an event is in progress, do not allow another event
     // to be processed
-    while(profile_event_running) {
+    while(_profile_event_running) {
         Py_BEGIN_ALLOW_THREADS;
         Py_END_ALLOW_THREADS;
+
+        // TODO: add a timeout for this to defentsively exit
     }
 
-    profile_event_running = 1;
+    _profile_event_running = 1;
 
     // get current ctx
     current_ctx = _thread2ctx(PyThreadState_GET());
@@ -1137,7 +1138,7 @@ finally:
         _log_err(15);
     }
 
-    profile_event_running = 0;
+    _profile_event_running = 0;
 
     return 0;
 }
@@ -1328,6 +1329,11 @@ _stop(void)
 
     yapprunning = 0;
     yappstoptick = tickcount();
+
+    // let's make sure this because there might be some cases
+    // like TerminateThread()? cause a thread to exit in the middle
+    // of a profile event. We do not want to get stuck on this.
+    _profile_event_running = 0;
 }
 
 static PyObject*
