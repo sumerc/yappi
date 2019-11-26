@@ -23,7 +23,7 @@ class SingleThreadTests(YappiUnitTestCase):
 
         r1 = '''
         ..p/yappi/tests/test_asyncio.py:11 a  9/1    0.000124  0.400667  0.044519
-        ../yappi/tests/utils.py:126 burn_cpu  4      0.331356  0.400099  0.100025
+        ../yappi/tests/utils.py:126 burn_cpu  4      0.000000  0.400099  0.100025
         ..thon3.7/asyncio/tasks.py:582 sleep  4      0.000098  0.000444  0.000111
         '''
         stats = yappi.get_func_stats()
@@ -75,7 +75,7 @@ class SingleThreadTests(YappiUnitTestCase):
         stats = yappi.get_func_stats()
         r1 = '''
         ..p/yappi/tests/test_asyncio.py:43 a  2      0.000117  0.601170  0.300585
-        ../yappi/tests/utils.py:126 burn_cpu  2      0.503575  0.600047  0.300024
+        ../yappi/tests/utils.py:126 burn_cpu  2      0.000000  0.600047  0.300024
         ..thon3.7/asyncio/tasks.py:582 sleep  6      0.000159  0.000801  0.000134
         time.sleep                            4      0.000169  0.000169  0.000042
         '''

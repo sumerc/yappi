@@ -891,12 +891,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     pci = ppci = tpci = tppci = NULL;
 
     curr_tag = _current_tag();
-
     current_ctx = _thread2ctx(PyThreadState_GET());
-
-    //if (pstate != PyThreadState_GET()) {
-    //    printf("thread state CHGGGGGG \n");
-    //}
 
     elapsed = _get_frame_elapsed();
 
