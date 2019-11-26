@@ -1064,6 +1064,16 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     PyObject *last_type, *last_value, *last_tb;
     PyErr_Fetch(&last_type, &last_value, &last_tb);
 
+    // profiler callback functions are not reentrant safe, 
+    // while an event is in progress, do not allow another event
+    // to be processed
+    while(profile_event_running) {
+        Py_BEGIN_ALLOW_THREADS;
+        Py_END_ALLOW_THREADS;
+    }
+
+    profile_event_running = 1;
+
     // get current ctx
     current_ctx = _thread2ctx(PyThreadState_GET());
     if (!current_ctx) {
@@ -1076,21 +1086,6 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     if (!flags.multithreaded && current_ctx != initial_ctx) {
         goto finally;
     }
-
-    //if (profile_event_running) {
-        //printf("profile event is running!!!!!! --.>>>> \n");
-    //}
-
-    profile_event_running = 1;
-
-#if defined(IS_PY3K) && PY_MINOR_VERSION >= 2
-    unsigned long prev_switch_interval = _PyEval_GetSwitchInterval();
-    _PyEval_SetSwitchInterval(MAX_CTX_SWITCH_INTERVAL);
-#else
-    int prev_check_interval = _Py_CheckInterval;
-    int prev_check_tick = _Py_Ticker;
-    _Py_Ticker = _Py_CheckInterval = MAX_CTX_SWITCH_INTERVAL;
-#endif
 
     // update ctx stats
     if (prev_ctx != current_ctx) {
@@ -1140,17 +1135,10 @@ finally:
     // setswitchinterval/setcheckinterval to very big values
     // we use assert instead of log_err as this code might still be
     // valid if context_id_cbk is used
-    //assert (current_ctx->ts_ptr == PyThreadState_GET());
-    //if (current_ctx->ts_ptr != PyThreadState_GET()) {
-    //    abort();
-    //}
-
-#if defined(IS_PY3K) && PY_MINOR_VERSION >= 2
-    _PyEval_SetSwitchInterval(prev_switch_interval);
-#else
-    _Py_CheckInterval = prev_check_interval;
-    _Py_Ticker = prev_check_tick;
-#endif
+    if (current_ctx->ts_ptr != PyThreadState_GET()) {
+        //abort();
+        _log_err(15);
+    }
 
     profile_event_running = 0;
 
