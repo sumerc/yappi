@@ -131,6 +131,7 @@ static PyObject *context_id_callback = NULL;
 static PyObject *tag_callback = NULL;
 static PyObject *context_name_callback = NULL;
 static PyObject *test_timings; // used for testing
+static int profile_event_running = 0;
 
 // defines
 #define UNINITIALIZED_STRING_VAL "N/A"
@@ -891,7 +892,6 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     pci = ppci = tpci = tppci = NULL;
 
     curr_tag = _current_tag();
-
     elapsed = _get_frame_elapsed();
 
     // leaving a frame while callstack is empty?
@@ -1064,15 +1064,6 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     PyObject *last_type, *last_value, *last_tb;
     PyErr_Fetch(&last_type, &last_value, &last_tb);
 
-#if defined(IS_PY3K) && PY_MINOR_VERSION >= 2
-    unsigned long prev_switch_interval = _PyEval_GetSwitchInterval();
-    _PyEval_SetSwitchInterval(MAX_CTX_SWITCH_INTERVAL);
-#else
-    int prev_check_interval = _Py_CheckInterval;
-    int prev_check_tick = _Py_Ticker;
-    _Py_Ticker = _Py_CheckInterval = MAX_CTX_SWITCH_INTERVAL;
-#endif
-
     // get current ctx
     current_ctx = _thread2ctx(PyThreadState_GET());
     if (!current_ctx) {
@@ -1085,6 +1076,21 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     if (!flags.multithreaded && current_ctx != initial_ctx) {
         goto finally;
     }
+
+    //if (profile_event_running) {
+        //printf("profile event is running!!!!!! --.>>>> \n");
+    //}
+
+    profile_event_running = 1;
+
+#if defined(IS_PY3K) && PY_MINOR_VERSION >= 2
+    unsigned long prev_switch_interval = _PyEval_GetSwitchInterval();
+    _PyEval_SetSwitchInterval(MAX_CTX_SWITCH_INTERVAL);
+#else
+    int prev_check_interval = _Py_CheckInterval;
+    int prev_check_tick = _Py_Ticker;
+    _Py_Ticker = _Py_CheckInterval = MAX_CTX_SWITCH_INTERVAL;
+#endif
 
     // update ctx stats
     if (prev_ctx != current_ctx) {
@@ -1145,6 +1151,8 @@ finally:
     _Py_CheckInterval = prev_check_interval;
     _Py_Ticker = prev_check_tick;
 #endif
+
+    profile_event_running = 0;
 
     return 0;
 }
