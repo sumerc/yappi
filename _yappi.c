@@ -891,6 +891,13 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     pci = ppci = tpci = tppci = NULL;
 
     curr_tag = _current_tag();
+
+    current_ctx = _thread2ctx(PyThreadState_GET());
+
+    //if (pstate != PyThreadState_GET()) {
+    //    printf("thread state CHGGGGGG \n");
+    //}
+
     elapsed = _get_frame_elapsed();
 
     // leaving a frame while callstack is empty?
@@ -1066,12 +1073,11 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     // profiler callback functions are not reentrant safe, 
     // while an event is in progress, do not allow another event
     // to be processed
-    while(_profile_event_running) {
-        Py_BEGIN_ALLOW_THREADS;
-        Py_END_ALLOW_THREADS;
-
+    //while(_profile_event_running) {
+    //    Py_BEGIN_ALLOW_THREADS;
+    //    Py_END_ALLOW_THREADS;
         // TODO: add a timeout for this to defentsively exit
-    }
+    //}
 
     _profile_event_running = 1;
 
@@ -1183,6 +1189,7 @@ _unprofile_thread(PyThreadState *ts)
 {
     ts->use_tracing = 0;
     ts->c_profilefunc = NULL;
+
     return NULL; //dummy return for enum_threads() func. prototype
 }
 
