@@ -73,16 +73,14 @@ typedef struct {
     // per-pit instead of dealing with the keys and their references.
     unsigned int index;
 
-    PyObject *tag;
+    long tag;
 
     // concurrent running coroutines on this _pit
     _coro *coroutines;
 
     _pit_children_info *children;
 
-    // with the introduction of tags, we need to hold multiple pits for same
-    // codeobject since we would like to hold per-tag info
-    struct _pit *next; 
+    _htab *tagged_pits;
 } _pit; // profile_item
 
 typedef struct {
@@ -150,6 +148,7 @@ static int _profile_event_running = 0;
 
 // forwards
 static _ctx * _profile_thread(PyThreadState *ts);
+static int _pitenumdel(_hitem *item, void *arg);
 
 // funcs
 static void _DebugPrintObjects(unsigned int arg_count, ...)
@@ -205,13 +204,21 @@ _log_err(unsigned int code)
 }
 
 static _pit *
-_create_pit(void)
+_create_pit(int tagged)
 {
     _pit *pit;
 
     pit = flget(flpit);
     if (!pit)
         return NULL;
+
+    pit->tagged_pits = NULL;
+    if (!tagged) { // do not create tagged_pit table for tagged pits
+        pit->tagged_pits = htcreate(HT_TAGGED_PIT_SIZE);
+        if (!pit->tagged_pits)
+            return NULL;
+    }
+    
     pit->callcount = 0;
     pit->nonrecursive_callcount = 0;
     pit->ttotal = 0;
@@ -223,8 +230,7 @@ _create_pit(void)
     pit->index = ycurfuncindex++;
     pit->children = NULL;
     pit->coroutines = NULL;
-    pit->next = NULL;
-    pit->tag = NULL;
+    pit->tag = 0;
 
     return pit;
 }
@@ -294,13 +300,14 @@ later:
     return NULL;
 }
 
-static PyObject*
+static long
 _current_tag(void)
 {
     PyObject *r;
+    uintptr_t result;
 
     if (!tag_callback) {
-        return NULL;
+        return 0;
     }
 
     r = PyObject_CallFunctionObjArgs(tag_callback, NULL);
@@ -308,68 +315,54 @@ _current_tag(void)
         PyErr_Print();
         goto error;
     }
-#ifdef IS_PY3K
-    if (PyLong_Check(r) && PyLong_AsLong(r) == -1)
-#else
-    if (PyInt_Check(r) && PyInt_AS_LONG(r) == -1)
-#endif
-    {
-        yinfo("-1 cannot be set as a tag. it is reserved and will not have any effect.");
-        return NULL;
+
+    result = (uintptr_t)PyLong_AsLong(r);
+    Py_DECREF(r);
+    if (PyErr_Occurred()) {
+        yerr("tag_callback returned non-integer");
+        goto error;
     }
-    return r;
+
+    return result;
 error:
     PyErr_Clear();
     Py_CLEAR(tag_callback); // don't use callback again
-    return NULL;
+    return 0;
 }
 
 static _pit*
-_get_tagged_pit(_pit *cp, PyObject *curr_tag)
+_get_tagged_pit(_pit *cp, uintptr_t curr_tag)
 {
-    _pit *head;
-    int tags_eq;
+    _hitem *it;
+    _pit *new_pit;
 
-    if (!curr_tag) {
+    // no tag?
+    if (curr_tag == 0) {
         return NULL;
     }
 
-    if (cp->tag != NULL) {
-        _log_err(13); // first one is always None
+    // make some defensive checks
+    if (cp->tag != 0 || !cp->tagged_pits) {
+        _log_err(13);
         return NULL;
     }
 
-    head = cp;
-    cp = (_pit *)cp->next;
-    while (cp)
-    {
-        tags_eq = PyObject_RichCompareBool(cp->tag, curr_tag, Py_EQ);
-        if (tags_eq == -1) { // some err. occurred
-            PyErr_Print();
-            break;
-        }
-        if (tags_eq) {
-            return cp;
-        }
-
-        cp = (_pit *)cp->next;
+    it = hfind(cp->tagged_pits, curr_tag);
+    if (!it) {
+        new_pit = _create_pit(1);
+        if (!new_pit)
+            return NULL;
+        if (!hadd(cp->tagged_pits, curr_tag, (uintptr_t)new_pit))
+            return NULL;
+        
+        new_pit->name = cp->name;
+        new_pit->modname = cp->modname;
+        new_pit->lineno = cp->lineno;
+        new_pit->builtin = cp->builtin;
+        new_pit->index = cp->index;
+        new_pit->tag = curr_tag;
     }
-    
-    // if we come here that means we need to create a tagged pit
-    cp = _create_pit();
-    if (!cp) {
-        _log_err(14);
-    }
-    cp->name = head->name;
-    cp->modname = head->modname;
-    cp->lineno = head->lineno;
-    cp->builtin = head->builtin;
-    cp->index = head->index;
-    cp->next = head->next;
-    cp->tag = curr_tag;
-    head->next = (struct _pit *)cp;
-
-    return cp;
+    return (_pit *)it->val;
 }
 
 static uintptr_t
@@ -437,26 +430,28 @@ _thread2ctx(PyThreadState *ts)
 static void
 _del_pit(_pit *pit)
 {
-    _pit *cp, *next_pit;
+    // the pit will be freed by fldestrot() in clear_stats, otherwise it stays
+    // for later enumeration
     _pit_children_info *it,*next;
 
-    // As these are only INCREFed per pit we only DECR once
-    Py_CLEAR(pit->name);
-    Py_CLEAR(pit->modname);
-    Py_CLEAR(pit->tag);
+    // only DECR for the non-tagged main pit
+    if (pit->tagged_pits) {
+        Py_CLEAR(pit->name);
+        Py_CLEAR(pit->modname);
+    }
 
-    cp = pit;
-    while(cp) {
-        it = cp->children;
-        while(it) {
-            next = (_pit_children_info *)it->next;
-            yfree(it);
-            it = next;
-        }
-        cp->children = NULL;
+    // free children
+    it = pit->children;
+    while(it) {
+        next = (_pit_children_info *)it->next;
+        yfree(it);
+        it = next;
+    }
+    pit->children = NULL;
 
-        next_pit = (_pit *)cp->next;
-        cp = next_pit;
+    // free tagged_pits
+    if (pit->tagged_pits) {
+        henum(pit->tagged_pits, _pitenumdel, NULL);
     }
 }
 
@@ -507,7 +502,7 @@ _ccode2pit(void *cco)
     // Python C functions.
     it = hfind(current_ctx->pits, (uintptr_t)cfn->m_ml);
     if (!it) {
-        _pit *pit = _create_pit();
+        _pit *pit = _create_pit(0);
         if (!pit)
             return NULL;
         if (!hadd(current_ctx->pits, (uintptr_t)cfn->m_ml, (uintptr_t)pit))
@@ -554,7 +549,7 @@ _code2pit(PyFrameObject *fobj)
         return ((_pit *)it->val);
     }
 
-    pit = _create_pit();
+    pit = _create_pit(0);
     if (!pit)
         return NULL;
     if (!hadd(current_ctx->pits, (uintptr_t)cobj, (uintptr_t)pit))
@@ -885,7 +880,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     _pit_children_info *pci,*ppci,*tpci,*tppci;
     int yielded = 0;
     _pit *tcp, *tpp, *tppp;
-    PyObject *curr_tag;
+    uintptr_t curr_tag;
 
     tcp = tpp = tppp = NULL;
     pci = ppci = tpci = tppci = NULL;
@@ -1464,61 +1459,55 @@ _pitenumstat(_hitem *item, void *arg)
     PyObject *children;
     _pit_children_info *pci;
     _ctxfuncenumarg *eargs;
-    PyObject *tag;
 
     children = NULL;
     pt = (_pit *)item->val;
     eargs = (_ctxfuncenumarg *)arg;
 
-    while(pt) {
+    // do not show builtin pits if specified
+    if  ((!flags.builtins) && (pt->builtin)) {
+        return 0;
+    }
 
-        // do not show builtin pits if specified
-        if  ((!flags.builtins) && (pt->builtin)) {
-            pt = (_pit *)pt->next;
-            continue;
+    // convert children function index list to PyList
+    children = PyList_New(0);
+    pci = pt->children;
+    while(pci) {
+        PyObject *stats_tuple;
+        // normalize tsubtotal. tsubtotal being negative is an expected situation.
+        if (pci->tsubtotal < 0) {
+            pci->tsubtotal = 0;
         }
+        if (pci->callcount == 0)
+            pci->callcount = 1;
+        stats_tuple = Py_BuildValue("Ikkff", pci->index, pci->callcount,
+                pci->nonrecursive_callcount, _normt(pci->ttotal),
+                _normt(pci->tsubtotal));
+        PyList_Append(children, stats_tuple);
+        Py_DECREF(stats_tuple);
+        pci = (_pit_children_info *)pci->next;
+    }
+    // normalize values
+    if (pt->tsubtotal < 0)
+        pt->tsubtotal = 0;
+    if (pt->callcount == 0)
+        pt->callcount = 1;
 
-        // convert children function index list to PyList
-        children = PyList_New(0);
-        pci = pt->children;
-        while(pci) {
-            PyObject *stats_tuple;
-            // normalize tsubtotal. tsubtotal being negative is an expected situation.
-            if (pci->tsubtotal < 0) {
-                pci->tsubtotal = 0;
-            }
-            if (pci->callcount == 0)
-                pci->callcount = 1;
-            stats_tuple = Py_BuildValue("Ikkff", pci->index, pci->callcount,
-                    pci->nonrecursive_callcount, _normt(pci->ttotal),
-                    _normt(pci->tsubtotal));
-            PyList_Append(children, stats_tuple);
-            Py_DECREF(stats_tuple);
-            pci = (_pit_children_info *)pci->next;
-        }
-        // normalize values
-        if (pt->tsubtotal < 0)
-            pt->tsubtotal = 0;
-        if (pt->callcount == 0)
-            pt->callcount = 1;
-        tag = pt->tag;
-        if (!tag) {
-            tag = PyLong_FromLong(-1);
-        }
-
-        exc = PyObject_CallFunction(eargs->efn, "((OOkkkIffIOkOO))", pt->name, pt->modname, pt->lineno, pt->callcount,
-                            pt->nonrecursive_callcount, pt->builtin, _normt(pt->ttotal), _normt(pt->tsubtotal),
-                            pt->index, children, eargs->ctx->id, eargs->ctx->name, tag);
-        if (!exc) {
-            PyErr_Print();
-            Py_XDECREF(children);
-            return 1; // abort enumeration
-        }
-
-        Py_DECREF(exc);
+    exc = PyObject_CallFunction(eargs->efn, "((OOkkkIffIOkOO))", pt->name, pt->modname, pt->lineno, pt->callcount,
+                        pt->nonrecursive_callcount, pt->builtin, _normt(pt->ttotal), _normt(pt->tsubtotal),
+                        pt->index, children, eargs->ctx->id, eargs->ctx->name, pt->tag);
+    if (!exc) {
+        PyErr_Print();
         Py_XDECREF(children);
+        return 1; // abort enumeration
+    }
 
-        pt = (_pit *)pt->next;
+    Py_DECREF(exc);
+    Py_XDECREF(children);
+
+    // enumerate tagged pits
+    if (pt->tagged_pits) {
+        henum(pt->tagged_pits, _pitenumstat, arg);
     }
 
     return 0;
