@@ -1,10 +1,10 @@
 import unittest
 import yappi
 import threading
+import time
 from utils import YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io
 
 import sys
-_lock = threading.Lock()
 
 
 class MultiThreadTests(YappiUnitTestCase):
@@ -115,7 +115,7 @@ class SingleThreadTests(YappiUnitTestCase):
     def test_invalid_tag(self):
 
         def tag_cbk():
-            return -1  # reserved val.
+            return -1
 
         yappi.set_tag_callback(tag_cbk)
         yappi.start()

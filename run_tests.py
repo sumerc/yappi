@@ -7,7 +7,7 @@ if __name__ == '__main__':
     if sys.version_info[0] == 3 and sys.version_info[1] >= 3:
         test_suite = test_loader.discover('tests')
     else:
-        test_suite = test_loader.loadTestsFromName('tests')
-    #test_suite = test_loader.loadTestsFromName('tests.test_asyncio')
+        test_suite = test_loader.loadTestsFromName('tests.test_functionality')
+    #test_suite = test_loader.loadTestsFromName('tests.test_tags')
     result = test_runner.run(test_suite)
     sys.exit(not result.wasSuccessful())

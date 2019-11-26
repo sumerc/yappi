@@ -134,6 +134,7 @@ static PyObject *test_timings; // used for testing
 
 // defines
 #define UNINITIALIZED_STRING_VAL "N/A"
+#define MAX_CTX_SWITCH_INTERVAL 1000000000
 
 #ifdef IS_PY3K // string formatting helper functions compatible with with both 2.x and 3.x
 #define PyStr_AS_CSTRING(s) PyUnicode_AsUTF8(s)
@@ -307,12 +308,15 @@ _current_tag(void)
         PyErr_Print();
         goto error;
     }
-
-    if (PyLong_Check(r) && PyLong_AsLong(r) == -1) {
+#ifdef IS_PY3K
+    if (PyLong_Check(r) && PyLong_AsLong(r) == -1)
+#else
+    if (PyInt_Check(r) && PyInt_AS_LONG(r) == -1)
+#endif
+    {
         yinfo("-1 cannot be set as a tag. it is reserved and will not have any effect.");
         return NULL;
     }
-    //Py_INCREF(r);
     return r;
 error:
     PyErr_Clear();
@@ -1062,12 +1066,11 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
 
 #if defined(IS_PY3K) && PY_MINOR_VERSION >= 2
     unsigned long prev_switch_interval = _PyEval_GetSwitchInterval();
-    _PyEval_SetSwitchInterval(999999999);
+    _PyEval_SetSwitchInterval(MAX_CTX_SWITCH_INTERVAL);
 #else
-    // Running this might throw some errors while interpreter shutdown
-    // is happening and yappi is running. This is because sys might not 
-    // be available while unloading
-    PyRun_SimpleString("sys.setcheckinterval(99999999)");
+    int prev_check_interval = _Py_CheckInterval;
+    int prev_check_tick = _Py_Ticker;
+    _Py_Ticker = _Py_CheckInterval = MAX_CTX_SWITCH_INTERVAL;
 #endif
 
     // get current ctx
@@ -1122,22 +1125,26 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     goto finally;
 
 finally:
-    // there shall be NO context switch happenning inside profile events
+    if (last_type) {
+        PyErr_Restore(last_type, last_value, last_tb);
+    }
+
+    // there shall be no context switch happenning inside profile events
     // we are calling Python functions so that might happen, we use 
     // setswitchinterval/setcheckinterval to very big values
     // we use assert instead of log_err as this code might still be
     // valid if context_id_cbk is used
-    assert (current_ctx->ts_ptr == PyThreadState_GET());
+    //assert (current_ctx->ts_ptr == PyThreadState_GET());
+    //if (current_ctx->ts_ptr != PyThreadState_GET()) {
+    //    abort();
+    //}
 
 #if defined(IS_PY3K) && PY_MINOR_VERSION >= 2
     _PyEval_SetSwitchInterval(prev_switch_interval);
 #else
-    PyRun_SimpleString("sys.setcheckinterval(_prevci)");
+    _Py_CheckInterval = prev_check_interval;
+    _Py_Ticker = prev_check_tick;
 #endif
-
-    if (last_type) {
-        PyErr_Restore(last_type, last_value, last_tb);
-    }
 
     return 0;
 }
@@ -1865,12 +1872,6 @@ init_yappi(void)
     m = Py_InitModule("_yappi",  yappi_methods);
     if (m == NULL)
         return;
-#endif
-
-#if defined(IS_PY3K) && PY_MINOR_VERSION >= 2
-    PyRun_SimpleString("import sys; _prevsi = sys.getswitchinterval();");
-#else
-    PyRun_SimpleString("import sys; _prevci = sys.getcheckinterval();");
 #endif
 
     d = PyModule_GetDict(m);
