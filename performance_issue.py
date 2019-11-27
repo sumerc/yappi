@@ -36,6 +36,7 @@ class BenchMiddleware(BaseHTTPMiddleware):
         assert yappi_request_id.get() == ctx_id
         response = await call_next(request)
         tracked_stats: Dict[str, YFuncStats] = {}
+
         for name, call_to_track in self.calls_to_track.items():
             tracked_stats[name] = yappi.get_func_stats(
                 {
@@ -49,6 +50,7 @@ class BenchMiddleware(BaseHTTPMiddleware):
                 server_timing.append(f"{name}={(stats.pop().ttot * 1000):.3f}")
         if server_timing:
             response.headers["Server-Timing"] = ','.join(server_timing)
+        yappi.clear_stats()
         return response
 
 

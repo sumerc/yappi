@@ -352,6 +352,7 @@ _get_tagged_pit(_pit *cp, uintptr_t curr_tag)
         new_pit = _create_pit(1);
         if (!new_pit)
             return NULL;
+        
         if (!hadd(cp->tagged_pits, curr_tag, (uintptr_t)new_pit))
             return NULL;
         
@@ -1524,6 +1525,8 @@ _ctxfuncenumstat(_hitem *item, void *arg)
     ext_args.efn = (PyObject *)arg;
 
     henum(ext_args.ctx->pits, _pitenumstat, &ext_args);
+
+    //printf("total pit count=%u\n", flcount(flpit));
 
     return 0;
 }
