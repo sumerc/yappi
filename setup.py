@@ -28,7 +28,8 @@ if os.name == 'posix' and sys.platform != 'darwin':
         user_libraries.append('rt')
 if _DEBUG:
     if os.name == 'posix':
-        compile_args.append('-g0')
+        compile_args.append('-g')
+        compile_args.append('-O0')
     elif os.name == 'nt':
         compile_args.append('/Zi')
         link_args.append('/DEBUG')

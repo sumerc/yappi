@@ -711,12 +711,10 @@ class YFuncStats(YStatsIndexable):
         fstat.builtin = bool(fstat.builtin)
 
         if 'tag' not in self._filter:
-            self._filter['tag'] = -1 # set default tag
+            self._filter['tag'] = 0  # set default tag
         for k, v in self._filter.items():
             if getattr(fstat, k) != v:
                 return
-
-        #print(fstat.name, ftag, fctxid)
 
         self.append(fstat)
 

@@ -361,6 +361,7 @@ _get_tagged_pit(_pit *cp, uintptr_t curr_tag)
         new_pit->builtin = cp->builtin;
         new_pit->index = cp->index;
         new_pit->tag = curr_tag;
+        return new_pit;
     }
     return (_pit *)it->val;
 }
@@ -1493,7 +1494,7 @@ _pitenumstat(_hitem *item, void *arg)
     if (pt->callcount == 0)
         pt->callcount = 1;
 
-    exc = PyObject_CallFunction(eargs->efn, "((OOkkkIffIOkOO))", pt->name, pt->modname, pt->lineno, pt->callcount,
+    exc = PyObject_CallFunction(eargs->efn, "((OOkkkIffIOkOk))", pt->name, pt->modname, pt->lineno, pt->callcount,
                         pt->nonrecursive_callcount, pt->builtin, _normt(pt->ttotal), _normt(pt->tsubtotal),
                         pt->index, children, eargs->ctx->id, eargs->ctx->name, pt->tag);
     if (!exc) {
