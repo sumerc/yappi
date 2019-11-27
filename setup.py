@@ -12,8 +12,8 @@ with io.open('README.md', encoding='UTF-8') as f:
 
 HOMEPAGE = "https://github.com/sumerc/yappi"
 NAME = "yappi"
-VERSION = "1.1"
-_DEBUG = True  # compile/link code for debugging
+VERSION = "1.2"
+_DEBUG = False  # compile/link code for debugging
 _PROFILE = False  # profile yappi itself
 
 user_macros = []

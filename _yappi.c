@@ -882,12 +882,14 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     int yielded = 0;
     _pit *tcp, *tpp, *tppp;
     uintptr_t curr_tag;
+    _ctx *prev_ctx;
 
     tcp = tpp = tppp = NULL;
     pci = ppci = tpci = tppci = NULL;
 
+    prev_ctx = current_ctx;
     curr_tag = _current_tag();
-    current_ctx = _thread2ctx(PyThreadState_GET());
+    current_ctx = prev_ctx;
 
     elapsed = _get_frame_elapsed();
 
@@ -897,9 +899,9 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         return;
     }
 
-    if (frame->f_code->co_flags & CO_GENERATOR) {
+    //if (frame->f_code->co_flags & CO_GENERATOR) {
         //printf("is a generator func.\n");
-    }
+    //}
 
     // TODO: Comment
     if (IS_ASYNC(frame)) {
@@ -914,8 +916,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
             }
         } else {
             long long coro_elapsed = _coro_exit(cp, frame);
-            
-            //printf("%s %p %llu\n", PyStr_AS_CSTRING(cp->name), frame, coro_elapsed);
+
             if (coro_elapsed > 0) {
                 elapsed = coro_elapsed;
             }
