@@ -98,7 +98,13 @@ typedef struct {
 
 typedef struct
 {
-    PyObject *efn;
+    PyObject *filter_dict;
+    PyObject *enumfn;
+} _ctxenumarg;
+
+typedef struct
+{
+    _ctxenumarg *enum_args;
     _ctx *ctx;
 } _ctxfuncenumarg;
 
@@ -1454,6 +1460,8 @@ enum_thread_stats(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+long _tag_filter = 0;
+
 static int
 _pitenumstat(_hitem *item, void *arg)
 {
@@ -1467,6 +1475,29 @@ _pitenumstat(_hitem *item, void *arg)
     pt = (_pit *)item->val;
     eargs = (_ctxfuncenumarg *)arg;
 
+    // enumerate tagged pits
+    if (pt->tagged_pits) {
+        henum(pt->tagged_pits, _pitenumstat, arg);
+    }
+
+    //if (pt->tag != _tag_filter) {
+    //    return 0;
+    //}
+    
+    PyObject *fv;
+    fv = PyDict_GetItemString(eargs->enum_args->filter_dict, "tag");
+    if (fv) {
+        if (pt->tag != PyLong_AsLong(fv)) {
+            return 0;
+        }
+    }
+    fv = PyDict_GetItemString(eargs->enum_args->filter_dict, "name");
+    if (fv) {
+        if (!PyObject_RichCompareBool(pt->name, fv, Py_EQ)) {
+            return 0;
+        }
+    }
+    
     // do not show builtin pits if specified
     if  ((!flags.builtins) && (pt->builtin)) {
         return 0;
@@ -1496,9 +1527,12 @@ _pitenumstat(_hitem *item, void *arg)
     if (pt->callcount == 0)
         pt->callcount = 1;
 
-    exc = PyObject_CallFunction(eargs->efn, "((OOkkkIffIOkOk))", pt->name, pt->modname, pt->lineno, pt->callcount,
-                        pt->nonrecursive_callcount, pt->builtin, _normt(pt->ttotal), _normt(pt->tsubtotal),
-                        pt->index, children, eargs->ctx->id, eargs->ctx->name, pt->tag);
+    exc = PyObject_CallFunction(eargs->enum_args->enumfn, "((OOkkkIffIOkOk))", 
+                        pt->name, pt->modname, pt->lineno, pt->callcount,
+                        pt->nonrecursive_callcount, pt->builtin, 
+                        _normt(pt->ttotal), _normt(pt->tsubtotal),
+                        pt->index, children, eargs->ctx->id, eargs->ctx->name, 
+                        pt->tag);
     if (!exc) {
         PyErr_Print();
         Py_XDECREF(children);
@@ -1507,11 +1541,6 @@ _pitenumstat(_hitem *item, void *arg)
 
     Py_DECREF(exc);
     Py_XDECREF(children);
-
-    // enumerate tagged pits
-    if (pt->tagged_pits) {
-        henum(pt->tagged_pits, _pitenumstat, arg);
-    }
 
     return 0;
 }
@@ -1522,11 +1551,11 @@ _ctxfuncenumstat(_hitem *item, void *arg)
     _ctxfuncenumarg ext_args;
 
     ext_args.ctx = (_ctx *)item->val; 
-    ext_args.efn = (PyObject *)arg;
+    ext_args.enum_args = (_ctxenumarg *)arg;
 
     henum(ext_args.ctx->pits, _pitenumstat, &ext_args);
 
-    //printf("total pit count=%u\n", flcount(flpit));
+    printf("total pit count=%u\n", flcount(flpit));
 
     return 0;
 }
@@ -1554,26 +1583,33 @@ stop(PyObject *self)
     Py_RETURN_NONE;
 }
 
+
+
 static PyObject*
 enum_func_stats(PyObject *self, PyObject *args)
 {
-    PyObject *enumfn;
+    _ctxenumarg ext_args;
 
     if (!yapphavestats) {
         Py_RETURN_NONE;
     }
 
-    if (!PyArg_ParseTuple(args, "O", &enumfn)) {
+    if (!PyArg_ParseTuple(args, "OOl", &ext_args.enumfn, &ext_args.filter_dict, &_tag_filter)) {
         PyErr_SetString(YappiProfileError, "invalid param to enum_func_stats");
         return NULL;
     }
 
-    if (!PyCallable_Check(enumfn)) {
+    if (!PyDict_Check(ext_args.filter_dict)) {
+        PyErr_SetString(YappiProfileError, "filter param should be a dict");
+        return NULL;
+    }
+
+    if (!PyCallable_Check(ext_args.enumfn)) {
         PyErr_SetString(YappiProfileError, "enum function must be callable");
         return NULL;
     }
 
-    henum(contexts, _ctxfuncenumstat, enumfn);
+    henum(contexts, _ctxfuncenumstat, &ext_args);
 
     Py_RETURN_NONE;
 }

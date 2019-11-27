@@ -657,9 +657,9 @@ class YFuncStats(YStatsIndexable):
         _yappi._pause()
         self.clear()
         try:
-            self._filter = filter
-            _yappi.enum_func_stats(self._enumerator)
-            self._filter = {}
+            #self._filter = filter
+            _yappi.enum_func_stats(self._enumerator, filter, filter['tag'])
+            #self._filter = {}
 
             # convert the children info from tuple to YChildFuncStat
             for stat in self:
@@ -710,11 +710,11 @@ class YFuncStats(YStatsIndexable):
 
         fstat.builtin = bool(fstat.builtin)
 
-        if 'tag' not in self._filter:
-            self._filter['tag'] = 0  # set default tag
-        for k, v in self._filter.items():
-            if getattr(fstat, k) != v:
-                return
+        #if 'tag' not in self._filter:
+        #    self._filter['tag'] = 0  # set default tag
+        #for k, v in self._filter.items():
+        #    if getattr(fstat, k) != v:
+        #        return
 
         self.append(fstat)
 
