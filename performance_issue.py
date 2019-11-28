@@ -88,7 +88,7 @@ async def main():
     yappi.start()  # If you don't start yappi, stats.empty() will always be true
     client = AsyncClient(app=app, )
     async with client:
-        tasks = [client.get("http://www.example.org/") for _ in range(200)]
+        tasks = [client.get("http://www.example.org/") for _ in range(100)]
         resps = await asyncio.gather(*tasks)
         for resp in resps:
             print(f"Request ID: {resp.json()[0]}")

@@ -1555,7 +1555,7 @@ _ctxfuncenumstat(_hitem *item, void *arg)
 
     henum(ext_args.ctx->pits, _pitenumstat, &ext_args);
 
-    printf("total pit count=%u\n", flcount(flpit));
+    //("total pit count=%u\n", flcount(flpit));
 
     return 0;
 }
