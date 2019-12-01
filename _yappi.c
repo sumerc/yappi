@@ -3,7 +3,7 @@
  yappi
  Yet Another Python Profiler
 
- Sumer Cip 2013
+ Sumer Cip 2019
 
 */
 
@@ -96,9 +96,16 @@ typedef struct {
     PyThreadState *ts_ptr;
 } _ctx; // context
 
+typedef struct {
+    PyObject *ctx_id;
+    PyObject *tag;
+    PyObject *name;
+    PyObject *modname;
+} _func_stat_filter;
+
 typedef struct
 {
-    PyObject *filter_dict;
+    _func_stat_filter func_filter;
     PyObject *enumfn;
 } _ctxenumarg;
 
@@ -268,6 +275,23 @@ _create_ctx(void)
     return ctx;
 }
 
+PyObject *
+_call_funcobjargs(PyObject *func, PyObject *args)
+{
+    // restore to correct ctx after a func call on Python side. 
+    // Python side might have context switched to another thread which might 
+    // have changed to current_ctx, after a while when the func returns
+    // we will be in a correct ThreadState * but current_ctx might not
+    // be correct.
+    PyObject *result;
+
+    prev_ctx = current_ctx;
+    result = PyObject_CallFunctionObjArgs(func, args);
+    current_ctx = prev_ctx;
+
+    return result;
+}
+
 static PyObject *
 _current_context_name(void)
 {
@@ -277,8 +301,8 @@ _current_context_name(void)
         return NULL;
     }
 
-    name = PyObject_CallFunctionObjArgs(context_name_callback, NULL);
-    if (!name) {
+    name = _call_funcobjargs(context_name_callback, NULL);
+     if (!name) {
         PyErr_Print();
         goto err;
     }
@@ -316,7 +340,7 @@ _current_tag(void)
         return 0;
     }
 
-    r = PyObject_CallFunctionObjArgs(tag_callback, NULL);
+    r = _call_funcobjargs(tag_callback, NULL);
     if (!r) {
         PyErr_Print();
         goto error;
@@ -379,7 +403,7 @@ _current_context_id(PyThreadState *ts)
     uintptr_t rc;
     PyObject *callback_rc;
     if (context_id_callback) {
-        callback_rc = PyObject_CallFunctionObjArgs(context_id_callback, NULL);
+        callback_rc = _call_funcobjargs(context_id_callback, NULL);
         if (!callback_rc) {
             PyErr_Print();
             goto error;
@@ -1462,6 +1486,33 @@ enum_thread_stats(PyObject *self, PyObject *args)
 
 long _tag_filter = 0;
 
+int _pit_filtered(_pit *pt, _ctxfuncenumarg *eargs)
+{
+    _func_stat_filter filter;
+
+    filter = eargs->enum_args->func_filter;
+
+    if (filter.tag) {
+        if (pt->tag != PyLong_AsLong(filter.tag)) {
+            return 1;
+        }
+    }
+
+    if (filter.name) {
+        if (!PyObject_RichCompareBool(pt->name, filter.name, Py_EQ)) {
+            return 1;
+        }
+    }
+
+    if (filter.modname) {
+        if (!PyObject_RichCompareBool(pt->modname, filter.modname, Py_EQ)) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 static int
 _pitenumstat(_hitem *item, void *arg)
 {
@@ -1480,22 +1531,8 @@ _pitenumstat(_hitem *item, void *arg)
         henum(pt->tagged_pits, _pitenumstat, arg);
     }
 
-    //if (pt->tag != _tag_filter) {
-    //    return 0;
-    //}
-    
-    PyObject *fv;
-    fv = PyDict_GetItemString(eargs->enum_args->filter_dict, "tag");
-    if (fv) {
-        if (pt->tag != PyLong_AsLong(fv)) {
-            return 0;
-        }
-    }
-    fv = PyDict_GetItemString(eargs->enum_args->filter_dict, "name");
-    if (fv) {
-        if (!PyObject_RichCompareBool(pt->name, fv, Py_EQ)) {
-            return 0;
-        }
+    if (_pit_filtered(pt, eargs)) {
+        return 0;
     }
     
     // do not show builtin pits if specified
@@ -1549,9 +1586,17 @@ static int
 _ctxfuncenumstat(_hitem *item, void *arg)
 {
     _ctxfuncenumarg ext_args;
+    PyObject *filtered_ctx_id;
 
     ext_args.ctx = (_ctx *)item->val; 
     ext_args.enum_args = (_ctxenumarg *)arg;
+
+    filtered_ctx_id = ext_args.enum_args->func_filter.ctx_id;
+    if (filtered_ctx_id) {
+        if (ext_args.ctx->id != PyLong_AsLong(filtered_ctx_id)) {
+            return 0;
+        }
+    }
 
     henum(ext_args.ctx->pits, _pitenumstat, &ext_args);
 
@@ -1583,23 +1628,51 @@ stop(PyObject *self)
     Py_RETURN_NONE;
 }
 
+void 
+_filterdict_to_statfilter(PyObject *filter_dict, _func_stat_filter* filter)
+{
+    // we use a _statfilter struct to hold the struct and not to always 
+    // as the filter_dict to get its values for each pit enumerated. This
+    // is for performance
+    PyObject *fv;
 
+    fv = PyDict_GetItemString(filter_dict, "tag");
+    if (fv) {
+        filter->tag = fv;
+    }
+    fv = PyDict_GetItemString(filter_dict, "name");
+    if (fv) {
+        filter->name = fv;
+    }
+    fv = PyDict_GetItemString(filter_dict, "modname");
+    if (fv) {
+        filter->modname = fv;
+    }
+    fv = PyDict_GetItemString(filter_dict, "ctx_id");
+    if (fv) {
+        filter->ctx_id = fv;
+    }
+}
 
 static PyObject*
 enum_func_stats(PyObject *self, PyObject *args)
 {
+    PyObject *filter_dict;
     _ctxenumarg ext_args;
+
+    filter_dict = NULL;
+    memset(&ext_args, 0, sizeof(_ctxenumarg)); // make sure everything is NULLed
 
     if (!yapphavestats) {
         Py_RETURN_NONE;
     }
 
-    if (!PyArg_ParseTuple(args, "OOl", &ext_args.enumfn, &ext_args.filter_dict, &_tag_filter)) {
+    if (!PyArg_ParseTuple(args, "OO", &ext_args.enumfn, &filter_dict)) {
         PyErr_SetString(YappiProfileError, "invalid param to enum_func_stats");
         return NULL;
     }
 
-    if (!PyDict_Check(ext_args.filter_dict)) {
+    if (!PyDict_Check(filter_dict)) {
         PyErr_SetString(YappiProfileError, "filter param should be a dict");
         return NULL;
     }
@@ -1608,6 +1681,8 @@ enum_func_stats(PyObject *self, PyObject *args)
         PyErr_SetString(YappiProfileError, "enum function must be callable");
         return NULL;
     }
+
+    _filterdict_to_statfilter(filter_dict, &ext_args.func_filter);
 
     henum(contexts, _ctxfuncenumstat, &ext_args);
 

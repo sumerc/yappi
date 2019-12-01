@@ -657,10 +657,8 @@ class YFuncStats(YStatsIndexable):
         _yappi._pause()
         self.clear()
         try:
-            #self._filter = filter
-            _yappi.enum_func_stats(self._enumerator, filter, filter['tag'])
-            #self._filter = {}
-
+            _yappi.enum_func_stats(self._enumerator, filter)
+            
             # convert the children info from tuple to YChildFuncStat
             for stat in self:
 
