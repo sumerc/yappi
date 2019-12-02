@@ -866,7 +866,6 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     _pit *cp,*pp;
     _cstackitem *ci;
     _pit_children_info *pci;
-    long current_tag;
 
     if (ccall) {
         cp = _ccode2pit((PyCFunctionObject *)arg);
@@ -1484,8 +1483,6 @@ enum_thread_stats(PyObject *self, PyObject *args)
 
     Py_RETURN_NONE;
 }
-
-long _tag_filter = 0;
 
 int _pit_filtered(_pit *pt, _ctxfuncenumarg *eargs)
 {
