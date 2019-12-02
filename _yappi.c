@@ -79,14 +79,15 @@ typedef struct {
     _coro *coroutines;
 
     _pit_children_info *children;
-
-    _htab *tagged_pits;
 } _pit; // profile_item
 
 typedef struct {
     _cstack *cs;
     _htab *rec_levels;
-    _htab *pits;
+
+    // mapping tag:htab of pits
+    _htab *tags;
+
     long id;                                // internal tid given by user callback or yappi. Will be unique per profile session.
     long tid;                               // the real OS thread id.
     PyObject *name;
@@ -142,7 +143,7 @@ static PyObject *context_id_callback = NULL;
 static PyObject *tag_callback = NULL;
 static PyObject *context_name_callback = NULL;
 static PyObject *test_timings; // used for testing
-static int _profile_event_running = 0;
+static const long DEFAULT_TAG = 0;
 
 // defines
 #define UNINITIALIZED_STRING_VAL "N/A"
@@ -164,16 +165,9 @@ static _ctx * _profile_thread(PyThreadState *ts);
 static int _pitenumdel(_hitem *item, void *arg);
 
 // funcs
+/*
 static void _DebugPrintObjects(unsigned int arg_count, ...)
 {
-    
-    // PyObject *key, *value;
-    // Py_ssize_t pos = 0;
-
-    // while (PyDict_Next(dict, &pos, &key, &value)) {
-    //     printf("%s=%s\n", PyStr_AS_CSTRING(key), PyStr_AS_CSTRING(value));
-    // }
-
     unsigned int i;
     va_list vargs;
     va_start(vargs, arg_count);
@@ -184,6 +178,7 @@ static void _DebugPrintObjects(unsigned int arg_count, ...)
     printf("\n");
     va_end(vargs);
 }
+*/
 
 int IS_ASYNC(PyFrameObject *frame)
 {
@@ -217,20 +212,13 @@ _log_err(unsigned int code)
 }
 
 static _pit *
-_create_pit(int tagged)
+_create_pit()
 {
     _pit *pit;
 
     pit = flget(flpit);
     if (!pit)
         return NULL;
-
-    pit->tagged_pits = NULL;
-    if (!tagged) { // do not create tagged_pit table for tagged pits
-        pit->tagged_pits = htcreate(HT_TAGGED_PIT_SIZE);
-        if (!pit->tagged_pits)
-            return NULL;
-    }
     
     pit->callcount = 0;
     pit->nonrecursive_callcount = 0;
@@ -260,8 +248,8 @@ _create_ctx(void)
     if (!ctx->cs)
         return NULL;
 
-    ctx->pits = htcreate(HT_PIT_SIZE);
-    if (!ctx->pits)
+    ctx->tags = htcreate(HT_TAG_SIZE);
+    if (!ctx->tags)
         return NULL;
 
     ctx->sched_cnt = 0;
@@ -340,7 +328,7 @@ _current_tag(void)
     uintptr_t result;
 
     if (!tag_callback) {
-        return 0;
+        return DEFAULT_TAG;
     }
 
     r = _call_funcobjargs(tag_callback, NULL);
@@ -361,43 +349,6 @@ error:
     PyErr_Clear();
     Py_CLEAR(tag_callback); // don't use callback again
     return 0;
-}
-
-static _pit*
-_get_tagged_pit(_pit *cp, uintptr_t curr_tag)
-{
-    _hitem *it;
-    _pit *new_pit;
-
-    // no tag?
-    if (curr_tag == 0) {
-        return NULL;
-    }
-
-    // make some defensive checks
-    if (cp->tag != 0 || !cp->tagged_pits) {
-        _log_err(13);
-        return NULL;
-    }
-
-    it = hfind(cp->tagged_pits, curr_tag);
-    if (!it) {
-        new_pit = _create_pit(1);
-        if (!new_pit)
-            return NULL;
-        
-        if (!hadd(cp->tagged_pits, curr_tag, (uintptr_t)new_pit))
-            return NULL;
-        
-        new_pit->name = cp->name;
-        new_pit->modname = cp->modname;
-        new_pit->lineno = cp->lineno;
-        new_pit->builtin = cp->builtin;
-        new_pit->index = cp->index;
-        new_pit->tag = curr_tag;
-        return new_pit;
-    }
-    return (_pit *)it->val;
 }
 
 static uintptr_t
@@ -469,12 +420,6 @@ _del_pit(_pit *pit)
     // for later enumeration
     _pit_children_info *it,*next;
 
-    // only DECR for the non-tagged main pit
-    if (pit->tagged_pits) {
-        Py_CLEAR(pit->name);
-        Py_CLEAR(pit->modname);
-    }
-
     // free children
     it = pit->children;
     while(it) {
@@ -483,11 +428,6 @@ _del_pit(_pit *pit)
         it = next;
     }
     pit->children = NULL;
-
-    // free tagged_pits
-    if (pit->tagged_pits) {
-        henum(pit->tagged_pits, _pitenumdel, NULL);
-    }
 }
 
 static PyObject *
@@ -523,24 +463,53 @@ error:
     return PyStr_FromString("<unknown>");
 }
 
+_htab *
+_get_pits_tbl(long current_tag)
+{
+    _hitem *it;
+    _htab *pits;
+
+    it = hfind(current_ctx->tags, (uintptr_t)current_tag);
+    if (!it) {
+        pits = htcreate(HT_TAGGED_PIT_SIZE);
+        if (!pits) {
+            return NULL;
+        }
+
+        if (!hadd(current_ctx->tags, (uintptr_t)current_tag, (uintptr_t)pits)) {
+            return NULL;
+        }
+
+        return pits;
+    }
+
+    return (_htab *)it->val;
+}
+
 static _pit *
-_ccode2pit(void *cco)
+_ccode2pit(void *cco, long current_tag)
 {
     PyCFunctionObject *cfn;
     _hitem *it;
     PyObject *name;
+    _htab *pits;
+
+    pits = _get_pits_tbl(current_tag);
+    if (!pits) {
+        return NULL;
+    }
 
     cfn = cco;
     // Issue #15:
     // Hashing cfn to the pits table causes different object methods
     // to be hashed into the same slot. Use cfn->m_ml for hashing the
     // Python C functions.
-    it = hfind(current_ctx->pits, (uintptr_t)cfn->m_ml);
+    it = hfind(pits, (uintptr_t)cfn->m_ml);
     if (!it) {
         _pit *pit = _create_pit(0);
         if (!pit)
             return NULL;
-        if (!hadd(current_ctx->pits, (uintptr_t)cfn->m_ml, (uintptr_t)pit))
+        if (!hadd(pits, (uintptr_t)cfn->m_ml, (uintptr_t)pit))
             return NULL;
 
         pit->builtin = 1;
@@ -572,22 +541,28 @@ _ccode2pit(void *cco)
 
 // maps the PyCodeObject to our internal pit item via hash table.
 static _pit *
-_code2pit(PyFrameObject *fobj)
+_code2pit(PyFrameObject *fobj, long current_tag)
 {
     _hitem *it;
     PyCodeObject *cobj;
     _pit *pit;
+    _htab *pits;
+
+    pits = _get_pits_tbl(current_tag);
+    if (!pits) {
+        return NULL;
+    }
 
     cobj = fobj->f_code;
-    it = hfind(current_ctx->pits, (uintptr_t)cobj);
+    it = hfind(pits, (uintptr_t)cobj);
     if (it) {
         return ((_pit *)it->val);
     }
 
-    pit = _create_pit(0);
+    pit = _create_pit();
     if (!pit)
         return NULL;
-    if (!hadd(current_ctx->pits, (uintptr_t)cobj, (uintptr_t)pit))
+    if (!hadd(pits, (uintptr_t)cobj, (uintptr_t)pit))
         return NULL;
 
     pit->name = NULL;
@@ -848,7 +823,6 @@ _coro_exit(_pit *cp, PyFrameObject *frame)
                 cp->coroutines = NULL;
             }
             yfree(coro);
-            //printf("CORO EXIT val %s %p %llu\n", PyStr_AS_CSTRING(cp->name), frame, tickcount()-_t0);
             return tickcount() - _t0;
         }
         prev = coro;
@@ -866,11 +840,14 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     _pit *cp,*pp;
     _cstackitem *ci;
     _pit_children_info *pci;
+    long current_tag;
+
+    current_tag = _current_tag();
 
     if (ccall) {
-        cp = _ccode2pit((PyCFunctionObject *)arg);
+        cp = _ccode2pit((PyCFunctionObject *)arg, current_tag);
     } else {
-        cp = _code2pit(frame);
+        cp = _code2pit(frame, current_tag);
     }
 
     // something went wrong. No mem, or another error. we cannot find
@@ -912,15 +889,9 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 {
     long long elapsed;
     _pit *cp, *pp, *ppp;
-    _pit_children_info *pci,*ppci,*tpci,*tppci;
+    _pit_children_info *pci,*ppci;
     int yielded = 0;
-    _pit *tcp, *tpp, *tppp;
-    uintptr_t curr_tag;
-
-    tcp = tpp = tppp = NULL;
-    pci = ppci = tpci = tppci = NULL;
-
-    curr_tag = _current_tag();
+    pci = ppci = NULL;
 
     elapsed = _get_frame_elapsed();
 
@@ -954,13 +925,8 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         }
     }
 
-    // get the tagged pit if there is any
-    tcp = _get_tagged_pit(cp, curr_tag);
     if (!yielded) {
         cp->callcount++;
-        if (tcp) {
-            tcp->callcount++;
-        }
     }
 
     // is this the last function in the callstack?
@@ -972,18 +938,9 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         if (!yielded) {
             cp->nonrecursive_callcount++;
         }
-        // update tagged pit
-        if (tcp) {
-            tcp->ttotal += elapsed;
-            tcp->tsubtotal += elapsed;
-            if (!yielded) {
-                tcp->nonrecursive_callcount++;
-            }
-        }
         decr_rec_level((uintptr_t)cp);
         return;
     }
-    tpp = _get_tagged_pit(pp, curr_tag);
     // get children info
     pci = _get_child_info(pp, cp, 0);
     if(!pci)
@@ -992,24 +949,13 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         return; // defensive
     }
 
-    tpci = _get_child_info(tpp, tcp, 1);
-
     // a calls b. b's elapsed time is subtracted from a's tsub and 
     // a adds its own elapsed it is leaving.
     pp->tsubtotal -= elapsed;
-    if (tpp) {
-        tpp->tsubtotal -= elapsed;
-    }
     cp->tsubtotal += elapsed;
-    if (tcp) {
-        tcp->tsubtotal += elapsed;
-    }
-
+    
     if (!yielded) {
         pci->callcount++;
-        if (tpci) {
-            tpci->callcount++;
-        }
     }
 
     // a->b->c. b->c is substracted from a->b.
@@ -1020,18 +966,9 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
             _log_err(7);
             return;
         }
-
-        tppp = _get_tagged_pit(ppp, curr_tag);
-        tppci = _get_child_info(tppp, tpp, 1);
         ppci->tsubtotal -= elapsed;
-        if (tppci) {
-            tppci->tsubtotal -= elapsed;
-        }
     }
     pci->tsubtotal += elapsed;
-    if (tpci) {
-        tpci->tsubtotal += elapsed;
-    }
 
     // wait for the top-level function/parent/child to update timing values accordingly.
     if (get_rec_level((uintptr_t)cp) == 1) {
@@ -1040,22 +977,10 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
             cp->nonrecursive_callcount++;
             pci->nonrecursive_callcount++;
         }
-        if (tcp) {
-            tcp->ttotal += elapsed;
-            if (!yielded) {
-                tcp->nonrecursive_callcount++;
-                if (tpci) {
-                    tpci->nonrecursive_callcount++;
-                }
-            }
-        }
     }
 
     if (get_rec_level((uintptr_t)pci) == 1) {
         pci->ttotal += elapsed;
-        if (tpci) {
-            tpci->ttotal += elapsed;
-        }
     }
 
     decr_rec_level((uintptr_t)pci);
@@ -1074,6 +999,18 @@ _pitenumdel(_hitem *item, void *arg)
     return 0;
 }
 
+static int
+_tagenumdel(_hitem *item, void *arg)
+{
+    _htab *pits;
+
+    pits = (_htab *)item->val;
+    henum(pits, _pitenumdel, NULL);
+    htdestroy(pits);
+
+    return 0;
+}
+
 // context will be cleared by the free list. we do not free it here.
 // we only free the context call stack.
 static void
@@ -1081,8 +1018,10 @@ _del_ctx(_ctx * ctx)
 {
     sdestroy(ctx->cs);
     htdestroy(ctx->rec_levels);
-    henum(ctx->pits, _pitenumdel, NULL);
-    htdestroy(ctx->pits);
+
+    henum(ctx->tags, _tagenumdel, NULL);
+    htdestroy(ctx->tags);
+
     Py_CLEAR(ctx->name);
 }
 
@@ -1092,17 +1031,6 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
 {
     PyObject *last_type, *last_value, *last_tb;
     PyErr_Fetch(&last_type, &last_value, &last_tb);
-
-    // profiler callback functions are not reentrant safe, 
-    // while an event is in progress, do not allow another event
-    // to be processed
-    //while(_profile_event_running) {
-    //    Py_BEGIN_ALLOW_THREADS;
-    //    Py_END_ALLOW_THREADS;
-        // TODO: add a timeout for this to defentsively exit
-    //}
-
-    _profile_event_running = 1;
 
     // get current ctx
     current_ctx = _thread2ctx(PyThreadState_GET());
@@ -1166,8 +1094,6 @@ finally:
         //abort();
         _log_err(15);
     }
-
-    _profile_event_running = 0;
 
     return 0;
 }
@@ -1359,11 +1285,6 @@ _stop(void)
 
     yapprunning = 0;
     yappstoptick = tickcount();
-
-    // let's make sure this because there might be some cases
-    // like TerminateThread()? cause a thread to exit in the middle
-    // of a profile event. We do not want to get stuck on this.
-    _profile_event_running = 0;
 }
 
 static PyObject*
@@ -1490,12 +1411,6 @@ int _pit_filtered(_pit *pt, _ctxfuncenumarg *eargs)
 
     filter = eargs->enum_args->func_filter;
 
-    if (filter.tag) {
-        if (pt->tag != PyLong_AsLong(filter.tag)) {
-            return 1;
-        }
-    }
-
     if (filter.name) {
         if (!PyObject_RichCompareBool(pt->name, filter.name, Py_EQ)) {
             return 1;
@@ -1523,11 +1438,6 @@ _pitenumstat(_hitem *item, void *arg)
     children = NULL;
     pt = (_pit *)item->val;
     eargs = (_ctxfuncenumarg *)arg;
-
-    // enumerate tagged pits
-    if (pt->tagged_pits) {
-        henum(pt->tagged_pits, _pitenumstat, arg);
-    }
 
     if (_pit_filtered(pt, eargs)) {
         return 0;
@@ -1580,6 +1490,30 @@ _pitenumstat(_hitem *item, void *arg)
     return 0;
 }
 
+static int
+_tagenumstat(_hitem *item, void *arg)
+{
+    _htab *pits;
+    long current_tag;
+    _ctxfuncenumarg *eargs;
+    _func_stat_filter filter;
+
+    current_tag = (long)item->key;
+    eargs = (_ctxfuncenumarg *)arg;
+    filter = eargs->enum_args->func_filter;
+
+    if (filter.tag) {
+        if (current_tag != PyLong_AsLong(filter.tag)) {
+            return 0;
+        }
+    }
+
+    pits =  (_htab *)item->val;
+    henum(pits, _pitenumstat, arg);
+
+    return 0;
+}
+
 static int 
 _ctxfuncenumstat(_hitem *item, void *arg)
 {
@@ -1596,7 +1530,7 @@ _ctxfuncenumstat(_hitem *item, void *arg)
         }
     }
 
-    henum(ext_args.ctx->pits, _pitenumstat, &ext_args);
+    henum(ext_args.ctx->tags, _tagenumstat, &ext_args);
 
     //("total pit count=%u\n", flcount(flpit));
 
