@@ -284,10 +284,13 @@ _call_funcobjargs(PyObject *func, PyObject *args)
     // we will be in a correct ThreadState * but current_ctx might not
     // be correct.
     PyObject *result;
+    _ctx *_local_current_ctx, *_local_prev_ctx;
 
-    prev_ctx = current_ctx;
+    _local_current_ctx = current_ctx;
+    _local_prev_ctx = prev_ctx;
     result = PyObject_CallFunctionObjArgs(func, args);
-    current_ctx = prev_ctx;
+    current_ctx = _local_current_ctx;
+    prev_ctx = _local_prev_ctx;
 
     return result;
 }
@@ -863,6 +866,7 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     _pit *cp,*pp;
     _cstackitem *ci;
     _pit_children_info *pci;
+    long current_tag;
 
     if (ccall) {
         cp = _ccode2pit((PyCFunctionObject *)arg);
@@ -913,14 +917,11 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     int yielded = 0;
     _pit *tcp, *tpp, *tppp;
     uintptr_t curr_tag;
-    _ctx *prev_ctx;
 
     tcp = tpp = tppp = NULL;
     pci = ppci = tpci = tppci = NULL;
 
-    prev_ctx = current_ctx;
     curr_tag = _current_tag();
-    current_ctx = prev_ctx;
 
     elapsed = _get_frame_elapsed();
 

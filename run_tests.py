@@ -8,6 +8,8 @@ if __name__ == '__main__':
         test_suite = test_loader.discover('tests')
     else:
         test_suite = test_loader.loadTestsFromName('tests.test_functionality')
-    #test_suite = test_loader.loadTestsFromName('tests.test_tags')
+    test_suite = test_loader.loadTestsFromName(
+        'tests.test_tags.SingleThreadTests.test_simple_tagging'
+    )
     result = test_runner.run(test_suite)
     sys.exit(not result.wasSuccessful())
