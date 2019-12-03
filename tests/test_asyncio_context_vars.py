@@ -1,3 +1,5 @@
+import sys
+import unittest
 import asyncio
 import contextvars
 import functools
