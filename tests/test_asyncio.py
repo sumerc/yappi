@@ -8,17 +8,18 @@ class SingleThreadTests(YappiUnitTestCase):
 
     def test_recursive_coroutine(self):
 
-        async def a(n):
+        @asyncio.coroutine
+        def a(n):
             if n <= 0:
                 return
-            await asyncio.sleep(0.1)
+            yield from asyncio.sleep(0.1)
             burn_cpu(0.1)
-            await a(n - 1)
-            await a(n - 2)
+            yield from a(n - 1)
+            yield from a(n - 2)
 
         yappi.set_clock_type("cpu")
         yappi.start()
-        asyncio.run(a(3))
+        asyncio.get_event_loop().run_until_complete(a(3))
         yappi.stop()
 
         r1 = '''
@@ -51,8 +52,8 @@ class SingleThreadTests(YappiUnitTestCase):
 
         yappi.set_clock_type("wall")
         yappi.start(builtins=True)
-        asyncio.run(a())
-        asyncio.run(a())
+        asyncio.get_event_loop().run_until_complete(a())
+        asyncio.get_event_loop().run_until_complete(a())
         yappi.stop()
 
         r1 = '''
@@ -69,8 +70,8 @@ class SingleThreadTests(YappiUnitTestCase):
         yappi.clear_stats()
         yappi.set_clock_type("cpu")
         yappi.start(builtins=True)
-        asyncio.run(a())
-        asyncio.run(a())
+        asyncio.get_event_loop().run_until_complete(a())
+        asyncio.get_event_loop().run_until_complete(a())
         yappi.stop()
         stats = yappi.get_func_stats()
         r1 = '''

@@ -695,8 +695,6 @@ class YFuncStats(YStatsIndexable):
         fname, fmodule, flineno, fncall, fnactualcall, fbuiltin, fttot, ftsub, \
             findex, fchildren, fctxid, fctxname, ftag = stat_entry
 
-        print(stat_entry)
-
         # builtin function?
         ffull_name = _func_fullname(bool(fbuiltin), fmodule, flineno, fname)
         ftavg = fttot / fncall

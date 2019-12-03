@@ -182,13 +182,19 @@ static void _DebugPrintObjects(unsigned int arg_count, ...)
 
 int IS_ASYNC(PyFrameObject *frame)
 {
-#if defined(IS_PY3K) && PY_MINOR_VERSION >= 4
-    return frame->f_code->co_flags & CO_COROUTINE || 
-        frame->f_code->co_flags & CO_ITERABLE_COROUTINE ||
-        frame->f_code->co_flags & CO_ASYNC_GENERATOR;
-#else
-    return 0;
+    int result = 0;
+
+#if defined(IS_PY3K) 
+#if PY_MINOR_VERSION >= 4
+    result = frame->f_code->co_flags & CO_COROUTINE || 
+        frame->f_code->co_flags & CO_ITERABLE_COROUTINE;
 #endif
+#if PY_MINOR_VERSION >= 6
+    result = result || frame->f_code->co_flags & CO_ASYNC_GENERATOR;
+#endif
+#endif
+
+    return result;
 }
 
 static PyObject *
@@ -506,7 +512,7 @@ _ccode2pit(void *cco, long current_tag)
     // Python C functions.
     it = hfind(pits, (uintptr_t)cfn->m_ml);
     if (!it) {
-        _pit *pit = _create_pit(0);
+        _pit *pit = _create_pit();
         if (!pit)
             return NULL;
         if (!hadd(pits, (uintptr_t)cfn->m_ml, (uintptr_t)pit))
