@@ -73,8 +73,6 @@ typedef struct {
     // per-pit instead of dealing with the keys and their references.
     unsigned int index;
 
-    long tag;
-
     // concurrent running coroutines on this _pit
     _coro *coroutines;
 
@@ -237,7 +235,6 @@ _create_pit()
     pit->index = ycurfuncindex++;
     pit->children = NULL;
     pit->coroutines = NULL;
-    pit->tag = 0;
 
     return pit;
 }
@@ -384,6 +381,10 @@ _current_context_id(PyThreadState *ts)
         // have direct ThreadState->Thread mapping. Greenlets, for example, will only have a single
         // thread. Therefore, we need to identify the "context" concept independent from ThreadState 
         // objects.
+
+        if (!flags.multithreaded) {
+            return 0;
+        }
 
         // TODO: Any more optimization? This has increased the runtime factor from 7x to 11x.
         // and also we may have a memory leak below. We maybe can optimize the common case.
@@ -1440,6 +1441,7 @@ _pitenumstat(_hitem *item, void *arg)
     PyObject *children;
     _pit_children_info *pci;
     _ctxfuncenumarg *eargs;
+    long tag;
 
     children = NULL;
     pt = (_pit *)item->val;
@@ -1477,13 +1479,17 @@ _pitenumstat(_hitem *item, void *arg)
         pt->tsubtotal = 0;
     if (pt->callcount == 0)
         pt->callcount = 1;
+    tag = 0;
+    if (eargs->enum_args->func_filter.tag) {
+        tag = PyLong_AS_LONG(eargs->enum_args->func_filter.tag);
+    }
 
     exc = PyObject_CallFunction(eargs->enum_args->enumfn, "((OOkkkIffIOkOk))", 
                         pt->name, pt->modname, pt->lineno, pt->callcount,
                         pt->nonrecursive_callcount, pt->builtin, 
                         _normt(pt->ttotal), _normt(pt->tsubtotal),
                         pt->index, children, eargs->ctx->id, eargs->ctx->name, 
-                        pt->tag);
+                        tag);
     if (!exc) {
         PyErr_Print();
         Py_XDECREF(children);
@@ -1537,8 +1543,6 @@ _ctxfuncenumstat(_hitem *item, void *arg)
     }
 
     henum(ext_args.ctx->tags, _tagenumstat, &ext_args);
-
-    //("total pit count=%u\n", flcount(flpit));
 
     return 0;
 }
