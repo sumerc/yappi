@@ -75,9 +75,6 @@ class SingleThreadTests(YappiUnitTestCase):
         self.assert_traces_almost_equal(r1, stats)
 
 
-import time
-
-
 class MultiThreadTests(YappiUnitTestCase):
 
     def test_basic(self):

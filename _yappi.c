@@ -1481,7 +1481,7 @@ _pitenumstat(_hitem *item, void *arg)
         pt->callcount = 1;
     tag = 0;
     if (eargs->enum_args->func_filter.tag) {
-        tag = PyLong_AS_LONG(eargs->enum_args->func_filter.tag);
+        tag = PyLong_AsLong(eargs->enum_args->func_filter.tag);
     }
 
     exc = PyObject_CallFunction(eargs->enum_args->enumfn, "((OOkkkIffIOkOk))", 
