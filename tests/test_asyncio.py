@@ -172,11 +172,13 @@ class MultiThreadTests(YappiUnitTestCase):
         '''
         self.assert_traces_almost_equal(t1, traces)
 
-    def test_recursive_coroutine(self):
-        pass
-
-    def test_same_coroutine_call_from_different_threads(self):
-        pass
+        traces = yappi.get_func_stats(filter={'tag': 2})
+        t1 = '''
+        ..ts/test_asyncio.py:103 recursive_a  6/1    0.000160  1.062948  0.177158
+        ..thon3.7/asyncio/tasks.py:582 sleep  5      0.561244  0.561803  0.112361
+        tests/utils.py:135 burn_io            5      0.000035  0.500985  0.100197
+        '''
+        self.assert_traces_almost_equal(t1, traces)
 
 
 if __name__ == '__main__':
