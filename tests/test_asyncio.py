@@ -1,6 +1,7 @@
 import unittest
 import yappi
 import asyncio
+import threading
 from utils import YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io
 
 
@@ -86,7 +87,80 @@ class SingleThreadTests(YappiUnitTestCase):
 class MultiThreadTests(YappiUnitTestCase):
 
     def test_basic(self):
-        pass
+
+        @asyncio.coroutine
+        def a():
+            yield from asyncio.sleep(0.1)
+            burn_cpu(0.2)
+
+        @asyncio.coroutine
+        def b():
+            yield from a()
+
+        @asyncio.coroutine
+        def recursive_a(n):
+            if not n:
+                return
+            burn_io(0.1)
+            yield from asyncio.sleep(0.1)
+            yield from recursive_a(n - 1)
+
+        def tag_cbk():
+            cthread = threading.current_thread()
+            try:
+                return cthread._tag
+            except:
+                return -1
+
+        yappi.set_clock_type("wall")
+        threading.current_thread()._tag = 0
+        yappi.set_tag_callback(tag_cbk)
+
+        def _thread_event_loop(loop):
+            asyncio.set_event_loop(loop)
+            loop.run_forever()
+
+        _TCOUNT = 5
+        _ctag = 1
+
+        ts = []
+        for i in range(_TCOUNT):
+            _loop = asyncio.new_event_loop()
+            t = threading.Thread(target=_thread_event_loop, args=(_loop, ))
+            t._tag = _ctag
+            t._loop = _loop
+            t.start()
+
+            ts.append(t)
+            _ctag += 1
+
+        @asyncio.coroutine
+        def driver():
+            futs = []
+            for i in range(_TCOUNT):
+                fut = asyncio.run_coroutine_threadsafe(a(), ts[i]._loop)
+                futs.append(fut)
+                fut = asyncio.run_coroutine_threadsafe(
+                    recursive_a(5), ts[i]._loop
+                )
+                futs.append(fut)
+                fut = asyncio.run_coroutine_threadsafe(b(), ts[i]._loop)
+                futs.append(fut)
+            for fut in futs:
+                fut.result()
+
+        yappi.start()
+        asyncio.get_event_loop().run_until_complete(driver())
+        yappi.stop()
+        yappi.get_func_stats().print_all()
+        t1 = '''
+        ..ts/test_asyncio.py:100 recursive_a  30/5   0.000597  7.550892  0.251696
+        ..thon3.7/asyncio/tasks.py:582 sleep  35     7.085052  7.087429  0.202498
+        tests/test_asyncio.py:91 a            10     0.000089  5.573958  0.557396
+        tests/utils.py:135 burn_io            25     0.000132  3.671073  0.146843
+        tests/test_asyncio.py:96 b            5      0.000023  3.375634  0.675127
+        tests/utils.py:126 burn_cpu           10     2.264558  2.365662  0.236566
+        '''
 
     def test_recursive_coroutine(self):
         pass
