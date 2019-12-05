@@ -84,6 +84,9 @@ class SingleThreadTests(YappiUnitTestCase):
         self.assert_traces_almost_equal(r1, stats)
 
 
+import time
+
+
 class MultiThreadTests(YappiUnitTestCase):
 
     def test_basic(self):
@@ -120,7 +123,7 @@ class MultiThreadTests(YappiUnitTestCase):
             asyncio.set_event_loop(loop)
             loop.run_forever()
 
-        _TCOUNT = 5
+        _TCOUNT = 3
         _ctag = 1
 
         ts = []
@@ -135,32 +138,39 @@ class MultiThreadTests(YappiUnitTestCase):
             _ctag += 1
 
         @asyncio.coroutine
+        def stop_loop():
+            asyncio.get_event_loop().stop()
+
+        @asyncio.coroutine
         def driver():
             futs = []
-            for i in range(_TCOUNT):
-                fut = asyncio.run_coroutine_threadsafe(a(), ts[i]._loop)
-                futs.append(fut)
-                fut = asyncio.run_coroutine_threadsafe(
-                    recursive_a(5), ts[i]._loop
-                )
-                futs.append(fut)
-                fut = asyncio.run_coroutine_threadsafe(b(), ts[i]._loop)
-                futs.append(fut)
+            fut = asyncio.run_coroutine_threadsafe(a(), ts[0]._loop)
+            futs.append(fut)
+            fut = asyncio.run_coroutine_threadsafe(recursive_a(5), ts[1]._loop)
+            futs.append(fut)
+            fut = asyncio.run_coroutine_threadsafe(b(), ts[2]._loop)
+            futs.append(fut)
             for fut in futs:
                 fut.result()
+
+            # stop asyncio loops in threads
+            for t in ts:
+                asyncio.run_coroutine_threadsafe(stop_loop(), t._loop)
 
         yappi.start()
         asyncio.get_event_loop().run_until_complete(driver())
         yappi.stop()
-        yappi.get_func_stats().print_all()
+        traces = yappi.get_func_stats()
         t1 = '''
-        ..ts/test_asyncio.py:100 recursive_a  30/5   0.000597  7.550892  0.251696
-        ..thon3.7/asyncio/tasks.py:582 sleep  35     7.085052  7.087429  0.202498
-        tests/test_asyncio.py:91 a            10     0.000089  5.573958  0.557396
-        tests/utils.py:135 burn_io            25     0.000132  3.671073  0.146843
-        tests/test_asyncio.py:96 b            5      0.000023  3.375634  0.675127
-        tests/utils.py:126 burn_cpu           10     2.264558  2.365662  0.236566
+        tests/test_asyncio.py:140 driver      1      0.000022  1.015813  1.015813
+        ..ts/test_asyncio.py:103 recursive_a  6/1    0.000071  1.014597  0.169099
+        ..thon3.7/asyncio/tasks.py:582 sleep  7      0.714008  0.714345  0.102049
+        tests/test_asyncio.py:94 a            2      0.000025  0.610155  0.305078
+        tests/utils.py:135 burn_io            5      0.000018  0.505879  0.101176
+        tests/utils.py:126 burn_cpu           2      0.380813  0.404432  0.202216
+        tests/test_asyncio.py:99 b            1      0.000005  0.305355  0.305355
         '''
+        self.assert_traces_almost_equal(t1, traces)
 
     def test_recursive_coroutine(self):
         pass
