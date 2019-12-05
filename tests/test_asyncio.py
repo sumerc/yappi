@@ -31,15 +31,6 @@ class SingleThreadTests(YappiUnitTestCase):
         stats = yappi.get_func_stats()
         self.assert_traces_almost_equal(r1, stats)
 
-    def test_async_context_managers(self):
-        pass
-
-    def test_naive_generators(self):
-        pass
-
-    def test_async_generators(self):
-        pass
-
     def test_basic_old_style(self):
 
         @asyncio.coroutine
