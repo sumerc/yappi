@@ -47,10 +47,9 @@ $ pip install git+https://github.com/sumerc/yappi#egg=yappi
 
 ## Documentation
 
-- [Introduction](doc/introduction.md)
-- [Clock Types](doc/clock_types.md)
-- [API](doc/api.md)
-- [THANKS](THANKS.md)
+- [Introduction](https://github.com/sumerc/yappi/blob/master/doc/introduction.md)
+- [Clock Types](https://github.com/sumerc/yappi/blob/master/doc/clock_types.md)
+- [API](https://github.com/sumerc/yappi/blob/master/doc/api.md)
 
 ## Features
 - Correct function stats for coroutines. See [details](doc/api.md#coroutine_profiling) here.
