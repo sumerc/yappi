@@ -53,7 +53,7 @@ $ pip install git+https://github.com/sumerc/yappi#egg=yappi
 - [THANKS](THANKS.md)
 
 ## Features
-- Correct wall/cpu/callcount stats for coroutines. See [details](doc/api.md#coroutine_profiling) here.
+- Correct function stats for coroutines. See [details](doc/api.md#coroutine_profiling) here.
 - Tagging/filtering multiple profiler statistics
 - Profiler results can be saved in [callgrind](http://valgrind.org/docs/manual/cl-format.html) or [pstat](http://docs.python.org/3.4/library/profile.html#pstats.Stats) formats. 
 - Profiler results can be merged from different sessions on-the-fly.
