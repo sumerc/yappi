@@ -70,8 +70,8 @@ $ pip install git+https://github.com/sumerc/yappi#egg=yappi
 
 ## Talks
 
-- [Python Performance Profiling: The Guts And The Glory (PyCon 2015)](https://www.youtube.com/watch?v=4uJWWXYHxaM)
 - [Python Performance Profiling: The Guts And The Glory (PyCon APAC 2014)](https://www.youtube.com/watch?v=BOKcZjI5zME)
+- [Python Performance Profiling: The Guts And The Glory (PyCon 2015)](https://www.youtube.com/watch?v=4uJWWXYHxaM)
 - [Python Performance Profiling: The Guts And The Glory (PyGotham 2016)](https://www.youtube.com/watch?v=EJ87Kfzvnbs)
 
 ## PyCharm Integration
