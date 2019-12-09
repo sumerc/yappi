@@ -1,6 +1,6 @@
 ![Logo](https://i.imgur.com/xxmgGmn.png)
 # Yappi
-**Y**et **A**nother **P**ython **P**rof**i**ler, but this time support Multithread/CPU time profiling.
+**Y**et **A**nother **P**ython **P**rof**i**ler, but this time thread-aware and now: coroutine aware, too.
 
 [![Build Status](https://www.travis-ci.org/sumerc/yappi.svg?branch=master)](https://www.travis-ci.org/sumerc/yappi)
 ![](https://img.shields.io/pypi/v/yappi.svg)
@@ -23,6 +23,8 @@ the outputs. None of these profilers are designed to work on long-running multi-
 application). 
 
 ## Highlights
+- Correct wall/cpu/callcount stats for coroutines. See [details](doc/api.md#coroutine_profiling) here. (New in 1.2)
+- Tagging/filtering multiple profiler statistics (New in 1.2)
 - Per-thread function stats can be obtained
 - Profiler can be started/stopped at any time from any thread in the application.
 - Profile statistics can be obtained from any thread at any time.
@@ -51,11 +53,13 @@ $ pip install git+https://github.com/sumerc/yappi#egg=yappi
 - [THANKS](THANKS.md)
 
 ## Features
-- Profiler results can be saved in [callgrind](http://valgrind.org/docs/manual/cl-format.html) or [pstat](http://docs.python.org/3.4/library/profile.html#pstats.Stats) formats. (*new in 0.82*)
-- Profiler results can be merged from different sessions on-the-fly. (*new in 0.82*)
-- Profiler results can be easily converted to pstats. (*new in 0.82*)
+- Correct wall/cpu/callcount stats for coroutines. See [details](doc/api.md#coroutine_profiling) here.
+- Tagging/filtering multiple profiler statistics
+- Profiler results can be saved in [callgrind](http://valgrind.org/docs/manual/cl-format.html) or [pstat](http://docs.python.org/3.4/library/profile.html#pstats.Stats) formats. 
+- Profiler results can be merged from different sessions on-the-fly.
+- Profiler results can be easily converted to pstats.
 - Profiling of multithreaded Python applications transparently.
-- Supports profiling per-thread [CPU time](http://en.wikipedia.org/wiki/CPU_time) (*new in 0.62*)
+- Supports profiling per-thread [CPU time](http://en.wikipedia.org/wiki/CPU_time)
 - Profiler can be started from any thread at any time.
 - Ability to get statistics at any time without even stopping the profiler.
 - Various flags to arrange/sort profiler results.
@@ -66,9 +70,9 @@ $ pip install git+https://github.com/sumerc/yappi#egg=yappi
 
 ## Talks
 
-- Python Performance Profiling: The Guts And The Glory
-
-  [![Youtube link](https://img.youtube.com/vi/BOKcZjI5zME/0.jpg)](https://www.youtube.com/watch?v=BOKcZjI5zME)
+- [Python Performance Profiling: The Guts And The Glory (PyCon 2015)](https://www.youtube.com/watch?v=4uJWWXYHxaM)
+- [Python Performance Profiling: The Guts And The Glory (PyCon APAC 2014)](https://www.youtube.com/watch?v=BOKcZjI5zME)
+- [Python Performance Profiling: The Guts And The Glory (PyGotham 2016)](https://www.youtube.com/watch?v=EJ87Kfzvnbs)
 
 ## PyCharm Integration
 
