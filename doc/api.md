@@ -77,7 +77,13 @@ Above code will aggregate all stats into a single tag for every function called 
 #### `get_func_stats(filter=None)`
 
 Returns the function stats as a [`YFuncStat`](#yfuncstat) object.
-filter parameter can be used to filter on YFuncStat attributes. You can use multiple filters at once in a single call and only those results are returned. If no filter is defined, all function stats are aggregated(function stats are held per-thread under the hood) and returned. 
+`filter` is a simple dict that can be used to filter on YFuncStat attributes. You can use multiple filters at once in a single call and only those results are returned. If no filter is defined, all function stats are aggregated(function stats are held per-thread under the hood) and returned.
+
+Currently filtering is only possible on `name`, `module`, `ctx_id`, `tag` attributes of [YFuncStat](#yfuncstat) object. So below is valid:
+
+```python
+yappi.get_func_stats(filter={"module": "module_name", "name": "func_name", "ctx_id": 0, "tag": 1})
+```
 
 One of the interesting features of this filter function is that you can get per-thread function call statistics only by providing the `ctx_id` of the thread you want to get results. Under the hood, yappi already holds the function stats by per-thread and upon request, it aggregates this data, when you provide a filter, it simply returns only that per-thread stats.
 
@@ -140,6 +146,7 @@ This holds the stat items as a list of `YFuncStat` objects. 
 | `ctx_id`      | Id of the underlying context(thread)                                            |
 | `tavg`        | per-call average total time spent in the executed function.                     |
 | `full_name`   | unique full name of the executed function                                       |
+| `tag`         | tag of the executed function. (set via `set_tag_callback`)                      |
 
 #### `get()`
 

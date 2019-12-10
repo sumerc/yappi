@@ -1,4 +1,4 @@
-![Logo](https://i.imgur.com/xxmgGmn.png)
+![Logo](https://camo.githubusercontent.com/628c5a0da5ce146f500b1ee43af6dcca3f4a6023/68747470733a2f2f692e696d6775722e636f6d2f78786d67476d6e2e706e67)
 # Yappi
 **Y**et **A**nother **P**ython **P**rof**i**ler, but this time thread and coroutine aware.
 
@@ -12,9 +12,7 @@
 
 ## Motivation
 
-CPython standard distribution comes with three deterministic profilers. `cProfile`, `Profile` and `hotshot`. 
-`cProfile` is implemented as a C module based on `lsprof`, `Profile` is in pure Python and 
-`hotshot` can be seen as a small subset of a cProfile. 
+CPython standard distribution comes with three deterministic profilers. `cProfile`, `Profile` and `hotshot`. `cProfile` is implemented as a C module based on `lsprof`, `Profile` is in pure Python and `hotshot` can be seen as a small subset of a cProfile. 
 
 *The major issue is that all of these profilers lack support for multi-threaded programs and CPU time.*
 
