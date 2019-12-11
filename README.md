@@ -1,33 +1,41 @@
-![Logo](https://i.imgur.com/xxmgGmn.png)
-# Yappi
-**Y**et **A**nother **P**ython **P**rof**i**ler, but this time support Multithread/CPU time profiling.
+<p align="center">
+    <img src="https://github.com/sumerc/yappi/blob/coroutine-profiling/logo.png" alt="yappi">
+</p>
 
-[![Build Status](https://www.travis-ci.org/sumerc/yappi.svg?branch=master)](https://www.travis-ci.org/sumerc/yappi)
-![](https://img.shields.io/pypi/v/yappi.svg)
-![](https://img.shields.io/pypi/dw/yappi.svg)
-![](https://img.shields.io/pypi/pyversions/yappi.svg)
-![](https://img.shields.io/github/last-commit/sumerc/yappi.svg)
-![](https://img.shields.io/github/license/sumerc/yappi.svg)
 
+<h1 align="center">Yappi</h1>
+<p align="center">
+    Yet Another Python Profiler, but this time <b>thread/coroutine</b> aware.
+</p>
+
+<p align="center">
+    <img src="https://www.travis-ci.org/sumerc/yappi.svg?branch=master">
+    <img src="https://img.shields.io/pypi/v/yappi.svg">
+    <img src="https://img.shields.io/pypi/dw/yappi.svg">
+    <img src="https://img.shields.io/pypi/pyversions/yappi.svg">
+    <img src="https://img.shields.io/github/last-commit/sumerc/yappi.svg">
+    <img src="https://img.shields.io/github/license/sumerc/yappi.svg">
+</p>
+
+## Highlights
+
+- **Fast**: Yappi is fast. It is completely written in C and lots of love&care went into making it fast.
+- **Unique**: Yappi supports multithreaded and [asyncronous code](https://github.com/sumerc/yappi/blob/master/doc/coroutine_profiling.md) profiling. Tagging/filtering multiple profiler results has interesting [use cases](https://github.com/sumerc/yappi/blob/master/doc/api.md#set_tag_callback).
+- **Intuitive**: Profiler can be started/stopped and results can be obtained from any time and any thread.
+- **Standarts Complaint**: Profiler results can be saved in [callgrind](http://valgrind.org/docs/manual/cl-format.html) or [pstat](http://docs.python.org/3.4/library/profile.html#pstats.Stats) formats.
+- **Rich in Feature set**: Profiler results can show either [Wall Time](https://en.wikipedia.org/wiki/Elapsed_real_time) or actual [CPU Time](http://en.wikipedia.org/wiki/CPU_time) and can be aggregated from different sessions. Various flags are defined for filtering and sorting profiler results.
+- **Robust**: Yappi is out in wild for more than *10 years* with lots of production usage.
 
 ## Motivation
 
-CPython standard distribution comes with three profilers. `cProfile`, `Profile` and `hotshot`. 
-`cProfile` is implemented as a C module based on `lsprof`, `Profile` is in pure Python and 
-`hotshot` can be seen as a small subset of a cProfile. 
+CPython standard distribution comes with three deterministic profilers. `cProfile`, `Profile` and `hotshot`. `cProfile` is implemented as a C module based on `lsprof`, `Profile` is in pure Python and `hotshot` can be seen as a small subset of a cProfile. 
 
 *The major issue is that all of these profilers lack support for multi-threaded programs and CPU time.*
 
-If you want to profile a  multi-threaded application, you must give an entry point to these profilers and then maybe merge 
-the outputs. None of these profilers are designed to work on long-running multi-threaded application.It is impossible to profile an application retrieve the statistics then stop and then start later on the fly (without affecting the profiled
-application). 
+If you want to profile a  multi-threaded application, you must give an entry point to these profilers and then maybe merge the outputs. None of these profilers are designed to work on long-running multi-threaded applications. It is also not possible to profile an application that start/stop/retrieve traces on the fly with these profilers. 
 
-## Highlights
-- Per-thread function stats can be obtained
-- Profiler can be started/stopped at any time from any thread in the application.
-- Profile statistics can be obtained from any thread at any time.
-- Profile statistics can show actual [CPU Time](http://en.wikipedia.org/wiki/CPU_time) used instead of Wall time.
-- "Profiler pollution" (effect on the application run-time) is very minimal.
+Now fast forwarding to 2019: With the latest improvements on `asyncio` library and asyncronous frameworks, most of the current profilers lacks the ability to show correct wall/cpu time or even call count information per-coroutine. Thus we need a different kind of approach to profile asyncronous code. Yappi, with v1.2 introduces the concept of `coroutine profiling`. With `coroutine-profiling`, you should be able to profile correct wall/cpu time and callcount of your coroutine. (including the time spent in context switches, too). You can see details [here](https://github.com/sumerc/yappi/blob/master/doc/coroutine_profiling.md).
+
 
 ## Installation
 
@@ -45,30 +53,20 @@ $ pip install git+https://github.com/sumerc/yappi#egg=yappi
 
 ## Documentation
 
-- [Introduction](doc/introduction.md)
-- [Clock Types](doc/clock_types.md)
-- [API](doc/api.md)
-- [THANKS](THANKS.md)
+- [Introduction](https://github.com/sumerc/yappi/blob/master/doc/introduction.md)
+- [Clock Types](https://github.com/sumerc/yappi/blob/master/doc/clock_types.md)
+- [API](https://github.com/sumerc/yappi/blob/master/doc/api.md)
 
-## Features
-- Profiler results can be saved in [callgrind](http://valgrind.org/docs/manual/cl-format.html) or [pstat](http://docs.python.org/3.4/library/profile.html#pstats.Stats) formats. (*new in 0.82*)
-- Profiler results can be merged from different sessions on-the-fly. (*new in 0.82*)
-- Profiler results can be easily converted to pstats. (*new in 0.82*)
-- Profiling of multithreaded Python applications transparently.
-- Supports profiling per-thread [CPU time](http://en.wikipedia.org/wiki/CPU_time) (*new in 0.62*)
-- Profiler can be started from any thread at any time.
-- Ability to get statistics at any time without even stopping the profiler.
-- Various flags to arrange/sort profiler results.
-- Supports Python >= 2.7.x
+  Note: Yes. I know I should be moving docs to readthedocs.io. Stay tuned!
+
 
 ## Limitations:
 * Threads must be derived from "threading" module's Thread object.
 
-## Talks
+## Related Talks
 
-- Python Performance Profiling: The Guts And The Glory
-
-  [![Youtube link](https://img.youtube.com/vi/BOKcZjI5zME/0.jpg)](https://www.youtube.com/watch?v=BOKcZjI5zME)
+  Special thanks to A.Jesse Jiryu Davis:
+- [Python Performance Profiling: The Guts And The Glory (PyCon 2015)](https://www.youtube.com/watch?v=4uJWWXYHxaM)
 
 ## PyCharm Integration
 

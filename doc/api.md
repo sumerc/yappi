@@ -25,17 +25,78 @@ Clears the profiler results. 
 
 All results stay in memory unless application (all threads including the main thread) exits or `clear_stats()` is explicitly called.
 
+#### `set_ctx_id_callback(callback)`
+
+`callback` is a simple callable with no arguments that returns an integer.
+`callback` is called for every profile event to get the current context id of a running context. 
+
+In Yappi terminology a `context` means a construct that has its own callstack. It defaults to uniquely identifying a threading.Thread object, but there are some advanced cases for this one, like [here](https://github.com/ajdavis/GreenletProfiler) where you have application threads scheduled by a custom scheduler which does not have a OS thread equivalent. In those extreme cases, this function can be used.
+
+#### `set_tag_callback(callback)` _New in v1.2_
+
+`callback` is a simple callable with no arguments that returns an integer.
+`callback` is called for every profile event to get the current tag id of a running function. 
+
+In Yappi, every profiled function is associated with a tag. By default, this tag is same for all stats collected. You can change this behaviour and aggregate different function stat data in different tags.
+This will give additional namespacing on what kind of data to collect.
+
+A recent use case for this functionality is aggregating of single request/response cycle in an ASGI application via `contextvar` module. See [here](https://github.com/sumerc/yappi/issues/21) for details. It can also be used for profiling multithreaded WSGI applications, too.
+
+A simple example demonstrating on how it can be used to profile request/response cycles in a multithreaded WSGI application where every request/response is handled by a different thread. See [here](https://modwsgi.readthedocs.io/en/develop/user-guides/processes-and-threading.html#the-unix-worker-mpm) for more details.
+
+```python
+_req_counter = 0
+
+def _worker_tag_cbk():
+    global _req_counter
+    tlocal = threading.local()
+    if not getattr(tlocal, '_request_id'):
+        _req_counter += 1
+        tlocal._request_id = _req_counter
+    
+    return tlocal._request_id
+
+
+yappi.set_tag_callback(_worker_tag_cbk)
+yappi.start()
+...
+# code that starts a server serving request with different threads
+...
+yappi.stop()
+
+# get per-request/response cycle profiling info
+for i in range(_req_counter):
+    req_stats = yappi.get_func_stats(filter={'tag': i})
+    req_stats.print_all()
+
+```
+
+Please note that, the relevant request id is held in a thread local storage and we simply increment the counter when we encounter a new thread.
+Above code will aggregate all stats into a single tag for every function called from the same thread.
+
 #### `get_func_stats(filter=None)`
 
 Returns the function stats as a [`YFuncStat`](#yfuncstat) object.
-filter parameter can be used to filter on YFuncStat attributes. You can use multiple filters at once in a single call and only those results are returned. If no filter is defined, all function stats are aggregated(function stats are held per-thread under the hood) and returned. 
+`filter` is a simple dict that can be used to filter on YFuncStat attributes. You can use multiple filters at once in a single call and only those results are returned. If no filter is defined, all function stats are aggregated(function stats are held per-thread under the hood) and returned.
 
-One of the interesting features of this filter function is that you can get per-thread function call statistics only by providing the ctx_id of the thread you want to get results. Under the hood, yappi already holds the function stats by per-thread and upon request, it aggregates this data, when you provide a filter, it simply returns only that per-thread stats.
+Currently filtering is only possible on `name`, `module`, `ctx_id`, `tag` attributes of [YFuncStat](#yfuncstat) object. So below is valid:
 
+```python
+yappi.get_func_stats(filter={"module": "module_name", "name": "func_name", "ctx_id": 0, "tag": 1})
 ```
+
+One of the interesting features of this filter function is that you can get per-thread function call statistics only by providing the `ctx_id` of the thread you want to get results. Under the hood, yappi already holds the function stats by per-thread and upon request, it aggregates this data, when you provide a filter, it simply returns only that per-thread stats.
+
+```python
 threads = yappi.get_thread_stats()
 for thread in threads:
     fstats = yappi.get_func_stats(filter={"ctx_id":thread.id})
+```
+
+You can also set custom tags for specific functions and aggregate those by filtering on tag
+
+```python
+fstats = yappi.get_func_stats(filter={"tag": my_custom_tag_id})
 ```
 
 #### `get_thread_stats()`
@@ -85,6 +146,7 @@ This holds the stat items as a list of `YFuncStat` objects. 
 | `ctx_id`      | Id of the underlying context(thread)                                            |
 | `tavg`        | per-call average total time spent in the executed function.                     |
 | `full_name`   | unique full name of the executed function                                       |
+| `tag`         | tag of the executed function. (set via `set_tag_callback`)                      |
 
 #### `get()`
 

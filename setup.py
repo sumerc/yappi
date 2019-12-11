@@ -12,8 +12,8 @@ with io.open('README.md', encoding='UTF-8') as f:
 
 HOMEPAGE = "https://github.com/sumerc/yappi"
 NAME = "yappi"
-VERSION = "1.2"
-_DEBUG = True  # compile/link code for debugging
+VERSION = "1.2.2"
+_DEBUG = False  # compile/link code for debugging
 _PROFILE = False  # profile yappi itself
 
 user_macros = []
@@ -70,8 +70,8 @@ setup(
         Extension(
             "_yappi",
             sources=[
-                "_yappi.c", "callstack.c", "hashtab.c", "mem.c", "freelist.c",
-                "timing.c"
+                "src/_yappi.c", "src/callstack.c", "src/hashtab.c", "src/mem.c",
+                "src/freelist.c", "src/timing.c"
             ],
             define_macros=user_macros,
             libraries=user_libraries,
@@ -79,6 +79,7 @@ setup(
             extra_link_args=link_args,
         )
     ],
+    package_dir={'': 'src/'},
     py_modules=["yappi"],
     entry_points={
         'console_scripts': [

@@ -87,7 +87,7 @@ class BasicUsage(utils.YappiUnitTestCase):
     def test_profile_decorator(self):
 
         def aggregate(func, stats):
-            fname = "%s.profile" % (func.__name__)
+            fname = "tests/%s.profile" % (func.__name__)
             try: 
                 stats.add(fname)
             except IOError:
@@ -103,7 +103,7 @@ class BasicUsage(utils.YappiUnitTestCase):
         def b():
             pass
         try:
-            os.remove("a.profile") # remove the one from prev test, if available
+            os.remove("tests/a.profile") # remove the one from prev test, if available
         except:
             pass
         
@@ -124,7 +124,7 @@ class BasicUsage(utils.YappiUnitTestCase):
             a(4, 21)
         except:
             pass
-        stats = yappi.get_func_stats().add("a.profile")
+        stats = yappi.get_func_stats().add("tests/a.profile")
         fsa = utils.find_stat_by_name(stats, 'a')
         self.assertEqual(fsa.ncall, 3)
         self.assertEqual(len(stats), 1) # b() should be cleared out.
@@ -136,7 +136,7 @@ class BasicUsage(utils.YappiUnitTestCase):
             count_down_rec(n-1)
         
         try:
-            os.remove("count_down_rec.profile") # remove the one from prev test, if available
+            os.remove("tests/count_down_rec.profile") # remove the one from prev test, if available
         except:
             pass
         
@@ -149,7 +149,7 @@ class BasicUsage(utils.YappiUnitTestCase):
         except:
             pass
         
-        stats = yappi.YFuncStats("count_down_rec.profile")
+        stats = yappi.YFuncStats("tests/count_down_rec.profile")
         fsrec = utils.find_stat_by_name(stats, 'count_down_rec')
         self.assertEqual(fsrec.ncall, 9)
         self.assertEqual(fsrec.nactualcall, 2)
@@ -164,7 +164,7 @@ class BasicUsage(utils.YappiUnitTestCase):
 
     def test_run_as_script(self):
         import re
-        p = subprocess.Popen([sys.executable, 'yappi.py', 'tests/run_as_script.py'],
+        p = subprocess.Popen(['yappi', 'tests/run_as_script.py'],
                              stdout=subprocess.PIPE)
         out, err = p.communicate()
         self.assertEqual(p.returncode, 0)
@@ -273,12 +273,12 @@ class BasicUsage(utils.YappiUnitTestCase):
         yappi.start()
         a()
         yappi.stop()
-        yappi.get_func_stats().save("ystats1.ys")
+        yappi.get_func_stats().save("tests/ystats1.ys")
         yappi.clear_stats()
         yappi.set_clock_type("WALL")
         yappi.start()
         yappi.stop()
-        stats = yappi.get_func_stats().add("ystats1.ys")
+        stats = yappi.get_func_stats().add("tests/ystats1.ys")
         fsa = utils.find_stat_by_name(stats, 'a')
         self.assertTrue(fsa is not None)
       
@@ -484,30 +484,30 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
         _yappi._set_test_timings(_timings)            
         stats = utils.run_and_get_func_stats(a,)
         stats.strip_dirs()    
-        stats.save("a1.pstats", type="pstat")
+        stats.save("tests/a1.pstats", type="pstat")
         fsa_pid = pstat_id(utils.find_stat_by_name(stats, "a"))
         fsd_pid = pstat_id(utils.find_stat_by_name(stats, "d"))
         yappi.clear_stats()
         _yappi._set_test_timings(_timings)
         stats = utils.run_and_get_func_stats(a,)
         stats.strip_dirs()
-        stats.save("a2.pstats", type="pstat")
+        stats.save("tests/a2.pstats", type="pstat")
         yappi.clear_stats()
         _yappi._set_test_timings(_timings)
-        stats = utils.run_and_get_func_stats(b,)        
+        stats = utils.run_and_get_func_stats(b,)
         stats.strip_dirs()
-        stats.save("b1.pstats", type="pstat")
+        stats.save("tests/b1.pstats", type="pstat")
         fsb_pid = pstat_id(utils.find_stat_by_name(stats, "b"))
         yappi.clear_stats()
         _yappi._set_test_timings(_timings)
         stats = utils.run_and_get_func_stats(c,)
         stats.strip_dirs()
-        stats.save("c1.pstats", type="pstat")
+        stats.save("tests/c1.pstats", type="pstat")
         fsc_pid = pstat_id(utils.find_stat_by_name(stats, "c"))
         
         # merge saved stats and check pstats values are correct
         import pstats
-        p = pstats.Stats('a1.pstats', 'a2.pstats', 'b1.pstats', 'c1.pstats')
+        p = pstats.Stats('tests/a1.pstats', 'tests/a2.pstats', 'tests/b1.pstats', 'tests/c1.pstats')
         p.strip_dirs()
         # ct = ttot, tt = tsub
         (cc, nc, tt, ct, callers) = p.stats[fsa_pid]
@@ -517,7 +517,7 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
         (cc, nc, tt, ct, callers) = p.stats[fsd_pid]
         self.assertEqual(cc, nc, 3)
         self.assertEqual(tt, 6)
-        self.assertEqual(ct, 6)        
+        self.assertEqual(ct, 6)
         self.assertEqual(len(callers), 2)
         (cc, nc, tt, ct) = callers[fsa_pid]
         self.assertEqual(cc, nc, 2)
@@ -555,12 +555,12 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
         yappi.stop()
         stats = yappi.get_func_stats()
         self.assertRaises(NotImplementedError, stats.save, "", "INVALID_SAVE_TYPE")
-        stats.save("ystats2.ys")
+        stats.save("tests/ystats2.ys")
         yappi.clear_stats()
         _yappi._set_test_timings(_timings)
         yappi.start()
         a()        
-        stats = yappi.get_func_stats().add("ystats2.ys")
+        stats = yappi.get_func_stats().add("tests/ystats2.ys")
         fsa = utils.find_stat_by_name(stats, "a")
         fsb = utils.find_stat_by_name(stats, "b")
         fsc = utils.find_stat_by_name(stats, "c")
@@ -611,7 +611,7 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
         t = threading.Thread(target=b)
         t.start()
         t.join()
-        yappi.get_func_stats().save("ystats1.ys")
+        yappi.get_func_stats().save("tests/ystats1.ys")
         yappi.clear_stats()
         _yappi._set_test_timings(timings)
         self.assertEqual(len(yappi.get_func_stats()), 0)
@@ -622,9 +622,9 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
         
         self.assertEqual(_yappi._get_start_flags()["profile_builtins"], 0)
         self.assertEqual(_yappi._get_start_flags()["profile_multithread"], 1)
-        yappi.get_func_stats().save("ystats2.ys")
+        yappi.get_func_stats().save("tests/ystats2.ys")
        
-        stats = yappi.YFuncStats(["ystats1.ys", "ystats2.ys",])
+        stats = yappi.YFuncStats(["tests/ystats1.ys", "tests/ystats2.ys",])
         fsa = utils.find_stat_by_name(stats, "a")
         fsb = utils.find_stat_by_name(stats, "b")
         self.assertEqual(fsa.ncall, 2)
@@ -640,14 +640,14 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
         t = threading.Thread(target=a)
         t.start()
         t.join()
-        yappi.get_func_stats().sort("name", "asc").save("ystats1.ys")
+        yappi.get_func_stats().sort("name", "asc").save("tests/ystats1.ys")
         yappi.stop()
         yappi.clear_stats()
         yappi.start(builtins=False)
         t = threading.Thread(target=a)
         t.start()
         t.join()
-        yappi.get_func_stats().save("ystats2.ys")
+        yappi.get_func_stats().save("tests/ystats2.ys")
         yappi.stop()
         self.assertRaises(_yappi.error, yappi.set_clock_type, "wall")
         yappi.clear_stats()
@@ -656,9 +656,9 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
         t = threading.Thread(target=a)
         t.start()
         t.join()
-        yappi.get_func_stats().save("ystats3.ys")
-        self.assertRaises(yappi.YappiError, yappi.YFuncStats().add("ystats1.ys").add, "ystats3.ys")
-        stats = yappi.YFuncStats(["ystats1.ys", "ystats2.ys"]).sort("name")
+        yappi.get_func_stats().save("tests/ystats3.ys")
+        self.assertRaises(yappi.YappiError, yappi.YFuncStats().add("tests/ystats1.ys").add, "tests/ystats3.ys")
+        stats = yappi.YFuncStats(["tests/ystats1.ys", "tests/ystats2.ys"]).sort("name")
         fsa = utils.find_stat_by_name(stats, "a")
         fsb = utils.find_stat_by_name(stats, "b")
         fsc = utils.find_stat_by_name(stats, "c")
@@ -694,21 +694,21 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
         
         self._ncall = 1
         stats = utils.run_and_get_func_stats(a,)
-        stats.save("ystats1.ys")
+        stats.save("tests/ystats1.ys")
         yappi.clear_stats()
         _yappi._set_test_timings(_timings)
         #stats.print_all()
                
         self._ncall = 5
         stats = utils.run_and_get_func_stats(a,)
-        stats.save("ystats2.ys")
+        stats.save("tests/ystats2.ys")
         #stats.print_all()
         
         def a(): # same name but another function(code object)
             pass
         yappi.start()
         a()
-        stats = yappi.get_func_stats().add(["ystats1.ys", "ystats2.ys"])
+        stats = yappi.get_func_stats().add(["tests/ystats1.ys", "tests/ystats2.ys"])
         #stats.print_all()        
         self.assertEqual(len(stats), 4)
         
