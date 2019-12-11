@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="https://github.com/sumerc/yappi/blob/coroutine-profiling/Misc/logo.png" alt="yappi">
+    <img src="https://github.com/sumerc/yappi/blob/master/Misc/logo.png" alt="yappi">
 </p>
 
 <h1 align="center">Yappi</h1>
@@ -19,7 +19,7 @@
 ## Highlights
 
 - **Fast**: Yappi is fast. It is completely written in C and lots of love&care went into making it fast.
-- **Unique**: Yappi supports multithreaded and [asyncronous code](https://github.com/sumerc/yappi/blob/master/doc/coroutine_profiling.md) profiling. Tagging/filtering multiple profiler results has interesting [use cases](https://github.com/sumerc/yappi/blob/master/doc/api.md#set_tag_callback).
+- **Unique**: Yappi supports multithreaded and [asynchronous code](https://github.com/sumerc/yappi/blob/master/doc/coroutine_profiling.md) profiling. Tagging/filtering multiple profiler results has interesting [use cases](https://github.com/sumerc/yappi/blob/master/doc/api.md#set_tag_callback).
 - **Intuitive**: Profiler can be started/stopped and results can be obtained from any time and any thread.
 - **Standarts Complaint**: Profiler results can be saved in [callgrind](http://valgrind.org/docs/manual/cl-format.html) or [pstat](http://docs.python.org/3.4/library/profile.html#pstats.Stats) formats.
 - **Rich in Feature set**: Profiler results can show either [Wall Time](https://en.wikipedia.org/wiki/Elapsed_real_time) or actual [CPU Time](http://en.wikipedia.org/wiki/CPU_time) and can be aggregated from different sessions. Various flags are defined for filtering and sorting profiler results.
@@ -31,7 +31,7 @@ CPython standard distribution comes with three deterministic profilers. `cProfil
 
 If you want to profile a  multi-threaded application, you must give an entry point to these profilers and then maybe merge the outputs. None of these profilers are designed to work on long-running multi-threaded applications. It is also not possible to profile an application that start/stop/retrieve traces on the fly with these profilers. 
 
-Now fast forwarding to 2019: With the latest improvements on `asyncio` library and asyncronous frameworks, most of the current profilers lacks the ability to show correct wall/cpu time or even call count information per-coroutine. Thus we need a different kind of approach to profile asyncronous code. Yappi, with v1.2 introduces the concept of `coroutine profiling`. With `coroutine-profiling`, you should be able to profile correct wall/cpu time and callcount of your coroutine. (including the time spent in context switches, too). You can see details [here](https://github.com/sumerc/yappi/blob/master/doc/coroutine_profiling.md).
+Now fast forwarding to 2019: With the latest improvements on `asyncio` library and asynchronous frameworks, most of the current profilers lacks the ability to show correct wall/cpu time or even call count information per-coroutine. Thus we need a different kind of approach to profile asynchronous code. Yappi, with v1.2 introduces the concept of `coroutine profiling`. With `coroutine-profiling`, you should be able to profile correct wall/cpu time and call count of your coroutine. (including the time spent in context switches, too). You can see details [here](https://github.com/sumerc/yappi/blob/master/doc/coroutine_profiling.md).
 
 
 ## Installation

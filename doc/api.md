@@ -37,8 +37,8 @@ In Yappi terminology a `context` means a construct that has its own callstack. I
 `callback` is a simple callable with no arguments that returns an integer.
 `callback` is called for every profile event to get the current tag id of a running function. 
 
-In Yappi, every profiled function is associated with a tag. By default, this tag is same for all stats collected. You can change this behaviour and aggregate different function stat data in different tags.
-This will give additional namespacing on what kind of data to collect.
+In Yappi, every profiled function is associated with a tag. By default, this tag is same for all stats collected. You can change this behavior and aggregate different function stat data in different tags.
+This will give additional name-spacing on what kind of data to collect.
 
 A recent use case for this functionality is aggregating of single request/response cycle in an ASGI application via `contextvar` module. See [here](https://github.com/sumerc/yappi/issues/21) for details. It can also be used for profiling multithreaded WSGI applications, too.
 
@@ -85,7 +85,7 @@ Currently filtering is only possible on `name`, `module`, `ctx_id`, `tag` attrib
 yappi.get_func_stats(filter={"module": "module_name", "name": "func_name", "ctx_id": 0, "tag": 1})
 ```
 
-One of the interesting features of this filter function is that you can get per-thread function call statistics only by providing the `ctx_id` of the thread you want to get results. Under the hood, yappi already holds the function stats by per-thread and upon request, it aggregates this data, when you provide a filter, it simply returns only that per-thread stats.
+One of the interesting features of this filter function is that you can get per-thread function call statistics only by providing the `ctx_id` of the thread you want to get results. Under the hood, Yappi already holds the function stats by per-thread and upon request, it aggregates this data, when you provide a filter, it simply returns only that per-thread stats.
 
 ```python
 threads = yappi.get_thread_stats()
@@ -123,7 +123,7 @@ Returns the internal memory usage of the profiler itself.
 
 #### `convert2pstats(stats)`
 
-Converts the internal stat type of yappi (as returned by `YFuncStat.get()`) to a [`pstats`](https://docs.python.org/3/library/profile.html#module-pstats) object.
+Converts the internal stat type of Yappi (as returned by `YFuncStat.get()`) to a [`pstats`](https://docs.python.org/3/library/profile.html#module-pstats) object.
 
 # Classes
 
@@ -140,9 +140,9 @@ This holds the stat items as a list of `YFuncStat` objects. 
 | `nactualcall` | number of times the executed function is called, excluding the recursive calls. |
 | `builtin`     | bool, indicating whether the executed function is a builtin                     |
 | `ttot`        | total time spent in the executed function                                       |
-| `tsub`        | total time spent in theexecuted function, excluding subcalls                    |
+| `tsub`        | total time spent in the executed function, excluding subcalls                    |
 | `index`       | A unique number for the stat                                                    |
-| `children`    | list of functionscalled from the executed function                              |
+| `children`    | list of functions called from the executed function                              |
 | `ctx_id`      | Id of the underlying context(thread)                                            |
 | `tavg`        | per-call average total time spent in the executed function.                     |
 | `full_name`   | unique full name of the executed function                                       |
@@ -161,7 +161,7 @@ This method loads the saved profile stats stored in file at `path`. 
 
 `type` indicates the type of the saved profile stats.
 
-Currently, only loading from `"ystat"` format is possible. `"ystat"` is the current yappi internal format.`
+Currently, only loading from `"ystat"` format is possible. `"ystat"` is the current Yappi internal format.`
 
 
 #### `save(path, type="ystat")`

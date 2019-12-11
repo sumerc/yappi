@@ -1,15 +1,9 @@
 # Profiling Coroutines
 
-Yappi is a deterministic profiler. This means it works by hooking into several function call/leave events as defined
-[here](https://docs.python.org/2/library/sys.html#sys.setprofile) and calculates all metrics according to these. However.
-the coroutine profiling problem defined below applies to nearly all of the profilers in the wild, including cProfile and the 
+Yappi is a deterministic profiler. This means it works by hooking into several function call/leave events as defined [here](https://docs.python.org/2/library/sys.html#sys.setprofile) and calculates all metrics according to these. However. The coroutine profiling problem defined below applies to nearly all of the profilers in the wild, including cProfile and the 
 statistical profilers.
 
-The main issue with coroutines is that, under the hood when a coroutine `yield`s or in other words context switches,
-Yappi receives a `return` event just like we exit from the function. That means the time spent while the coroutine
-is in `yield` state does not get accumulated to the output. This is a problem especially for walltime as in wall time you
-want to see whole time spent in that function or coroutine. Another problem is call count. You see every time a coroutine
-`yield`s, call count gets incremented since it is a regular function exit.
+The main issue with coroutines is that, under the hood when a coroutine `yield`s or in other words context switches, Yappi receives a `return` event just like we exit from the function. That means the time spent while the coroutine is in `yield` state does not get accumulated to the output. This is a problem especially for wall time as in wall time you want to see whole time spent in that function or coroutine. Another problem is call count. You see every time a coroutine `yield`s, call count gets incremented since it is a regular function exit.
 
 Let's profile below application via different profilers and examine the output:
 
@@ -50,8 +44,7 @@ Here is the output of above in cProfile:
         1    0.947    0.947    1.000    1.000 cprofile_asyncio.py:5(burn_cpu)
 ```
 
-You can see `foo` seems to be called 3 times as it has context switched 2 times with `await` operations.
-And you can also see `cumtime` is incorrect, the time spent in `await` instruction does not get accumulated.
+You can see `foo` seems to be called 3 times as it has context switched 2 times with `await` operations. And you can also see `cumtime` is incorrect, the time spent in `await` instruction does not get accumulated.
 
 Now let's profile same application via a statistical profiler, pyinstrument:
 
@@ -67,10 +60,7 @@ pyinstrument:
             └─ 1.001 burn_cpu  cprofile_asyncio.py:5
 ```
 
-Again: the time spent in `await` instructions does not get accumulated. In fact, statistical profilers 
-have hard time calculating correct walltime spent in any kind of scenario(not just async. code) because
-they are only looking for stack frames at specific intervals and they have no way of knowing what happened
-between the measurement intervals. They are fundamentally different approach to profiling and I just wanted
+Again: the time spent in `await` instructions does not get accumulated. In fact, statistical profilers have hard time calculating correct wall time spent in any kind of scenario(not just async. code) because they are only looking for stack frames at specific intervals and they have no way of knowing what happened between the measurement intervals. They are fundamentally different approach to profiling and I just wanted
 to show that they are not also working for our case that is all.
 
 With v1.2, Yappi corrects above issues with coroutine profiling. Under the hood, it differentiates the `yield` from real function exit and
