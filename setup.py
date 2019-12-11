@@ -70,8 +70,8 @@ setup(
         Extension(
             "_yappi",
             sources=[
-                "src/_yappi.c", "src/callstack.c", "src/hashtab.c", "src/mem.c",
-                "src/freelist.c", "src/timing.c"
+                "yappi/_yappi.c", "yappi/callstack.c", "yappi/hashtab.c",
+                "yappi/mem.c", "yappi/freelist.c", "yappi/timing.c"
             ],
             define_macros=user_macros,
             libraries=user_libraries,
@@ -79,7 +79,7 @@ setup(
             extra_link_args=link_args,
         )
     ],
-    package_dir={'': 'src/'},
+    package_dir={'': 'yappi/'},
     py_modules=["yappi"],
     entry_points={
         'console_scripts': [

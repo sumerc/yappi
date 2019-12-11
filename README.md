@@ -1,11 +1,10 @@
 <p align="center">
-    <img src="https://github.com/sumerc/yappi/blob/coroutine-profiling/logo.png" alt="yappi">
+    <img src="https://github.com/sumerc/yappi/blob/coroutine-profiling/Misc/logo.png" alt="yappi">
 </p>
-
 
 <h1 align="center">Yappi</h1>
 <p align="center">
-    Yet Another Python Profiler, but this time <b>thread/coroutine</b> aware.
+    Yet Another Python Profiler, but this time <b><u>thread</u>&<u>coroutine</u></b> aware.
 </p>
 
 <p align="center">
