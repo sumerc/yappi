@@ -4,7 +4,7 @@
 
 <h1 align="center">Yappi</h1>
 <p align="center">
-    Yet Another Python Profiler, but this time <b><u>thread</u>&<u>coroutine</u></b> aware.
+    Yet Another Python Profiler, but this time <b>thread&coroutine</b> aware.
 </p>
 
 <p align="center">
@@ -27,9 +27,7 @@
 
 ## Motivation
 
-CPython standard distribution comes with three deterministic profilers. `cProfile`, `Profile` and `hotshot`. `cProfile` is implemented as a C module based on `lsprof`, `Profile` is in pure Python and `hotshot` can be seen as a small subset of a cProfile. 
-
-*The major issue is that all of these profilers lack support for multi-threaded programs and CPU time.*
+CPython standard distribution comes with three deterministic profilers. `cProfile`, `Profile` and `hotshot`. `cProfile` is implemented as a C module based on `lsprof`, `Profile` is in pure Python and `hotshot` can be seen as a small subset of a cProfile. The major issue is that all of these profilers lack support for multi-threaded programs and CPU time.
 
 If you want to profile a  multi-threaded application, you must give an entry point to these profilers and then maybe merge the outputs. None of these profilers are designed to work on long-running multi-threaded applications. It is also not possible to profile an application that start/stop/retrieve traces on the fly with these profilers. 
 
