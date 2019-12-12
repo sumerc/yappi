@@ -16,9 +16,9 @@ Special Thanks to:
 - Dev Aggarwal ([@devxpy](https://github.com/devxpy))
 - Chris Frohoff ([@frohoff](https://github.com/frohoff))
 - Ali Oguzhan Yildiz ([@alioguzhan](https://github.com/alioguzhan))
-- dmontagu ([@dmontagu])(https://github.com/dmontagu)
-- euri10 ([@euri10])(https://github.com/euri10)
-- sm-Fifteen ([@sm-Fifteen])(https://github.com/sm-Fifteen)
+- dmontagu ([@dmontagu](https://github.com/dmontagu))
+- euri10 ([@euri10](https://github.com/euri10))
+- sm-Fifteen ([@sm-Fifteen](https://github.com/sm-Fifteen))
 
 
 Special thanks to the authors of cProfile module `Brett Rosen` and `Ted Czotter`. 
