@@ -1,6 +1,6 @@
 # Introduction
 
-A typical example on profiling with yappi, includes at least 3 lines of
+A typical example on profiling with Yappi, includes at least 3 lines of
 code:
 
 ```python

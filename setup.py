@@ -12,9 +12,9 @@ with io.open('README.md', encoding='UTF-8') as f:
 
 HOMEPAGE = "https://github.com/sumerc/yappi"
 NAME = "yappi"
-VERSION = "1.0"
-_DEBUG = False    # compile/link code for debugging
-_PROFILE = False    # profile yappi itself
+VERSION = "1.2.2"
+_DEBUG = False  # compile/link code for debugging
+_PROFILE = False  # profile yappi itself
 
 user_macros = []
 user_libraries = []
@@ -29,6 +29,7 @@ if os.name == 'posix' and sys.platform != 'darwin':
 if _DEBUG:
     if os.name == 'posix':
         compile_args.append('-g')
+        compile_args.append('-O0')
     elif os.name == 'nt':
         compile_args.append('/Zi')
         link_args.append('/DEBUG')
@@ -69,8 +70,8 @@ setup(
         Extension(
             "_yappi",
             sources=[
-                "_yappi.c", "callstack.c", "hashtab.c", "mem.c", "freelist.c",
-                "timing.c"
+                "yappi/_yappi.c", "yappi/callstack.c", "yappi/hashtab.c",
+                "yappi/mem.c", "yappi/freelist.c", "yappi/timing.c"
             ],
             define_macros=user_macros,
             libraries=user_libraries,
@@ -78,6 +79,7 @@ setup(
             extra_link_args=link_args,
         )
     ],
+    package_dir={'': 'yappi/'},
     py_modules=["yappi"],
     entry_points={
         'console_scripts': [
@@ -91,5 +93,4 @@ setup(
     classifiers=CLASSIFIERS,
     license="MIT",
     url=HOMEPAGE,
-    # download_url = "http://bitbucket.org/sumerc/yappi/downloads/%s-%s.tar.gz" % (NAME, VERSION),
-    test_suite='nose.collector')
+)

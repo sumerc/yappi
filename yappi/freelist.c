@@ -91,3 +91,9 @@ flput(_freelist *flp, void *p)
     flp->items[++flp->head] = p;
     return 1;
 }
+
+unsigned int
+flcount(_freelist *flp)
+{
+    return flp->size - flp->head + 1;
+}

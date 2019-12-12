@@ -1,4 +1,3 @@
-include *.h
 include *.md
 include tests/*.py
 include LICENSE

@@ -1,6 +1,6 @@
 # Clock Types
 
-Currently, yappi supports two basic clock types used for calculating the timing data:
+Currently, Yappi supports two basic clock types used for calculating the timing data:
 
 The clock type can be set using the [`yappi.set_clock_type()`](https://github.com/devxpy/yappi/blob/master/markdown/api.md#set_clock_typetype) function.
 
@@ -45,7 +45,7 @@ test.py:6 my_func                     1      0.000012  0.000061  0.000061
 
 So, what happened? Why does tsub only show `0.000012`?
 
-The answer is that yappi supports CPU clock by
+The answer is that Yappi supports CPU clock by
 default for timing calculations as can be seen in the output:
 
 ```

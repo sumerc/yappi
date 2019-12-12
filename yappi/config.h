@@ -23,7 +23,9 @@
 #define FL_PIT_SIZE 1000
 #define FL_CTX_SIZE 100
 #define HT_PIT_SIZE 10
-#define HT_CTX_SIZE 5
+#define HT_TAG_SIZE 10
+#define HT_TAGGED_PIT_SIZE 4
+#define HT_CTX_SIZE 10
 #define HT_RLEVEL_SIZE 10
 #define DEFAULT_TEST_ELAPSED_TIME 3
 
