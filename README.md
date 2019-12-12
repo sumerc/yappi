@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="https://github.com/sumerc/yappi/blob/master/Misc/logo.png" alt="yappi">
+    <img src="https://raw.githubusercontent.com/sumerc/yappi/master/Misc/logo.png" alt="yappi">
 </p>
 
 <h1 align="center">Yappi</h1>
