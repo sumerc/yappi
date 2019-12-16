@@ -20,7 +20,6 @@ Special Thanks to:
 - euri10 ([@euri10](https://github.com/euri10))
 - sm-Fifteen ([@sm-Fifteen](https://github.com/sm-Fifteen))
 
-
 Special thanks to the authors of cProfile module `Brett Rosen` and `Ted Czotter`. 
 Some parts/ideas of Yappi are taken from the source code of cProfile.
 

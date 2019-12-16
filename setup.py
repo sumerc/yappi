@@ -79,7 +79,7 @@ setup(
             extra_link_args=link_args,
         )
     ],
-    package_dir={'': 'yappi/'},
+    package_dir={'': 'yappi'},
     py_modules=["yappi"],
     entry_points={
         'console_scripts': [
