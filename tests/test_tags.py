@@ -95,15 +95,15 @@ class MultiThreadTests(YappiUnitTestCase):
 
         traces = yappi.get_func_stats(filter={'tag': 1})
         t1 = '''
-        ..op/p/yappi/tests/test_tags.py:21 a  1      0.000058  0.100183  0.100183
-        ../yappi/tests/utils.py:125 burn_cpu  1      0.042062  0.100125  0.100125
+        ..op/p/yappi/tests/test_tags.py:21 a  1      0.000000  0.100183  0.100183
+        ../yappi/tests/utils.py:125 burn_cpu  1      0.000000  0.100125  0.100125
         '''
         self.assert_traces_almost_equal(t1, traces)
 
         traces = yappi.get_func_stats(filter={'tag': 3})
         t1 = '''
-        ..op/p/yappi/tests/test_tags.py:21 a  1      0.000033  0.100161  0.100161
-        ../yappi/tests/utils.py:125 burn_cpu  1      0.040189  0.100128  0.100128
+        ..op/p/yappi/tests/test_tags.py:21 a  1      0.000000  0.100161  0.100161
+        ../yappi/tests/utils.py:125 burn_cpu  1      0.000000  0.100128  0.100128
         '''
         self.assert_traces_almost_equal(t1, traces)
 

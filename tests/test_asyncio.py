@@ -5,6 +5,11 @@ import threading
 from utils import YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io
 
 
+@asyncio.coroutine
+def async_sleep(sec):
+    yield from asyncio.sleep(sec)
+
+
 class SingleThreadTests(YappiUnitTestCase):
 
     def test_recursive_coroutine(self):
@@ -13,7 +18,7 @@ class SingleThreadTests(YappiUnitTestCase):
         def a(n):
             if n <= 0:
                 return
-            yield from asyncio.sleep(0.1)
+            yield from async_sleep(0.1)
             burn_cpu(0.1)
             yield from a(n - 1)
             yield from a(n - 2)
@@ -26,7 +31,7 @@ class SingleThreadTests(YappiUnitTestCase):
         r1 = '''
         ..p/yappi/tests/test_asyncio.py:11 a  9/1    0.000124  0.400667  0.044519
         ../yappi/tests/utils.py:126 burn_cpu  4      0.000000  0.400099  0.100025
-        ..thon3.7/asyncio/tasks.py:582 sleep  4      0.000098  0.000444  0.000111
+        async_sleep                           4      0.000000  0.000444  0.000111
         '''
         stats = yappi.get_func_stats()
         self.assert_traces_almost_equal(r1, stats)
@@ -35,11 +40,11 @@ class SingleThreadTests(YappiUnitTestCase):
 
         @asyncio.coroutine
         def a():
-            yield from asyncio.sleep(0.1)
+            yield from async_sleep(0.1)
             burn_io(0.1)
-            yield from asyncio.sleep(0.1)
+            yield from async_sleep(0.1)
             burn_io(0.1)
-            yield from asyncio.sleep(0.1)
+            yield from async_sleep(0.1)
             burn_cpu(0.3)
 
         yappi.set_clock_type("wall")
@@ -50,7 +55,7 @@ class SingleThreadTests(YappiUnitTestCase):
 
         r1 = '''
         ..p/yappi/tests/test_asyncio.py:43 a  2      0.000118  1.604049  0.802024
-        ..thon3.7/asyncio/tasks.py:582 sleep  6      0.602749  0.603239  0.100540
+        async_sleep                           6      0.000000  0.603239  0.100540
         ../yappi/tests/utils.py:126 burn_cpu  2      0.576313  0.600026  0.300013
         ..p/yappi/tests/utils.py:135 burn_io  4      0.000025  0.400666  0.100166
         time.sleep                            4      0.400641  0.400641  0.100160
@@ -69,7 +74,7 @@ class SingleThreadTests(YappiUnitTestCase):
         r1 = '''
         ..p/yappi/tests/test_asyncio.py:43 a  2      0.000117  0.601170  0.300585
         ../yappi/tests/utils.py:126 burn_cpu  2      0.000000  0.600047  0.300024
-        ..thon3.7/asyncio/tasks.py:582 sleep  6      0.000159  0.000801  0.000134
+        async_sleep                           6      0.000159  0.000801  0.000134
         time.sleep                            4      0.000169  0.000169  0.000042
         '''
         self.assert_traces_almost_equal(r1, stats)
@@ -81,7 +86,7 @@ class MultiThreadTests(YappiUnitTestCase):
 
         @asyncio.coroutine
         def a():
-            yield from asyncio.sleep(0.1)
+            yield from async_sleep(0.1)
             burn_cpu(0.2)
 
         @asyncio.coroutine
@@ -93,7 +98,7 @@ class MultiThreadTests(YappiUnitTestCase):
             if not n:
                 return
             burn_io(0.1)
-            yield from asyncio.sleep(0.1)
+            yield from async_sleep(0.1)
             yield from recursive_a(n - 1)
 
         def tag_cbk():
@@ -152,7 +157,7 @@ class MultiThreadTests(YappiUnitTestCase):
         t1 = '''
         tests/test_asyncio.py:140 driver      1      0.000022  1.015813  1.015813
         ..ts/test_asyncio.py:103 recursive_a  6/1    0.000071  1.014597  0.169099
-        ..thon3.7/asyncio/tasks.py:582 sleep  7      0.714008  0.714345  0.102049
+        async_sleep                           7      0.000000  0.714345  0.102049
         tests/test_asyncio.py:94 a            2      0.000025  0.610155  0.305078
         tests/utils.py:135 burn_io            5      0.000018  0.505879  0.101176
         tests/utils.py:126 burn_cpu           2      0.380813  0.404432  0.202216
@@ -163,7 +168,7 @@ class MultiThreadTests(YappiUnitTestCase):
         traces = yappi.get_func_stats(filter={'tag': 2})
         t1 = '''
         ..ts/test_asyncio.py:103 recursive_a  6/1    0.000160  1.062948  0.177158
-        ..thon3.7/asyncio/tasks.py:582 sleep  5      0.561244  0.561803  0.112361
+        async_sleep                           5      0.000000  0.561803  0.112361
         tests/utils.py:135 burn_io            5      0.000035  0.500985  0.100197
         '''
         self.assert_traces_almost_equal(t1, traces)

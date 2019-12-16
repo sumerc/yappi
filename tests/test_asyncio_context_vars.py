@@ -64,6 +64,7 @@ class AsyncUsage(utils.YappiUnitTestCase):
         fstats = yappi.get_func_stats(
             filter={"name": self.task_to_profile_name}
         )
+        #fstats.print_all()
         stats = fstats.pop()
         #self.assertEqual(
         #    stats.ncall, self.task_count * self.context_switch_count
