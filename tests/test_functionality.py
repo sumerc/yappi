@@ -162,9 +162,10 @@ class BasicUsage(utils.YappiUnitTestCase):
         fsa = utils.find_stat_by_name(stats, "a")
         self.assertEqual(fsa.module, os.path.basename(fsa.module))
 
+    @unittest.skipIf(os.name == "nt", "do not run on Windows")
     def test_run_as_script(self):
         import re
-        p = subprocess.Popen(['yappi', 'tests/run_as_script.py'],
+        p = subprocess.Popen(['yappi', os.path.join('./tests', 'run_as_script.py')],
                              stdout=subprocess.PIPE)
         out, err = p.communicate()
         self.assertEqual(p.returncode, 0)

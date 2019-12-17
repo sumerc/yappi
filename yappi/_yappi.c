@@ -358,7 +358,8 @@ static uintptr_t
 _current_context_id(PyThreadState *ts)
 {
     uintptr_t rc;
-    PyObject *callback_rc;
+    PyObject *callback_rc, *d, *ytid;
+
     if (context_id_callback) {
         callback_rc = _call_funcobjargs(context_id_callback, NULL);
         if (!callback_rc) {
@@ -388,8 +389,8 @@ _current_context_id(PyThreadState *ts)
 
         // TODO: Any more optimization? This has increased the runtime factor from 7x to 11x.
         // and also we may have a memory leak below. We maybe can optimize the common case.
-        PyObject *d = PyThreadState_GetDict();
-        PyObject *ytid = PyDict_GetItemString(d, "_yappi_tid");
+        d = PyThreadState_GetDict();
+        ytid = PyDict_GetItemString(d, "_yappi_tid");
         if (!ytid) {
             ytid = PyLong_FromLong(ycurthreadindex++);
             PyDict_SetItemString(d, "_yappi_tid", ytid);
