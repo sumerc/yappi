@@ -150,6 +150,7 @@ class MultiThreadTests(YappiUnitTestCase):
             for t in ts:
                 asyncio.run_coroutine_threadsafe(stop_loop(), t._loop)
 
+        yappi.clear_stats()
         yappi.start()
         asyncio.get_event_loop().run_until_complete(driver())
         yappi.stop()
