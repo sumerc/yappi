@@ -79,6 +79,14 @@ Above code will aggregate all stats into a single tag for every function called 
 Returns the function stats as a [`YFuncStat`](#yfuncstat) object.
 `filter` is a simple dict that can be used to filter on YFuncStat attributes. You can use multiple filters at once in a single call and only those results are returned. If no filter is defined, all function stats are aggregated(function stats are held per-thread under the hood) and returned.
 
+A simple example for manually formatting your own stats:
+
+```python
+stats = yappi.get_func_stats()
+for stat in stats:
+    print("%s %d %0.6f", stat.name, stat.ncall, stat.ttot)
+```
+
 Currently filtering is only possible on `name`, `module`, `ctx_id`, `tag` attributes of [YFuncStat](#yfuncstat) object. So below is valid:
 
 ```python

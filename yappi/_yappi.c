@@ -127,7 +127,7 @@ static _freelist *flpit;
 static _freelist *flctx;
 static int yappinitialized;
 static unsigned int ycurfuncindex; // used for providing unique index for functions
-static long ycurthreadindex;
+static long ycurthreadindex = 0;
 static int yapphavestats;   // start() called at least once or stats cleared?
 static int yapprunning;
 static int paused;
@@ -306,7 +306,6 @@ _current_context_name(void)
         goto later;
     }
 
-
     if (!PyStr_Check(name)) {
         yerr("context name callback returned non-string");
         goto err;
@@ -359,6 +358,7 @@ _current_context_id(PyThreadState *ts)
 {
     uintptr_t rc;
     PyObject *callback_rc, *d, *ytid;
+    PyThreadState *curr_ts;
 
     if (context_id_callback) {
         callback_rc = _call_funcobjargs(context_id_callback, NULL);
@@ -387,6 +387,11 @@ _current_context_id(PyThreadState *ts)
             return 0;
         }
 
+        curr_ts = PyThreadState_GET();
+        if (curr_ts != ts) {
+            PyThreadState_Swap(ts);
+        }
+
         // TODO: Any more optimization? This has increased the runtime factor from 7x to 11x.
         // and also we may have a memory leak below. We maybe can optimize the common case.
         d = PyThreadState_GetDict();
@@ -396,6 +401,11 @@ _current_context_id(PyThreadState *ts)
             PyDict_SetItemString(d, "_yappi_tid", ytid);
         }
         rc = PyLong_AsLong(ytid);
+
+        if (curr_ts != ts) {
+            PyThreadState_Swap(curr_ts);
+        }
+
         return rc;
     }
 
@@ -850,6 +860,9 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     _pit_children_info *pci;
     long current_tag;
 
+    //printf("call ENTER:%s %s\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
+    //                             PyStr_AS_CSTRING(frame->f_code->co_name));
+
     current_tag = _current_tag();
 
     if (ccall) {
@@ -900,6 +913,9 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     _pit_children_info *pci,*ppci;
     int yielded = 0;
     pci = ppci = NULL;
+
+    //printf("call LEAVE:%s %s\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
+    //                             PyStr_AS_CSTRING(frame->f_code->co_name));
 
     elapsed = _get_frame_elapsed();
 
@@ -1040,6 +1056,9 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
     PyObject *last_type, *last_value, *last_tb;
     PyErr_Fetch(&last_type, &last_value, &last_tb);
 
+    //printf("call EVENT %d %s %s", what, PyStr_AS_CSTRING(frame->f_code->co_filename),
+    //                         PyStr_AS_CSTRING(frame->f_code->co_name));
+
     // get current ctx
     current_ctx = _thread2ctx(PyThreadState_GET());
     if (!current_ctx) {
@@ -1099,6 +1118,10 @@ finally:
     // there shall be no context switch happenning inside 
     // profile events and no concurent running events is possible
     if (current_ctx->ts_ptr != PyThreadState_GET()) {
+        //printf("call EVENT %d %s %s %p %p\n", what, PyStr_AS_CSTRING(frame->f_code->co_filename),
+        //                     PyStr_AS_CSTRING(frame->f_code->co_name), 
+        //                     current_ctx->ts_ptr, PyThreadState_GET());
+
         //abort();
         _log_err(15);
     }
@@ -1137,6 +1160,9 @@ _profile_thread(PyThreadState *ts)
     ctx->id = ctx_id;
     ctx->tid = ts->thread_id;
     ctx->ts_ptr = ts;
+
+    //printf("Thread profile STARTED. ctx=%p, ts_ptr=%p, ctx_id=%ld, ts param=%p\n", ctx, 
+    //        ctx->ts_ptr, ctx->id, ts);
 
     return ctx;
 }
@@ -1280,6 +1306,7 @@ _start(void)
     yapphavestats = 1;
     time (&yappstarttime);
     yappstarttick = tickcount();
+
     return 1;
 }
 
@@ -1298,7 +1325,6 @@ _stop(void)
 static PyObject*
 clear_stats(PyObject *self, PyObject *args)
 {
-    PyObject *d;
 
     if (!yapphavestats) {
         Py_RETURN_NONE;
@@ -1321,12 +1347,6 @@ clear_stats(PyObject *self, PyObject *args)
     yappinitialized = 0;
     yapphavestats = 0;
     ycurfuncindex = 0;
-    ycurthreadindex = 0;
-
-    d = PyThreadState_GET()->dict;
-    if (PyDict_GetItemString(d, "_yappi_tid")) {
-        PyDict_DelItemString(d, "_yappi_tid");
-    }
 
     Py_CLEAR(test_timings);
 
@@ -1858,7 +1878,7 @@ _resume(PyObject *self, PyObject *args)
 {
     if (paused)
     {
-        paused = 0;        
+        paused = 0;
         if (!_start())
             // error
             return NULL;

@@ -31,12 +31,19 @@ class BasicUsage(utils.YappiUnitTestCase):
 
         yappi.stop()
 
+        ctx_ids = []
+        for tstat in yappi.get_thread_stats():
+            if tstat.name == '_MainThread':
+                main_ctx_id = tstat.id
+            else:
+                ctx_ids.append(tstat.id)
+
         fstats = yappi.get_func_stats(filter={"ctx_id":9})
         self.assertTrue(fstats.empty())
-        fstats = yappi.get_func_stats(filter={"ctx_id":0, "name":"c"}) # main thread
+        fstats = yappi.get_func_stats(filter={"ctx_id":main_ctx_id, "name":"c"}) # main thread
         self.assertTrue(fstats.empty())
 
-        for i in range(1, _TCOUNT):
+        for i in ctx_ids:
             fstats = yappi.get_func_stats(filter={"ctx_id":i, "name":"a", 
                 "ncall":1})
             self.assertEqual(fstats.pop().ncall, 1)
@@ -735,10 +742,44 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
         self.assertEqual(fsc.tsub, 8)
         self.assertEqual(fsc.tavg, 4)
         self.assertEqual(fsc.nactualcall, fsc.ncall, 2)
-"""        
-    
-"""  
+
+
 class MultithreadedScenarios(utils.YappiUnitTestCase):
+
+    def test_issue_32(self):
+        '''
+        Start yappi from different thread and we get Internal Error(15) as 
+        the current_ctx_id() called while enumerating the threads in start() 
+        and as it does not swap to the enumerated ThreadState* the THreadState_GetDict()
+        returns wrong object and thus sets an invalid id for the _ctx structure.
+
+        When this issue happens multiple Threads have same tid as the internal ts_ptr
+        will be same for different contexts. So, let's see if that happens
+        '''
+        def foo():
+            time.sleep(0.2)
+        def bar():
+            time.sleep(0.1)
+        def thread_func():
+            yappi.set_clock_type("wall")
+            yappi.start()
+
+            bar()
+
+
+        t = threading.Thread(target=thread_func)
+        t.start()
+        t.join()
+
+        foo()
+
+        yappi.stop()
+
+        thread_ids = set()
+        for tstat in yappi.get_thread_stats():
+            self.assertTrue(tstat.tid not in thread_ids)
+            thread_ids.add(tstat.tid)
+
     def test_subsequent_profile(self):
         WORKER_COUNT = 5
         def a(): pass
@@ -915,7 +956,7 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
             prev_stat = stat
         self.assertRaises(yappi.YappiError, stats.sort, "invalid_thread_sorttype_arg")
         self.assertRaises(yappi.YappiError, stats.sort, "invalid_thread_sortorder_arg")
-        
+
     def test_producer_consumer_with_queues(self):
         # we currently just stress yappi, no functionality test is done here.
         yappi.start()
@@ -943,7 +984,8 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         q.join()# block until all tasks are done
         #yappi.get_func_stats().sort("callcount").print_all()
         yappi.stop()
-     
+
+
     def test_temporary_lock_waiting(self):
         yappi.start()
         _lock = threading.Lock()
