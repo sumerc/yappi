@@ -1040,21 +1040,11 @@ _tagenumdel(_hitem *item, void *arg)
 static void
 _del_ctx(_ctx * ctx)
 {
-    PyObject *d;
-
     sdestroy(ctx->cs);
     htdestroy(ctx->rec_levels);
 
     henum(ctx->tags, _tagenumdel, NULL);
     htdestroy(ctx->tags);
-
-    /*
-    if (ctx->ts_ptr && ctx->ts_ptr->dict) {
-        d = ctx->ts_ptr->dict;
-        if (PyDict_GetItemString(d, "_yappi_tid")) {
-            PyDict_DelItemString(d, "_yappi_tid");
-        }
-    }*/
 
     Py_CLEAR(ctx->name);
 }

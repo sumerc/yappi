@@ -31,12 +31,19 @@ class BasicUsage(utils.YappiUnitTestCase):
 
         yappi.stop()
 
+        ctx_ids = []
+        for tstat in yappi.get_thread_stats():
+            if tstat.name == '_MainThread':
+                main_ctx_id = tstat.id
+            else:
+                ctx_ids.append(tstat.id)
+
         fstats = yappi.get_func_stats(filter={"ctx_id":9})
         self.assertTrue(fstats.empty())
-        fstats = yappi.get_func_stats(filter={"ctx_id":0, "name":"c"}) # main thread
+        fstats = yappi.get_func_stats(filter={"ctx_id":main_ctx_id, "name":"c"}) # main thread
         self.assertTrue(fstats.empty())
 
-        for i in range(1, _TCOUNT):
+        for i in ctx_ids:
             fstats = yappi.get_func_stats(filter={"ctx_id":i, "name":"a", 
                 "ncall":1})
             self.assertEqual(fstats.pop().ncall, 1)
