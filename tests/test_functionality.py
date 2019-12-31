@@ -51,6 +51,9 @@ class BasicUsage(utils.YappiUnitTestCase):
             self.assertEqual(fstats.pop().ncall, 1)
             fstats = yappi.get_func_stats(filter={"ctx_id":i, "name":"c"})
             self.assertEqual(fstats.pop().ncall, 1)
+        
+        fstats = yappi.get_func_stats(filter={"module": 'tests/test_functionality.py'})
+        self.assertEqual(len(fstats), 3)
 
     def test_print_formatting(self):
         def a():

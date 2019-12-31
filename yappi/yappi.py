@@ -9,6 +9,7 @@ import sys
 import _yappi
 import pickle
 import threading
+import warnings
 try:
     from thread import get_ident  # Python 2
 except ImportError:
@@ -990,10 +991,17 @@ def start(builtins=False, profile_threads=True):
     _yappi.start(builtins, profile_threads)
 
 
+
 def get_func_stats(filter={}):
     """
     Gets the function profiler results with given filters and returns an iterable.
     """
+    _VALID_FILTER_KEYS = set(["tag", "name", "module", "ctx_id"])
+    if len(filter):
+        for filter_key in filter:
+            if filter_key not in _VALID_FILTER_KEYS:
+                warnings.warn('Invalid filter key.(%s)' % (filter_key))
+
     # multiple invocation pause/resume is allowed. This is needed because
     # not only get() is executed here.
     _yappi._pause()
