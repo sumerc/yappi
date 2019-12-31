@@ -54,6 +54,7 @@ class BasicUsage(utils.YappiUnitTestCase):
         
         fstats = yappi.get_func_stats(filter={"module": os.path.join('tests', 
                             'test_functionality.py')})
+        fstats.print_all()
         self.assertEqual(len(fstats), 3)
 
     def test_print_formatting(self):
