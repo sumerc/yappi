@@ -52,10 +52,12 @@ class BasicUsage(utils.YappiUnitTestCase):
             fstats = yappi.get_func_stats(filter={"ctx_id":i, "name":"c"})
             self.assertEqual(fstats.pop().ncall, 1)
         
-        fstats = yappi.get_func_stats(filter={"module": os.path.join('tests', 
-                            'test_functionality.py')})
-        yappi.get_func_stats().print_all()
-        self.assertEqual(len(fstats), 3)
+        yappi.clear_stats()
+        yappi.start(builtins=True)
+        time.sleep(0.1)
+        yappi.stop()
+        fstats = yappi.get_func_stats(filter={"module": "time"})
+        self.assertEqual(len(fstats), 1)
 
     def test_print_formatting(self):
         def a():
