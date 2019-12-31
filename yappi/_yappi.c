@@ -1607,7 +1607,7 @@ _filterdict_to_statfilter(PyObject *filter_dict, _func_stat_filter* filter)
     if (fv) {
         filter->name = fv;
     }
-    fv = PyDict_GetItemString(filter_dict, "modname");
+    fv = PyDict_GetItemString(filter_dict, "module");
     if (fv) {
         filter->modname = fv;
     }
