@@ -149,7 +149,7 @@ static PyObject *context_id_callback = NULL;
 static PyObject *tag_callback = NULL;
 static PyObject *context_name_callback = NULL;
 static PyObject *test_timings; // used for testing
-static const long long DEFAULT_TAG = 0;
+static const uintptr_t DEFAULT_TAG = 0;
 
 // defines
 #define UNINITIALIZED_STRING_VAL "N/A"
@@ -495,19 +495,19 @@ error:
 }
 
 _htab *
-_get_pits_tbl(long current_tag)
+_get_pits_tbl(uintptr_t current_tag)
 {
     _hitem *it;
     _htab *pits;
 
-    it = hfind(current_ctx->tags, (uintptr_t)current_tag);
+    it = hfind(current_ctx->tags, current_tag);
     if (!it) {
         pits = htcreate(HT_TAGGED_PIT_SIZE);
         if (!pits) {
             return NULL;
         }
 
-        if (!hadd(current_ctx->tags, (uintptr_t)current_tag, (uintptr_t)pits)) {
+        if (!hadd(current_ctx->tags, current_tag, (uintptr_t)pits)) {
             return NULL;
         }
 
@@ -518,7 +518,7 @@ _get_pits_tbl(long current_tag)
 }
 
 static _pit *
-_ccode2pit(void *cco, long current_tag)
+_ccode2pit(void *cco, uintptr_t current_tag)
 {
     PyCFunctionObject *cfn;
     _hitem *it;
@@ -572,7 +572,7 @@ _ccode2pit(void *cco, long current_tag)
 
 // maps the PyCodeObject to our internal pit item via hash table.
 static _pit *
-_code2pit(PyFrameObject *fobj, long current_tag)
+_code2pit(PyFrameObject *fobj, uintptr_t current_tag)
 {
     _hitem *it;
     PyCodeObject *cobj;
