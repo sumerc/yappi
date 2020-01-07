@@ -1,6 +1,6 @@
 #include "mem.h"
 
-static unsigned long memused=0;
+static size_t memused = 0;
 
 #ifdef DEBUG_MEM
 

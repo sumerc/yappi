@@ -708,7 +708,7 @@ _get_child_info(_pit *parent, _pit *current, int add_if_not_exists)
     return citem;
 }
 
-static long
+static uintptr_t
 get_rec_level(uintptr_t key)
 {
     _hitem *it;
