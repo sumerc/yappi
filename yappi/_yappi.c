@@ -87,7 +87,7 @@ typedef struct {
     _htab *tags;
 
     // internal tid given by user callback or yappi. Will be unique per profile session.
-    long long id;
+    uintptr_t id;
 
     // the real OS thread id.
     long tid;
@@ -165,6 +165,8 @@ static const long long DEFAULT_TAG = 0;
 #define PyStr_FromString(s) PyString_FromString(s)
 #define PyStr_FromFormatV(fmt, vargs) PyString_FromFormatV(fmt, vargs)
 #endif
+
+#define PyLong_AsVoidPtr (uintptr_t)PyLong_AsVoidPtr
 
 // forwards
 static _ctx * _profile_thread(PyThreadState *ts);
@@ -331,7 +333,7 @@ later:
     return NULL;
 }
 
-static long long
+static uintptr_t
 _current_tag(void)
 {
     PyObject *r;
@@ -347,7 +349,7 @@ _current_tag(void)
         goto error;
     }
 
-    result = (uintptr_t)PyLong_AsLongLong(r);
+    result = PyLong_AsVoidPtr(r);
     Py_DECREF(r);
     if (PyErr_Occurred()) {
         yerr("tag_callback returned non-integer");
@@ -374,12 +376,13 @@ _current_context_id(PyThreadState *ts)
             PyErr_Print();
             goto error;
         }
-        rc = (uintptr_t)PyLong_AsLongLong(callback_rc);
+        rc = PyLong_AsVoidPtr(callback_rc);
         Py_DECREF(callback_rc);
         if (PyErr_Occurred()) {
             yerr("context id callback returned non-integer");
             goto error;
         }
+
         return rc;
     } else {
         // Use thread_id instead of ts pointer, because when we create/delete many threads, some
@@ -410,7 +413,7 @@ _current_context_id(PyThreadState *ts)
             ytid = PyLong_FromLongLong(ycurthreadindex++);
             PyDict_SetItemString(d, "_yappi_tid", ytid);
         }
-        rc = PyLong_AsLongLong(ytid);
+        rc = PyLong_AsVoidPtr(ytid);
 
         if (curr_ts != ts) {
             PyThreadState_Swap(curr_ts);
@@ -1512,7 +1515,7 @@ _pitenumstat(_hitem *item, void *arg)
         pt->callcount = 1;
     tag = 0;
     if (eargs->enum_args->func_filter.tag) {
-        tag = PyLong_AsLongLong(eargs->enum_args->func_filter.tag);
+        tag = PyLong_AsVoidPtr(eargs->enum_args->func_filter.tag);
     }
 
     exc = PyObject_CallFunction(eargs->enum_args->enumfn, "((OOkkkIffIOkOk))", 
@@ -1537,16 +1540,16 @@ static int
 _tagenumstat(_hitem *item, void *arg)
 {
     _htab *pits;
-    long long current_tag;
+    uintptr_t current_tag;
     _ctxfuncenumarg *eargs;
     _func_stat_filter filter;
 
-    current_tag = (long)item->key;
+    current_tag = item->key;
     eargs = (_ctxfuncenumarg *)arg;
     filter = eargs->enum_args->func_filter;
 
     if (filter.tag) {
-        if (current_tag != PyLong_AsLongLong(filter.tag)) {
+        if (current_tag != PyLong_AsVoidPtr(filter.tag)) {
             return 0;
         }
     }
@@ -1568,7 +1571,7 @@ _ctxfuncenumstat(_hitem *item, void *arg)
 
     filtered_ctx_id = ext_args.enum_args->func_filter.ctx_id;
     if (filtered_ctx_id) {
-        if (ext_args.ctx->id != PyLong_AsLongLong(filtered_ctx_id)) {
+        if (ext_args.ctx->id != PyLong_AsVoidPtr(filtered_ctx_id)) {
             return 0;
         }
     }

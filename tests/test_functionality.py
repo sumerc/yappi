@@ -12,6 +12,15 @@ import subprocess
 
 class BasicUsage(utils.YappiUnitTestCase):
 
+    def test_callback_function_int_return_overflow(self):
+        def _overflow():
+            return 0xffffffffffffffff + 1
+        def foo():
+            pass
+        yappi.set_context_id_callback(_overflow)
+        yappi.start()
+        foo()
+        
     def test_filter(self):
         def a(): pass
         def b(): a()
