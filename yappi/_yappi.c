@@ -871,7 +871,7 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     _pit *cp,*pp;
     _cstackitem *ci;
     _pit_children_info *pci;
-    long long current_tag;
+    uintptr_t current_tag;
 
     //printf("call ENTER:%s %s\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
     //                             PyStr_AS_CSTRING(frame->f_code->co_name));
