@@ -32,7 +32,7 @@ void YMEMLEAKCHECK(void)
 #endif
 
 
-unsigned long
+size_t
 ymemusage(void)
 {
     return memused;
