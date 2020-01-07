@@ -352,7 +352,7 @@ _current_tag(void)
     result = PyLong_AsVoidPtr(r);
     Py_DECREF(r);
     if (PyErr_Occurred()) {
-        yerr("tag_callback returned non-integer");
+        yerr("tag_callback returned non-integer (overflow?)");
         goto error;
     }
 
@@ -379,7 +379,7 @@ _current_context_id(PyThreadState *ts)
         rc = PyLong_AsVoidPtr(callback_rc);
         Py_DECREF(callback_rc);
         if (PyErr_Occurred()) {
-            yerr("context id callback returned non-integer");
+            yerr("context id callback returned non-integer (overflow?)");
             goto error;
         }
 
