@@ -13,7 +13,7 @@ typedef struct dnode dnode_t;
 
 void *ymalloc(size_t size);
 void yfree(void *p);
-unsigned long ymemusage(void);
+size_t ymemusage(void);
 void YMEMLEAKCHECK(void);
 
 #endif
