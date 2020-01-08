@@ -12,15 +12,26 @@ import subprocess
 
 class BasicUsage(utils.YappiUnitTestCase):
 
+    
     def test_callback_function_int_return_overflow(self):
-        def _overflow():
-            return 0xffffffffffffffff + 1
+        # this test is just here to check if any errors are generated, as the err
+        # is printed in C side, I did not include it here. THere are ways to test
+        # this deterministically, I did not bother
+        import ctypes
+        def _unsigned_overflow_margin():
+            return 2 ** (ctypes.sizeof(ctypes.c_void_p) * 8) - 1
+            
+
         def foo():
             pass
-        yappi.set_context_id_callback(_overflow)
+
+        #with utils.captured_output() as (out, err):
+        yappi.set_context_id_callback(_unsigned_overflow_margin)
+        yappi.set_tag_callback(_unsigned_overflow_margin)
         yappi.start()
         foo()
-        
+
+
     def test_filter(self):
         def a(): pass
         def b(): a()
