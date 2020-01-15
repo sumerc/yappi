@@ -150,7 +150,7 @@ This holds the stat items as a list of `YFuncStat` objects. 
 | `ttot`        | total time spent in the executed function                                       |
 | `tsub`        | total time spent in the executed function, excluding subcalls                    |
 | `index`       | A unique number for the stat                                                    |
-| `children`    | list of functions called from the executed function                              |
+| `children`    | list of [YChildFuncStats](#ychildfuncstat) objects                              |
 | `ctx_id`      | Id of the underlying context(thread)                                            |
 | `tavg`        | per-call average total time spent in the executed function.                     |
 | `full_name`   | unique full name of the executed function                                       |

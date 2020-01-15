@@ -10,6 +10,7 @@ import _yappi
 import pickle
 import threading
 import warnings
+import types
 try:
     from thread import get_ident  # Python 2
 except ImportError:
@@ -336,8 +337,9 @@ class YFuncStat(YStat):
         'ctx_id': 10,
         'ctx_name': 11,
         'tag': 12,
-        'tavg': 13,
-        'full_name': 14
+        'fn_descriptor': 13,
+        'tavg': 14,
+        'full_name': 15
     }
 
     def __eq__(self, other):
@@ -367,6 +369,23 @@ class YFuncStat(YStat):
 
     def __hash__(self):
         return hash(self.full_name)
+
+    def func_matches(self, funcs):
+        if not isinstance(funcs, list):
+            raise YappiError("Argument 'funcs' is not a list object. (%s)" % (funcs))
+
+        funcs = set(funcs)
+        for func in funcs.copy():
+            if not callable(func):
+                raise YappiError("Non-callable item in 'funcs'. (%s)" % (func))
+                
+            # if not a builtin func/method add codeobject. codeobject will be
+            # our search key for regular py functions.
+            if not isinstance(func, types.BuiltinFunctionType) or \
+                not isinstance(func, types.BuiltinMethodType):
+                funcs.add(func.__code__)
+
+        return self.fn_descriptor in funcs
 
     def is_recursive(self):
         # we have a known bug where call_leave not called for some thread functions(run() especially)
@@ -648,21 +667,23 @@ class YFuncStats(YStatsIndexable):
         super(YFuncStats, self).__init__()
         self.add(files)
 
+        self._filter_callback = None
+
     def strip_dirs(self):
         for stat in self:
             stat.strip_dirs()
             stat.children.strip_dirs()
         return self
 
-    def get(self, filter={}):
+    def get(self, filter={}, filter_callback=None):
         _yappi._pause()
         self.clear()
         try:
+            self._filter_callback = filter_callback
             _yappi.enum_func_stats(self._enumerator, filter)
 
             # convert the children info from tuple to YChildFuncStat
             for stat in self:
-
                 _childs = YChildFuncStats()
                 for child_tpl in stat.children:
                     rstat = self[child_tpl[0]]
@@ -694,7 +715,7 @@ class YFuncStats(YStatsIndexable):
     def _enumerator(self, stat_entry):
 
         fname, fmodule, flineno, fncall, fnactualcall, fbuiltin, fttot, ftsub, \
-            findex, fchildren, fctxid, fctxname, ftag = stat_entry
+            findex, fchildren, fctxid, fctxname, ftag, ffn_descriptor = stat_entry
 
         # builtin function?
         ffull_name = _func_fullname(bool(fbuiltin), fmodule, flineno, fname)
@@ -709,9 +730,12 @@ class YFuncStats(YStatsIndexable):
 
         fstat.builtin = bool(fstat.builtin)
 
-        self.append(fstat)
+        if self._filter_callback:
+            if self._filter_callback(fstat):
+                self.append(fstat)
 
-        # hold the max idx number for merging new entries(for making the merging entries indexes unique)
+        # hold the max idx number for merging new entries(for making the merging
+        # entries indexes unique)
         if self._idx_max < fstat.index:
             self._idx_max = fstat.index
 
@@ -991,22 +1015,21 @@ def start(builtins=False, profile_threads=True):
     _yappi.start(builtins, profile_threads)
 
 
-
-def get_func_stats(filter={}):
+def get_func_stats(tag=None, ctx_id=None, filter_callback=None):
     """
     Gets the function profiler results with given filters and returns an iterable.
     """
-    _VALID_FILTER_KEYS = set(["tag", "name", "module", "ctx_id"])
-    if len(filter):
-        for filter_key in filter:
-            if filter_key not in _VALID_FILTER_KEYS:
-                warnings.warn('Invalid filter key.(%s)' % (filter_key))
+    _filter = {}
+    if tag:
+        _filter["tag"] = tag
+    if ctx_id:
+        _filter['ctx_id'] = ctx_id
 
     # multiple invocation pause/resume is allowed. This is needed because
     # not only get() is executed here.
     _yappi._pause()
     try:
-        stats = YFuncStats().get(filter=filter)
+        stats = YFuncStats().get(filter=_filter, filter_callback=filter_callback)
     finally:
         _yappi._resume()
     return stats
