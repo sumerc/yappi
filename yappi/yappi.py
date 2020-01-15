@@ -731,8 +731,10 @@ class YFuncStats(YStatsIndexable):
         fstat.builtin = bool(fstat.builtin)
 
         if self._filter_callback:
-            if self._filter_callback(fstat):
-                self.append(fstat)
+            if not self._filter_callback(fstat):
+                return
+        
+        self.append(fstat)
 
         # hold the max idx number for merging new entries(for making the merging
         # entries indexes unique)

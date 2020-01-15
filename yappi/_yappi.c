@@ -462,6 +462,7 @@ _del_pit(_pit *pit)
         it = next;
     }
     pit->children = NULL;
+    Py_DECREF(pit->fn_descriptor);
 }
 
 static PyObject *
@@ -550,6 +551,7 @@ _ccode2pit(void *cco, uintptr_t current_tag)
         pit->modname = _pycfunction_module_name(cfn);
         pit->lineno = 0;
         pit->fn_descriptor = (PyObject *)cfn;
+        Py_INCREF(cfn);
 
         // built-in method?
         if (cfn->m_self != NULL) {
@@ -605,6 +607,7 @@ _code2pit(PyFrameObject *fobj, uintptr_t current_tag)
     pit->modname = cobj->co_filename;
     pit->lineno = cobj->co_firstlineno;
     pit->fn_descriptor = (PyObject *)cobj;
+    Py_INCREF(cobj);
 
     PyFrame_FastToLocals(fobj);
     if (cobj->co_argcount) {
