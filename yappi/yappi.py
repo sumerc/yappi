@@ -516,8 +516,10 @@ class YStats(object):
         return self
 
     def sort(self, sort_type, sort_order):
+        # sort case insensitive for strings
         self._as_list.sort(
-            key=lambda stat: stat[sort_type],
+            key=lambda stat: stat[sort_type].lower() \
+                    if isinstance(stat[sort_type], str) else stat[sort_type],
             reverse=(sort_order == SORT_ORDERS["desc"])
         )
         return self
