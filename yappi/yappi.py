@@ -11,6 +11,7 @@ import pickle
 import threading
 import warnings
 import types
+import inspect
 try:
     from thread import get_ident  # Python 2
 except ImportError:
@@ -370,7 +371,23 @@ class YFuncStat(YStat):
     def __hash__(self):
         return hash(self.full_name)
 
+    def module_matches(self, modules):
+        if not len(modules):
+            raise YappiError("Argument 'modules' cannot be empty.")
+
+        if not isinstance(modules, list):
+            raise YappiError("Argument 'modules' is not a list object. (%s)" % (modules))
+        
+        modules = set(modules)
+        for module in modules:
+            if not isinstance(module, types.ModuleType):
+                raise YappiError("Non-module item in 'modules'. (%s)" % (module))
+        return inspect.getmodule(self.fn_descriptor) in modules 
+
     def func_matches(self, funcs):
+        if not len(funcs):
+            raise YappiError("Argument 'funcs' cannot be empty.")
+
         if not isinstance(funcs, list):
             raise YappiError("Argument 'funcs' is not a list object. (%s)" % (funcs))
 
