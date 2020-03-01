@@ -108,20 +108,32 @@ class BasicUsage(utils.YappiUnitTestCase):
             pass
 
         yappi.set_clock_type("wall")
-        yappi.start()
+        yappi.start(builtins=True)
         a()
         b()
         c()
         d()
+        yappi.get_func_stats().print_all()
         stats = yappi.get_func_stats(
-            filter_callback=lambda x: x.func_matches([a, b])
+            filter_callback=lambda x: yappi.func_matches(x, [a, b])
         )
+        stats.print_all()
         r1 = '''
         tests/test_functionality.py:98 a      2      0.000010  0.200350  0.100175
         tests/test_functionality.py:101 b     1      0.000004  0.100197  0.100197
         '''
         self.assert_traces_almost_equal(r1, stats)
         self.assertEqual(len(stats), 2)
+        stats = yappi.get_func_stats(
+            filter_callback=lambda x: yappi.
+            module_matches(x, [sys.modules[__name__]])
+        )
+        stats.print_all()
+
+        stats = yappi.get_func_stats(
+            filter_callback=lambda x: yappi.func_matches(x, [time.sleep])
+        )
+        stats.print_all()
 
     def test_print_formatting(self):
 

@@ -143,6 +143,73 @@ def _func_fullname(builtin, module, lineno, name):
         return "%s:%d %s" % (module, lineno, name)
 
 
+def module_matches(stat, modules):
+
+    if not isinstance(stat, YStat):
+        raise YappiError(
+            "Argument 'stat' shall be a YStat object. (%s)" % (stat)
+        )
+
+    if not len(modules):
+        raise YappiError("Argument 'modules' cannot be empty.")
+
+    if not isinstance(modules, list):
+        raise YappiError(
+            "Argument 'modules' is not a list object. (%s)" % (modules)
+        )
+    if stat.full_name not in _fn_descriptor_dict:
+        return False
+
+    modules = set(modules)
+    for module in modules:
+        if not isinstance(module, types.ModuleType):
+            raise YappiError("Non-module item in 'modules'. (%s)" % (module))
+    return inspect.getmodule(_fn_descriptor_dict[stat.full_name]) in modules
+
+
+def func_matches(stat, funcs):
+    '''
+    This function will not work with stats that are saved and loaded. That is 
+    because current API of loading stats is as following:
+    yappi.get_func_stats(filter_callback=_filter).add('dummy.ys').print_all()
+
+    '''
+
+    if not isinstance(stat, YStat):
+        raise YappiError(
+            "Argument 'stat' shall be a YStat object. (%s)" % (stat)
+        )
+
+    if not len(funcs):
+        raise YappiError("Argument 'funcs' cannot be empty.")
+
+    if not isinstance(funcs, list):
+        raise YappiError(
+            "Argument 'funcs' is not a list object. (%s)" % (funcs)
+        )
+
+    if stat.full_name not in _fn_descriptor_dict:
+        return False
+
+    funcs = set(funcs)
+    for func in funcs.copy():
+        if not callable(func):
+            raise YappiError("Non-callable item in 'funcs'. (%s)" % (func))
+
+        # if not a builtin func/method add codeobject. codeobject will be
+        # our search key for regular py functions.
+        if not isinstance(func, types.BuiltinFunctionType) or \
+            not isinstance(func, types.BuiltinMethodType):
+            funcs.add(func.__code__)
+
+    try:
+        return _fn_descriptor_dict[stat.full_name] in funcs
+    except TypeError:
+        # some builtion methods like <method 'get' of 'dict' objects> are not hashable
+        # thus we cannot search for them in funcs set.
+        return False
+
+
 """
 Converts our internal yappi's YFuncStats (YSTAT type) to PSTAT. So there are
 some differences between the statistics parameters. The PSTAT format is as following:
@@ -374,58 +441,6 @@ class YFuncStat(YStat):
 
     def __hash__(self):
         return hash(self.full_name)
-
-    def module_matches(self, modules):
-        global _fn_descriptor_dict
-        if not len(modules):
-            raise YappiError("Argument 'modules' cannot be empty.")
-
-        if not isinstance(modules, list):
-            raise YappiError(
-                "Argument 'modules' is not a list object. (%s)" % (modules)
-            )
-        if self.full_name not in _fn_descriptor_dict:
-            return False
-
-        modules = set(modules)
-        for module in modules:
-            if not isinstance(module, types.ModuleType):
-                raise YappiError(
-                    "Non-module item in 'modules'. (%s)" % (module)
-                )
-        return inspect.getmodule(_fn_descriptor_dict[self.full_name]) in modules
-
-    def func_matches(self, funcs):
-        '''
-        This function will not work with stats that are saved and loaded. That is 
-        because current API of loading stats is as following:
-        yappi.get_func_stats(filter_callback=_filter).add('dummy.ys').print_all()
-
-        '''
-        global _fn_descriptor_dict
-        if not len(funcs):
-            raise YappiError("Argument 'funcs' cannot be empty.")
-
-        if not isinstance(funcs, list):
-            raise YappiError(
-                "Argument 'funcs' is not a list object. (%s)" % (funcs)
-            )
-
-        if self.full_name not in _fn_descriptor_dict:
-            return False
-
-        funcs = set(funcs)
-        for func in funcs.copy():
-            if not callable(func):
-                raise YappiError("Non-callable item in 'funcs'. (%s)" % (func))
-
-            # if not a builtin func/method add codeobject. codeobject will be
-            # our search key for regular py functions.
-            if not isinstance(func, types.BuiltinFunctionType) or \
-                not isinstance(func, types.BuiltinMethodType):
-                funcs.add(func.__code__)
-
-        return _fn_descriptor_dict[self.full_name] in funcs
 
     def is_recursive(self):
         # we have a known bug where call_leave not called for some thread functions(run() especially)
