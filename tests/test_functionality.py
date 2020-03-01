@@ -979,7 +979,7 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         prev_stat = None
         for stat in stats:
             if prev_stat:
-                self.assertTrue(prev_stat.name >= stat.name)
+                self.assertTrue(prev_stat.name.lower() >= stat.name.lower())
             prev_stat = stat
         self.assertRaises(yappi.YappiError, stats.sort, "invalid_thread_sorttype_arg")
         self.assertRaises(yappi.YappiError, stats.sort, "invalid_thread_sortorder_arg")
