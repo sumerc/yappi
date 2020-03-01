@@ -31,11 +31,12 @@ LINESEP = os.linesep
 COLUMN_GAP = 2
 YPICKLE_PROTOCOL = 2
 
-# this dict holds full_name: code object or PyCfunction mapping. We did not hold
+# this dict holds {full_name: code object or PyCfunctionobject}. We did not hold
 # this in YStat because it makes it unpickable. I played with some code to make it
 # unpickable by NULLifying the fn_descriptor attrib. but there were lots of happening
 # and some multithread tests were failing, I switched back to a simpler design:
-# use an external dict.
+# do not hold fn_descriptor inside YStats. This is also better design since YFuncStats
+# will have this value only optionally because of unpickling problems of CodeObjects.
 _fn_descriptor_dict = {}
 
 COLUMNS_FUNCSTATS = ["name", "ncall", "ttot", "tsub", "tavg"]

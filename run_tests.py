@@ -10,9 +10,7 @@ if __name__ == '__main__':
         tests += ['test_asyncio']
     if sys.version_info >= (3, 7):
         tests += ['test_asyncio_context_vars']
-    # tests = [
-    #     'test_functionality.StatSaveScenarios.test_merge_multithreaded_stats'
-    # ]
+    tests = ['test_functionality.BasicUsage.test_filter_callback']
     test_suite = test_loader.loadTestsFromNames(tests)
     result = test_runner.run(test_suite)
     sys.exit(not result.wasSuccessful())
