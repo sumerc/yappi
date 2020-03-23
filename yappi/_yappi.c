@@ -1534,7 +1534,9 @@ _pitenumstat(_hitem *item, void *arg)
                         _normt(pt->ttotal), _normt(pt->tsubtotal),
                         pt->index, children, eargs->ctx->id, eargs->ctx->name, 
                         tag, pt->fn_descriptor);
+    //printf("111->>> %p %p %p %p\n", pt->name, pt->modname, pt->fn_descriptor, eargs->ctx->name);
     if (!exc) {
+        printf("ddd\n");
         PyErr_Print();
         Py_XDECREF(children);
         return 1; // abort enumeration
