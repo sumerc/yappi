@@ -119,7 +119,7 @@ class BasicUsage(utils.YappiUnitTestCase):
         #stats.print_all()
         r1 = '''
         tests/test_functionality.py:98 a      2      0.000000  0.200350  0.100175
-        tests/test_functionality.py:101 b     1      0.000000  0.100197  0.100197
+        tests/test_functionality.py:101 b     1      0.000000  0.120000  0.100197
         '''
         self.assert_traces_almost_equal(r1, stats)
         self.assertEqual(len(stats), 2)
@@ -129,7 +129,7 @@ class BasicUsage(utils.YappiUnitTestCase):
         )
         r1='''
         tests/test_functionality.py:98 a      2      0.000000  0.230130  0.115065
-        tests/test_functionality.py:101 b     1      0.000000  0.109011  0.109011
+        tests/test_functionality.py:101 b     1      0.000000  0.120000  0.109011
         tests/test_functionality.py:104 c     1      0.000000  0.000002  0.000002
         tests/test_functionality.py:107 d     1      0.000000  0.000001  0.000001
         '''
@@ -140,7 +140,7 @@ class BasicUsage(utils.YappiUnitTestCase):
             filter_callback=lambda x: yappi.func_matches(x, [time.sleep])
         )
         r1 = '''
-        time.sleep                            2      0.206804  0.206804  0.103402
+        time.sleep                            2      0.206804  0.220000  0.103402
         '''
         self.assert_traces_almost_equal(r1, stats)
         self.assertEqual(len(stats), 1)
