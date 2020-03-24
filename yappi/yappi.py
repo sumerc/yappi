@@ -409,9 +409,9 @@ class YFuncStat(YStat):
         'children': 9,
         'ctx_id': 10,
         'ctx_name': 11,
-        'tag': 12,
-        'tavg': 13,
-        'full_name': 14
+        'tag': 13,
+        'tavg': 14,
+        'full_name': 15
     }
 
     def __eq__(self, other):
@@ -773,12 +773,12 @@ class YFuncStats(YStatsIndexable):
     def _enumerator(self, stat_entry):
         global _fn_descriptor_dict
         fname, fmodule, flineno, fncall, fnactualcall, fbuiltin, fttot, ftsub, \
-            findex, fchildren, fctxid, fctxname, ftag, ffn_descriptor = stat_entry
+            findex, fchildren, fctxid, fctxname, ffn_descriptor, ftag = stat_entry
 
         # builtin function?
         ffull_name = _func_fullname(bool(fbuiltin), fmodule, flineno, fname)
         ftavg = fttot / fncall
-        fstat = YFuncStat(stat_entry[:-1] + (ftavg, ffull_name))
+        fstat = YFuncStat(stat_entry + (ftavg, ffull_name))
         _fn_descriptor_dict[ffull_name] = ffn_descriptor
 
         # do not show profile stats of yappi itself.
