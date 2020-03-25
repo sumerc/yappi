@@ -1485,7 +1485,7 @@ _pitenumstat(_hitem *item, void *arg)
     PyObject *children;
     _pit_children_info *pci;
     _ctxfuncenumarg *eargs;
-    long long tag;
+    uintptr_t tag;
 
     children = NULL;
     pt = (_pit *)item->val;
@@ -1529,12 +1529,12 @@ _pitenumstat(_hitem *item, void *arg)
         tag = PyLong_AsVoidPtr(eargs->enum_args->func_filter.tag);
     }
 
-    exc = PyObject_CallFunction(eargs->enum_args->enumfn, "((OOkkkIffIOkOOk))", 
+    exc = PyObject_CallFunction(eargs->enum_args->enumfn, "((OOkkkIffIOkOkO))", 
                         pt->name, pt->modname, pt->lineno, pt->callcount,
                         pt->nonrecursive_callcount, pt->builtin, 
                         _normt(pt->ttotal), _normt(pt->tsubtotal),
-                        pt->index, children, eargs->ctx->id, eargs->ctx->name, 
-                        pt->fn_descriptor, tag);
+                        pt->index, children, eargs->ctx->id, eargs->ctx->name,
+                        tag, pt->fn_descriptor);
 
     if (!exc) {
         PyErr_Print();

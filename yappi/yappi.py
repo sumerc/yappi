@@ -409,7 +409,7 @@ class YFuncStat(YStat):
         'children': 9,
         'ctx_id': 10,
         'ctx_name': 11,
-        'tag': 13,
+        'tag': 12,
         'tavg': 14,
         'full_name': 15
     }
@@ -773,7 +773,7 @@ class YFuncStats(YStatsIndexable):
     def _enumerator(self, stat_entry):
         global _fn_descriptor_dict
         fname, fmodule, flineno, fncall, fnactualcall, fbuiltin, fttot, ftsub, \
-            findex, fchildren, fctxid, fctxname, ffn_descriptor, ftag = stat_entry
+            findex, fchildren, fctxid, fctxname, ftag, ffn_descriptor = stat_entry
 
         # builtin function?
         ffull_name = _func_fullname(bool(fbuiltin), fmodule, flineno, fname)
