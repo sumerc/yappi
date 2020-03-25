@@ -199,9 +199,48 @@ The `sort_type` must be one of the following:
 
 `sort_order` must be either `"desc"` or `"asc"`
 
+#### `func_matches(stat, funcs)`
+
+This function returns `True` if the `stat`(`YStat`) object is in a given list of `funcs`(`callable`) list.
+An example usage is when filtering stats based on actual function objects:
+
+```python
+def a():
+    pass
+
+def b():
+    pass
+
+...
+stats = yappi.get_func_stats(
+    filter_callback=lambda x: yappi.func_matches(x, [a, b])
+)
+```
+
+Please note that once a profile session is saved or loaded from a file, you cannot use
+`func_matches` on the items as the mapping between the stats and the functions are
+not serialized.
+
+#### `module_matches(stat, modules)`
+
+This function returns `True` if the `stat`(`YStat`) object is in a given list of `modules`(`ModuleType`) list.
+An example usage is when filtering stats based on actual module objects:
+
+```python
+import collections
+...
+stats = yappi.get_func_stats(
+    filter_callback=lambda x: yappi.module_matches(x, [collections])
+)
+```
+
+Please note that once a profile session is saved or loaded from a file, you cannot use
+`module_matches` on the items as the mapping between the stats and the functions are
+not serialized.
+
 #### `clear()`
 
-Clears the retrieved stats. 
+Clears the stats. 
 
 Note that this only clears the current object's stat list. You need to explicitly call [`yappi.clear_stats()`](#clear_stats) to clear the current profile's stats.
 
@@ -225,7 +264,7 @@ This holds the stat items as a list of `YThreadStat` object.
 
 | *Attribute*  | *Description*                                                                   |
 |-------------|---------------------------------------------------------------------------------|
-| `id`        | thread id given by the OS                                                 |
+| `id`        | ctx id given by Yappi                                                 |
 | `name`      | class name of the current thread object which is derived from the `threading.Thread` class                                            |
 | `ttot`      | total time spent in the last executed function                                        |
 | `sched_count`       | number of times this thread is scheduled. |
