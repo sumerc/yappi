@@ -36,7 +36,7 @@ async def run_in_threadpool(copy_contextvars, func, *args, **kwargs):
 class AsyncUsage(utils.YappiUnitTestCase):
     task_count = 5
     context_switch_count = 2
-    duration = 0.1
+    duration = 0.2
     task_to_profile_name = "task_to_profile"
 
     def test_async_cpu(self):
@@ -158,7 +158,7 @@ class AsyncUsageThreadedWithContextvars(
 class AsyncUsageThreadedWithContextvarsSelfContained(utils.YappiUnitTestCase):
     task_count = 5
     context_switch_count = 1
-    duration = 0.1
+    duration = 0.2
     task_to_profile_name = "_task_in_thread"
 
     def test_async_cpu(self):

@@ -101,18 +101,20 @@ class MultiThreadTests(YappiUnitTestCase):
             yield from async_sleep(0.3)
             yield from recursive_a(n - 1)
 
+        tlocal = threading.local()
+
         def tag_cbk():
-            cthread = threading.current_thread()
             try:
-                return cthread._tag
+                return tlocal._tag
             except:
                 return -1
 
         yappi.set_clock_type("wall")
-        threading.current_thread()._tag = 0
+        tlocal._tag = 0
         yappi.set_tag_callback(tag_cbk)
 
-        def _thread_event_loop(loop):
+        def _thread_event_loop(loop, tag):
+            tlocal._tag = tag
             asyncio.set_event_loop(loop)
             loop.run_forever()
 
@@ -122,8 +124,7 @@ class MultiThreadTests(YappiUnitTestCase):
         ts = []
         for i in range(_TCOUNT):
             _loop = asyncio.new_event_loop()
-            t = threading.Thread(target=_thread_event_loop, args=(_loop, ))
-            t._tag = _ctag
+            t = threading.Thread(target=_thread_event_loop, args=(_loop, _ctag))
             t._loop = _loop
             t.start()
 

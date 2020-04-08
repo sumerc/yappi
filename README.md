@@ -51,7 +51,8 @@ $ pip install git+https://github.com/sumerc/yappi#egg=yappi
 
 ## Examples
 
-A simple example:
+### A simple example:
+
 ```python
 import yappi
 
@@ -78,7 +79,10 @@ _MainThread    0      139867147315008  0.118297  1
 '''
 ```
 
-Profile a multithreaded application and retrieve stats by thread id:
+### Profile a multithreaded application:
+
+You can profile a multithreaded application via Yappi and can easily retrieve
+per-thread profile information by filtering on `ctx_id` with `get_func_stats` API.
 
 ```python
 import yappi
@@ -112,7 +116,7 @@ for thread in threads:
     print(
         "Function stats for (%s) (%d)" % (thread.name, thread.id)
     )  # it is the Thread.__class__.__name__
-    yappi.get_func_stats(filter={"ctx_id": thread.id}).print_all()
+    yappi.get_func_stats(ctx_id=thread.id).print_all()
 '''
 Function stats for (Thread) (3)
 
@@ -135,7 +139,11 @@ doc3.py:8 _work                       1      0.000006  0.000033  0.000033
 '''
 ```
 
-Different ways to filter/sort stats:
+### Different ways to filter/sort stats:
+
+You can use `filter_callback` on `get_func_stats` API to filter on functions, modules
+or whatever available in `YFuncStat` object.
+
 ```python
 import package_a
 import yappi
@@ -196,14 +204,39 @@ package_a/__init__.py:1 a             1      0.000001  0.000001  0.000001
 '''
 ```
 
-Profile an async application:
-```python
-xxx
-```
+### Profile an async application:
 
-Use tags for context-aware profiling:
+You can see that coroutine wall-time's are correctly profiled.
+
 ```python
-xxx
+import asyncio
+import yappi
+
+async def foo():
+    await asyncio.sleep(1.0)
+    await baz()
+    await asyncio.sleep(0.5)
+
+async def bar():
+    await asyncio.sleep(2.0)
+
+async def baz():
+    await asyncio.sleep(1.0)
+
+yappi.set_clock_type("WALL")
+with yappi.run():
+    asyncio.run(foo())
+    asyncio.run(bar())
+yappi.get_func_stats().print_all()
+'''
+Clock type: WALL
+Ordered by: totaltime, desc
+
+name                                  ncall  tsub      ttot      tavg      
+doc4.py:5 foo                         1      0.000030  2.503808  2.503808
+doc4.py:11 bar                        1      0.000012  2.002492  2.002492
+doc4.py:15 baz                        1      0.000013  1.001397  1.001397
+'''
 ```
 
 
