@@ -76,6 +76,9 @@ typedef struct {
     // concurrent running coroutines on this _pit
     _coro *coroutines;
 
+    // TODO: Comment
+    PyObject *fn_descriptor;
+
     _pit_children_info *children;
 } _pit; // profile_item
 
@@ -173,7 +176,7 @@ static _ctx * _profile_thread(PyThreadState *ts);
 static int _pitenumdel(_hitem *item, void *arg);
 
 // funcs
-/*
+
 static void _DebugPrintObjects(unsigned int arg_count, ...)
 {
     unsigned int i;
@@ -186,7 +189,6 @@ static void _DebugPrintObjects(unsigned int arg_count, ...)
     printf("\n");
     va_end(vargs);
 }
-*/
 
 int IS_ASYNC(PyFrameObject *frame)
 {
@@ -245,6 +247,7 @@ _create_pit()
     pit->index = ycurfuncindex++;
     pit->children = NULL;
     pit->coroutines = NULL;
+    pit->fn_descriptor = NULL;
 
     return pit;
 }
@@ -459,6 +462,7 @@ _del_pit(_pit *pit)
         it = next;
     }
     pit->children = NULL;
+    Py_DECREF(pit->fn_descriptor);
 }
 
 static PyObject *
@@ -546,6 +550,8 @@ _ccode2pit(void *cco, uintptr_t current_tag)
         pit->builtin = 1;
         pit->modname = _pycfunction_module_name(cfn);
         pit->lineno = 0;
+        pit->fn_descriptor = (PyObject *)cfn;
+        Py_INCREF(cfn);
 
         // built-in method?
         if (cfn->m_self != NULL) {
@@ -600,6 +606,8 @@ _code2pit(PyFrameObject *fobj, uintptr_t current_tag)
     Py_INCREF(cobj->co_filename);
     pit->modname = cobj->co_filename;
     pit->lineno = cobj->co_firstlineno;
+    pit->fn_descriptor = (PyObject *)cobj;
+    Py_INCREF(cobj);
 
     PyFrame_FastToLocals(fobj);
     if (cobj->co_argcount) {
@@ -1079,6 +1087,8 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         goto finally;
     }
 
+    //_DebugPrintObjects(1, self);
+
     // do not profile if multi-threaded is off and the context is different than
     // the context that called start.
     if (!flags.multithreaded && current_ctx != initial_ctx) {
@@ -1475,7 +1485,7 @@ _pitenumstat(_hitem *item, void *arg)
     PyObject *children;
     _pit_children_info *pci;
     _ctxfuncenumarg *eargs;
-    long long tag;
+    uintptr_t tag;
 
     children = NULL;
     pt = (_pit *)item->val;
@@ -1513,17 +1523,19 @@ _pitenumstat(_hitem *item, void *arg)
         pt->tsubtotal = 0;
     if (pt->callcount == 0)
         pt->callcount = 1;
+
     tag = 0;
     if (eargs->enum_args->func_filter.tag) {
         tag = PyLong_AsVoidPtr(eargs->enum_args->func_filter.tag);
     }
 
-    exc = PyObject_CallFunction(eargs->enum_args->enumfn, "((OOkkkIffIOkOk))", 
+    exc = PyObject_CallFunction(eargs->enum_args->enumfn, "((OOkkkIffIOkOkO))", 
                         pt->name, pt->modname, pt->lineno, pt->callcount,
                         pt->nonrecursive_callcount, pt->builtin, 
                         _normt(pt->ttotal), _normt(pt->tsubtotal),
-                        pt->index, children, eargs->ctx->id, eargs->ctx->name, 
-                        tag);
+                        pt->index, children, eargs->ctx->id, eargs->ctx->name,
+                        tag, pt->fn_descriptor);
+
     if (!exc) {
         PyErr_Print();
         Py_XDECREF(children);

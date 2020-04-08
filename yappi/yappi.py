@@ -1,8 +1,5 @@
 """
- yappi.py
- Yet Another Python Profiler
-
- Sumer Cip 2014
+yappi.py - Yet Another Python Profiler
 """
 import os
 import sys
@@ -10,6 +7,8 @@ import _yappi
 import pickle
 import threading
 import warnings
+import types
+import inspect
 try:
     from thread import get_ident  # Python 2
 except ImportError:
@@ -31,6 +30,14 @@ __all__ = [
 LINESEP = os.linesep
 COLUMN_GAP = 2
 YPICKLE_PROTOCOL = 2
+
+# this dict holds {full_name: code object or PyCfunctionobject}. We did not hold
+# this in YStat because it makes it unpickable. I played with some code to make it
+# unpickable by NULLifying the fn_descriptor attrib. but there were lots of happening
+# and some multithread tests were failing, I switched back to a simpler design:
+# do not hold fn_descriptor inside YStats. This is also better design since YFuncStats
+# will have this value only optionally because of unpickling problems of CodeObjects.
+_fn_descriptor_dict = {}
 
 COLUMNS_FUNCSTATS = ["name", "ncall", "ttot", "tsub", "tavg"]
 COLUMNS_THREADSTATS = ["name", "id", "tid", "ttot", "scnt"]
@@ -134,6 +141,73 @@ def _func_fullname(builtin, module, lineno, name):
         return "%s.%s" % (module, name)
     else:
         return "%s:%d %s" % (module, lineno, name)
+
+
+def module_matches(stat, modules):
+
+    if not isinstance(stat, YStat):
+        raise YappiError(
+            "Argument 'stat' shall be a YStat object. (%s)" % (stat)
+        )
+
+    if not len(modules):
+        raise YappiError("Argument 'modules' cannot be empty.")
+
+    if not isinstance(modules, list):
+        raise YappiError(
+            "Argument 'modules' is not a list object. (%s)" % (modules)
+        )
+    if stat.full_name not in _fn_descriptor_dict:
+        return False
+
+    modules = set(modules)
+    for module in modules:
+        if not isinstance(module, types.ModuleType):
+            raise YappiError("Non-module item in 'modules'. (%s)" % (module))
+    return inspect.getmodule(_fn_descriptor_dict[stat.full_name]) in modules
+
+
+def func_matches(stat, funcs):
+    '''
+    This function will not work with stats that are saved and loaded. That is 
+    because current API of loading stats is as following:
+    yappi.get_func_stats(filter_callback=_filter).add('dummy.ys').print_all()
+
+    '''
+
+    if not isinstance(stat, YStat):
+        raise YappiError(
+            "Argument 'stat' shall be a YStat object. (%s)" % (stat)
+        )
+
+    if not len(funcs):
+        raise YappiError("Argument 'funcs' cannot be empty.")
+
+    if not isinstance(funcs, list):
+        raise YappiError(
+            "Argument 'funcs' is not a list object. (%s)" % (funcs)
+        )
+
+    if stat.full_name not in _fn_descriptor_dict:
+        return False
+
+    funcs = set(funcs)
+    for func in funcs.copy():
+        if not callable(func):
+            raise YappiError("Non-callable item in 'funcs'. (%s)" % (func))
+
+        # if not a builtin func/method add codeobject. codeobject will be
+        # our search key for regular py functions.
+        if not isinstance(func, types.BuiltinFunctionType) or \
+            not isinstance(func, types.BuiltinMethodType):
+            funcs.add(func.__code__)
+
+    try:
+        return _fn_descriptor_dict[stat.full_name] in funcs
+    except TypeError:
+        # some builtion methods like <method 'get' of 'dict' objects> are not hashable
+        # thus we cannot search for them in funcs set.
+        return False
 
 
 """
@@ -336,8 +410,8 @@ class YFuncStat(YStat):
         'ctx_id': 10,
         'ctx_name': 11,
         'tag': 12,
-        'tavg': 13,
-        'full_name': 14
+        'tavg': 14,
+        'full_name': 15
     }
 
     def __eq__(self, other):
@@ -497,8 +571,10 @@ class YStats(object):
         return self
 
     def sort(self, sort_type, sort_order):
+        # sort case insensitive for strings
         self._as_list.sort(
-            key=lambda stat: stat[sort_type],
+            key=lambda stat: stat[sort_type].lower() \
+                    if isinstance(stat[sort_type], str) else stat[sort_type],
             reverse=(sort_order == SORT_ORDERS["desc"])
         )
         return self
@@ -648,21 +724,24 @@ class YFuncStats(YStatsIndexable):
         super(YFuncStats, self).__init__()
         self.add(files)
 
+        self._filter_callback = None
+
     def strip_dirs(self):
         for stat in self:
             stat.strip_dirs()
             stat.children.strip_dirs()
         return self
 
-    def get(self, filter={}):
+    def get(self, filter={}, filter_callback=None):
         _yappi._pause()
         self.clear()
         try:
+            self._filter_callback = filter_callback
             _yappi.enum_func_stats(self._enumerator, filter)
+            self._filter_callback = None
 
             # convert the children info from tuple to YChildFuncStat
             for stat in self:
-
                 _childs = YChildFuncStats()
                 for child_tpl in stat.children:
                     rstat = self[child_tpl[0]]
@@ -692,14 +771,15 @@ class YFuncStats(YStatsIndexable):
         return result
 
     def _enumerator(self, stat_entry):
-
+        global _fn_descriptor_dict
         fname, fmodule, flineno, fncall, fnactualcall, fbuiltin, fttot, ftsub, \
-            findex, fchildren, fctxid, fctxname, ftag = stat_entry
+            findex, fchildren, fctxid, fctxname, ftag, ffn_descriptor = stat_entry
 
         # builtin function?
         ffull_name = _func_fullname(bool(fbuiltin), fmodule, flineno, fname)
         ftavg = fttot / fncall
         fstat = YFuncStat(stat_entry + (ftavg, ffull_name))
+        _fn_descriptor_dict[ffull_name] = ffn_descriptor
 
         # do not show profile stats of yappi itself.
         if os.path.basename(
@@ -709,9 +789,14 @@ class YFuncStats(YStatsIndexable):
 
         fstat.builtin = bool(fstat.builtin)
 
+        if self._filter_callback:
+            if not self._filter_callback(fstat):
+                return
+
         self.append(fstat)
 
-        # hold the max idx number for merging new entries(for making the merging entries indexes unique)
+        # hold the max idx number for merging new entries(for making the merging
+        # entries indexes unique)
         if self._idx_max < fstat.index:
             self._idx_max = fstat.index
 
@@ -991,22 +1076,29 @@ def start(builtins=False, profile_threads=True):
     _yappi.start(builtins, profile_threads)
 
 
-
-def get_func_stats(filter={}):
+def get_func_stats(tag=None, ctx_id=None, filter={}, filter_callback=None):
     """
     Gets the function profiler results with given filters and returns an iterable.
+
+    filter: is here mainly for backward compat. we will not document it anymore.
+    tag, ctx_id: select given tag and ctx_id related stats in C side.
+    filter_callback: we could do it like: get_func_stats().filter(). The problem
+    with this approach is YFuncStats has an internal list which complicates:
+        - delete() operation because list deletions are O(n)
+        - sort() and pop() operations currently work on sorted list and they hold the
+          list as sorted.
+    To preserve above behaviour and have a delete() method, we can use an OrderedDict()
+    maybe, but simply that is not worth the effort for an extra filter() call. Maybe
+    in the future.
     """
-    _VALID_FILTER_KEYS = set(["tag", "name", "module", "ctx_id"])
-    if len(filter):
-        for filter_key in filter:
-            if filter_key not in _VALID_FILTER_KEYS:
-                warnings.warn('Invalid filter key.(%s)' % (filter_key))
+    tag = filter.get('tag', tag)
+    ctx_id = filter.get('ctx_id', tag)
 
     # multiple invocation pause/resume is allowed. This is needed because
     # not only get() is executed here.
     _yappi._pause()
     try:
-        stats = YFuncStats().get(filter=filter)
+        stats = YFuncStats().get(filter=filter, filter_callback=filter_callback)
     finally:
         _yappi._resume()
     return stats

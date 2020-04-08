@@ -86,8 +86,8 @@ class MultiThreadTests(YappiUnitTestCase):
 
         @asyncio.coroutine
         def a():
-            yield from async_sleep(0.1)
-            burn_cpu(0.2)
+            yield from async_sleep(0.3)
+            burn_cpu(0.4)
 
         @asyncio.coroutine
         def b():
@@ -97,22 +97,24 @@ class MultiThreadTests(YappiUnitTestCase):
         def recursive_a(n):
             if not n:
                 return
-            burn_io(0.1)
-            yield from async_sleep(0.1)
+            burn_io(0.3)
+            yield from async_sleep(0.3)
             yield from recursive_a(n - 1)
 
+        tlocal = threading.local()
+
         def tag_cbk():
-            cthread = threading.current_thread()
             try:
-                return cthread._tag
+                return tlocal._tag
             except:
                 return -1
 
         yappi.set_clock_type("wall")
-        threading.current_thread()._tag = 0
+        tlocal._tag = 0
         yappi.set_tag_callback(tag_cbk)
 
-        def _thread_event_loop(loop):
+        def _thread_event_loop(loop, tag):
+            tlocal._tag = tag
             asyncio.set_event_loop(loop)
             loop.run_forever()
 
@@ -122,8 +124,7 @@ class MultiThreadTests(YappiUnitTestCase):
         ts = []
         for i in range(_TCOUNT):
             _loop = asyncio.new_event_loop()
-            t = threading.Thread(target=_thread_event_loop, args=(_loop, ))
-            t._tag = _ctag
+            t = threading.Thread(target=_thread_event_loop, args=(_loop, _ctag))
             t._loop = _loop
             t.start()
 
@@ -155,21 +156,21 @@ class MultiThreadTests(YappiUnitTestCase):
         yappi.stop()
         traces = yappi.get_func_stats()
         t1 = '''
-        tests/test_asyncio.py:140 driver      1      0.000022  1.015813  1.015813
-        ..ts/test_asyncio.py:103 recursive_a  6/1    0.000071  1.014597  0.169099
-        async_sleep                           7      0.000000  0.714345  0.102049
-        tests/test_asyncio.py:94 a            2      0.000025  0.610155  0.305078
-        tests/utils.py:135 burn_io            5      0.000018  0.505879  0.101176
-        tests/utils.py:126 burn_cpu           2      0.380813  0.404432  0.202216
-        tests/test_asyncio.py:99 b            1      0.000005  0.305355  0.305355
+        tests/test_asyncio.py:137 driver      1      0.000061  3.744064  3.744064
+        tests/test_asyncio.py:96 recursive_a  6/1    0.000188  3.739663  0.623277
+        tests/test_asyncio.py:8 async_sleep   7      0.000085  2.375271  0.339324
+        tests/utils.py:135 burn_io            5      0.000044  1.700000  0.437400
+        tests/test_asyncio.py:87 a            2      0.000019  1.600000  0.921138
+        tests/utils.py:126 burn_cpu           2      0.800000  0.800000  0.509730
+        tests/test_asyncio.py:92 b            1      0.000005  0.800000  0.921055
         '''
         self.assert_traces_almost_equal(t1, traces)
 
         traces = yappi.get_func_stats(filter={'tag': 2})
         t1 = '''
-        ..ts/test_asyncio.py:103 recursive_a  6/1    0.000160  1.062948  0.177158
-        async_sleep                           5      0.000000  0.561803  0.112361
-        tests/utils.py:135 burn_io            5      0.000035  0.500985  0.100197
+        tests/test_asyncio.py:96 recursive_a  6/1    0.000211  3.720011  0.620002
+        tests/utils.py:135 burn_io            5      0.000079  1.700000  0.431813
+        async_sleep                           5      0.000170  1.560735  0.312147
         '''
         self.assert_traces_almost_equal(t1, traces)
 

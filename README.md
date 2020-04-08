@@ -49,6 +49,197 @@ OR from the source directly.
 $ pip install git+https://github.com/sumerc/yappi#egg=yappi
 ```
 
+## Examples
+
+### A simple example:
+
+```python
+import yappi
+
+def a():
+    for _ in range(10000000):  # do something CPU heavy
+        pass
+
+yappi.set_clock_type("cpu") # Use set_clock_type("wall") for wall time
+yappi.start()
+a()
+
+yappi.get_func_stats().print_all()
+yappi.get_thread_stats().print_all()
+'''
+
+Clock type: CPU
+Ordered by: totaltime, desc
+
+name                                  ncall  tsub      ttot      tavg      
+doc.py:5 a                            1      0.117907  0.117907  0.117907
+
+name           id     tid              ttot      scnt        
+_MainThread    0      139867147315008  0.118297  1
+'''
+```
+
+### Profile a multithreaded application:
+
+You can profile a multithreaded application via Yappi and can easily retrieve
+per-thread profile information by filtering on `ctx_id` with `get_func_stats` API.
+
+```python
+import yappi
+import time
+import threading
+
+_NTHREAD = 3
+
+
+def _work(n):
+    time.sleep(n * 0.1)
+
+
+yappi.start()
+
+threads = []
+# generate _NTHREAD threads
+for i in range(_NTHREAD):
+    t = threading.Thread(target=_work, args=(i + 1, ))
+    t.start()
+    threads.append(t)
+# wait all threads to finish
+for t in threads:
+    t.join()
+
+yappi.stop()
+
+# retrieve thread stats by their thread id (given by yappi)
+threads = yappi.get_thread_stats()
+for thread in threads:
+    print(
+        "Function stats for (%s) (%d)" % (thread.name, thread.id)
+    )  # it is the Thread.__class__.__name__
+    yappi.get_func_stats(ctx_id=thread.id).print_all()
+'''
+Function stats for (Thread) (3)
+
+name                                  ncall  tsub      ttot      tavg
+..hon3.7/threading.py:859 Thread.run  1      0.000017  0.000062  0.000062
+doc3.py:8 _work                       1      0.000012  0.000045  0.000045
+
+Function stats for (Thread) (2)
+
+name                                  ncall  tsub      ttot      tavg
+..hon3.7/threading.py:859 Thread.run  1      0.000017  0.000065  0.000065
+doc3.py:8 _work                       1      0.000010  0.000048  0.000048
+
+
+Function stats for (Thread) (1)
+
+name                                  ncall  tsub      ttot      tavg
+..hon3.7/threading.py:859 Thread.run  1      0.000010  0.000043  0.000043
+doc3.py:8 _work                       1      0.000006  0.000033  0.000033
+'''
+```
+
+### Different ways to filter/sort stats:
+
+You can use `filter_callback` on `get_func_stats` API to filter on functions, modules
+or whatever available in `YFuncStat` object.
+
+```python
+import package_a
+import yappi
+import sys
+
+def a():
+    pass
+
+def b():
+    pass
+
+yappi.start()
+a()
+b()
+package_a.a()
+yappi.stop()
+
+# filter by module object
+current_module = sys.modules[__name__]
+stats = yappi.get_func_stats(
+    filter_callback=lambda x: yappi.module_matches(x, [current_module])
+)  # x is a yappi.YFuncStat object
+stats.sort("name", "desc").print_all()
+'''
+Clock type: CPU
+Ordered by: name, desc
+
+name                                  ncall  tsub      ttot      tavg
+doc2.py:10 b                          1      0.000001  0.000001  0.000001
+doc2.py:6 a                           1      0.000001  0.000001  0.000001
+'''
+
+# filter by function object
+stats = yappi.get_func_stats(
+    filter_callback=lambda x: yappi.func_matches(x, [a, b])
+).print_all()
+'''
+name                                  ncall  tsub      ttot      tavg
+doc2.py:6 a                           1      0.000001  0.000001  0.000001
+doc2.py:10 b                          1      0.000001  0.000001  0.000001
+'''
+
+# filter by module name
+stats = yappi.get_func_stats(filter_callback=lambda x: 'package_a' in x.module
+                             ).print_all()
+'''
+name                                  ncall  tsub      ttot      tavg
+package_a/__init__.py:1 a             1      0.000001  0.000001  0.000001
+'''
+
+# filter by function name
+stats = yappi.get_func_stats(filter_callback=lambda x: 'a' in x.name
+                             ).print_all()
+'''
+name                                  ncall  tsub      ttot      tavg
+doc2.py:6 a                           1      0.000001  0.000001  0.000001
+package_a/__init__.py:1 a             1      0.000001  0.000001  0.000001
+'''
+```
+
+### Profile an async application:
+
+You can see that coroutine wall-time's are correctly profiled.
+
+```python
+import asyncio
+import yappi
+
+async def foo():
+    await asyncio.sleep(1.0)
+    await baz()
+    await asyncio.sleep(0.5)
+
+async def bar():
+    await asyncio.sleep(2.0)
+
+async def baz():
+    await asyncio.sleep(1.0)
+
+yappi.set_clock_type("WALL")
+with yappi.run():
+    asyncio.run(foo())
+    asyncio.run(bar())
+yappi.get_func_stats().print_all()
+'''
+Clock type: WALL
+Ordered by: totaltime, desc
+
+name                                  ncall  tsub      ttot      tavg      
+doc4.py:5 foo                         1      0.000030  2.503808  2.503808
+doc4.py:11 bar                        1      0.000012  2.002492  2.002492
+doc4.py:15 baz                        1      0.000013  1.001397  1.001397
+'''
+```
+
+
 ## Documentation
 
 - [Introduction](https://github.com/sumerc/yappi/blob/master/doc/introduction.md)
@@ -58,9 +249,6 @@ $ pip install git+https://github.com/sumerc/yappi#egg=yappi
 
   Note: Yes. I know I should be moving docs to readthedocs.io. Stay tuned!
 
-
-## Limitations:
-* Threads must be derived from "threading" module's Thread object.
 
 ## Related Talks
 
