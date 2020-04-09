@@ -176,7 +176,7 @@ static _ctx * _profile_thread(PyThreadState *ts);
 static int _pitenumdel(_hitem *item, void *arg);
 
 // funcs
-
+/*
 static void _DebugPrintObjects(unsigned int arg_count, ...)
 {
     unsigned int i;
@@ -188,7 +188,7 @@ static void _DebugPrintObjects(unsigned int arg_count, ...)
     }
     printf("\n");
     va_end(vargs);
-}
+} */
 
 int IS_ASYNC(PyFrameObject *frame)
 {
@@ -371,7 +371,6 @@ _current_context_id(PyThreadState *ts)
 {
     uintptr_t rc;
     PyObject *callback_rc, *ytid;
-    //PyThreadState *curr_ts;
 
     if (context_id_callback) {
         callback_rc = _call_funcobjargs(context_id_callback, NULL);
@@ -401,27 +400,10 @@ _current_context_id(PyThreadState *ts)
             return 0;
         }
 
-        // // _profile_thread might be called for each thread at startup and we need to make sure to 
-        // // swap the current thread to set/get ThreadState dict.
-        // curr_ts = PyThreadState_GET();
-        // if (curr_ts != ts) {
-        //     PyThreadState_Swap(ts);
-        // }
-
-        // // TODO: Any more optimization? This has increased the runtime factor from 7x to 11x.
-        // // and also we may have a memory leak below. We maybe can optimize the common case.
-        // d = PyThreadState_GetDict();
-        // ytid = PyDict_GetItemString(d, "_yappi_tid");
-        // if (!ytid) {
-        //     ytid = PyLong_FromLongLong(ycurthreadindex++);
-        //     PyDict_SetItemString(d, "_yappi_tid", ytid);
-        // }
-        // rc = PyLong_AsVoidPtr(ytid);
-
-        // if (curr_ts != ts) {
-        //     PyThreadState_Swap(curr_ts);
-        // }
-
+        // Below code is same as ThreadState_GetDict() but on some Python versions
+        // that function only works on current thread. In our situation there is 
+        // a possibility that current_context_id is called for another thread while
+        // enumerating the active threads. This is why we implement it ourselves.
         if (!ts->dict) {
             ts->dict = PyDict_New();
             if (ts->dict == NULL) {
@@ -432,7 +414,7 @@ _current_context_id(PyThreadState *ts)
 
         ytid = PyDict_GetItemString(ts->dict, "_yappi_tid");
         if (!ytid) {
-            ytid = PyLong_FromLongLong(ycurthreadindex++);\
+            ytid = PyLong_FromLongLong(ycurthreadindex++);
             PyDict_SetItemString(ts->dict, "_yappi_tid", ytid);
         }
         rc = PyLong_AsVoidPtr(ytid);
@@ -1101,8 +1083,6 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         _log_err(9);
         goto finally;
     }
-
-    //_DebugPrintObjects(1, self);
 
     // do not profile if multi-threaded is off and the context is different than
     // the context that called start.
