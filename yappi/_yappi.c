@@ -370,8 +370,8 @@ static uintptr_t
 _current_context_id(PyThreadState *ts)
 {
     uintptr_t rc;
-    PyObject *callback_rc, *d, *ytid;
-    PyThreadState *curr_ts;
+    PyObject *callback_rc, *ytid;
+    //PyThreadState *curr_ts;
 
     if (context_id_callback) {
         callback_rc = _call_funcobjargs(context_id_callback, NULL);
@@ -401,26 +401,41 @@ _current_context_id(PyThreadState *ts)
             return 0;
         }
 
-        // _profile_thread might be called for each thread at startup and we need to make sure to 
-        // swap the current thread to set/get ThreadState dict.
-        curr_ts = PyThreadState_GET();
-        if (curr_ts != ts) {
-            PyThreadState_Swap(ts);
+        // // _profile_thread might be called for each thread at startup and we need to make sure to 
+        // // swap the current thread to set/get ThreadState dict.
+        // curr_ts = PyThreadState_GET();
+        // if (curr_ts != ts) {
+        //     PyThreadState_Swap(ts);
+        // }
+
+        // // TODO: Any more optimization? This has increased the runtime factor from 7x to 11x.
+        // // and also we may have a memory leak below. We maybe can optimize the common case.
+        // d = PyThreadState_GetDict();
+        // ytid = PyDict_GetItemString(d, "_yappi_tid");
+        // if (!ytid) {
+        //     ytid = PyLong_FromLongLong(ycurthreadindex++);
+        //     PyDict_SetItemString(d, "_yappi_tid", ytid);
+        // }
+        // rc = PyLong_AsVoidPtr(ytid);
+
+        // if (curr_ts != ts) {
+        //     PyThreadState_Swap(curr_ts);
+        // }
+
+        if (!ts->dict) {
+            ts->dict = PyDict_New();
+            if (ts->dict == NULL) {
+                PyErr_Clear();
+                return 0;
+            }
         }
 
-        // TODO: Any more optimization? This has increased the runtime factor from 7x to 11x.
-        // and also we may have a memory leak below. We maybe can optimize the common case.
-        d = PyThreadState_GetDict();
-        ytid = PyDict_GetItemString(d, "_yappi_tid");
+        ytid = PyDict_GetItemString(ts->dict, "_yappi_tid");
         if (!ytid) {
-            ytid = PyLong_FromLongLong(ycurthreadindex++);
-            PyDict_SetItemString(d, "_yappi_tid", ytid);
+            ytid = PyLong_FromLongLong(ycurthreadindex++);\
+            PyDict_SetItemString(ts->dict, "_yappi_tid", ytid);
         }
         rc = PyLong_AsVoidPtr(ytid);
-
-        if (curr_ts != ts) {
-            PyThreadState_Swap(curr_ts);
-        }
 
         return rc;
     }

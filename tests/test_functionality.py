@@ -127,7 +127,7 @@ class BasicUsage(utils.YappiUnitTestCase):
             filter_callback=lambda x: yappi.
             module_matches(x, [sys.modules[__name__]])
         )
-        r1='''
+        r1 = '''
         tests/test_functionality.py:98 a      2      0.000000  0.230130  0.115065
         tests/test_functionality.py:101 b     1      0.000000  0.120000  0.109011
         tests/test_functionality.py:104 c     1      0.000000  0.000002  0.000002
