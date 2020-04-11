@@ -296,7 +296,7 @@ class BasicUsage(utils.YappiUnitTestCase):
         out, err = p.communicate()
         self.assertEqual(p.returncode, 0)
         func_stats, thread_stats = re.split(
-            b'name\s+id\s+tid\s+ttot\s+scnt\s*\n', out
+            b'name\\s+id\\s+tid\\s+ttot\\s+scnt\\s*\n', out
         )
         self.assertTrue(b'FancyThread' in thread_stats)
 
