@@ -2,3 +2,4 @@ include *.md
 include yappi/*.h
 include tests/*.py
 include LICENSE
+include CHANGELOG

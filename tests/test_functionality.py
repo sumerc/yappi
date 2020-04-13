@@ -859,14 +859,16 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
         t = threading.Thread(target=a)
         t.start()
         t.join()
-        yappi.get_func_stats().sort("name", "asc").save("tests/ystats1.ys")
+        yappi.get_func_stats().sort("name", "asc").save(
+            "tests/ystats1-%s.ys" % (sys.version)
+        )
         yappi.stop()
         yappi.clear_stats()
         yappi.start(builtins=False)
         t = threading.Thread(target=a)
         t.start()
         t.join()
-        yappi.get_func_stats().save("tests/ystats2.ys")
+        yappi.get_func_stats().save("tests/ystats2-%s.ys" % ((sys.version)))
         yappi.stop()
         self.assertRaises(_yappi.error, yappi.set_clock_type, "wall")
         yappi.clear_stats()
@@ -875,13 +877,18 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
         t = threading.Thread(target=a)
         t.start()
         t.join()
-        yappi.get_func_stats().save("tests/ystats3.ys")
+        yappi.get_func_stats().save("tests/ystats3-%s.ys" % (sys.version))
         self.assertRaises(
             yappi.YappiError,
-            yappi.YFuncStats().add("tests/ystats1.ys").add, "tests/ystats3.ys"
+            yappi.YFuncStats().add("tests/ystats1-%s.ys" % (sys.version)).add,
+            "tests/ystats3-%s.ys" % (sys.version)
         )
-        stats = yappi.YFuncStats(["tests/ystats1.ys",
-                                  "tests/ystats2.ys"]).sort("name")
+        stats = yappi.YFuncStats(
+            [
+                "tests/ystats1-%s.ys" % (sys.version),
+                "tests/ystats2-%s.ys" % (sys.version)
+            ]
+        ).sort("name")
         fsa = utils.find_stat_by_name(stats, "a")
         fsb = utils.find_stat_by_name(stats, "b")
         fsc = utils.find_stat_by_name(stats, "c")
