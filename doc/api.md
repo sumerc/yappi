@@ -145,6 +145,16 @@ In Yappi terminology a `context` means a construct that has its own callstack. I
 
 This is an internally used function, so please do not play with unless you have a good reason.
 
+---
+**Note:**
+
+The context id callback can be called from the `threading.Thread` initialization code and thus can hold some related
+locks in `threading` library(e.x: _active_limbo_lock). So, it is not safe to use threading APIs like `threading.current_thread()`
+which can also use these locks and lead to deadlocks. However, it is safe to use `threading.local()` or global variables
+using your own locks.
+
+---
+
 #### `set_tag_callback(callback)` _New in v1.2_
 
 `callback` is a simple callable with no arguments that returns an integer.

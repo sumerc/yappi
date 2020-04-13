@@ -1,0 +1,13 @@
+CHANGELOG
+=========
+
+1.2.4 (2020-04-13)
+
+- Add filter_callback to get_func_stats() for filtering function/module descriptors
+- FIX: issues related to invalid conversion from long->ptr in Win32
+- Optimize tstate->dict retrieval
+- Various other fixes
+
+1.2.3 (2020-04-13)
+
+- Added the CHANGELOG file
