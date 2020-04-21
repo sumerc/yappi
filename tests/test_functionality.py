@@ -53,9 +53,12 @@ class BasicUsage(utils.YappiUnitTestCase):
         stats = yappi.get_func_stats()
         self.assertEqual(stats.pop().ncall, 10)  # aggregated if no tag is given
         for i in range(1, 11):
+            yappi.get_func_stats(tag=i).print_all()
+
             stats = yappi.get_func_stats(
                 tag=i, filter_callback=lambda x: yappi.func_matches(x, [a])
             )
+
             stat = stats.pop()
             self.assertEqual(stat.ncall, 1)
 
@@ -134,10 +137,10 @@ class BasicUsage(utils.YappiUnitTestCase):
 
         # invalid filters`
         self.assertRaises(
-            TypeError, yappi.get_func_stats, filter={'tag': "sss"}
+            Exception, yappi.get_func_stats, filter={'tag': "sss"}
         )
         self.assertRaises(
-            TypeError, yappi.get_func_stats, filter={'ctx_id': "None"}
+            Exception, yappi.get_func_stats, filter={'ctx_id': "None"}
         )
 
     def test_filter_callback(self):

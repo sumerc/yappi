@@ -229,7 +229,7 @@ _log_err(unsigned int code)
 }
 
 static _pit *
-_create_pit()
+_create_pit(void)
 {
     _pit *pit;
 
