@@ -47,14 +47,16 @@ class BasicUsage(utils.YappiUnitTestCase):
 
         yappi.set_tag_callback(_tag_cbk)
         yappi.start()
-        for _ in range(10):
-            a()
+        a()
+        a()
+        a()
         yappi.stop()
         stats = yappi.get_func_stats()
-        self.assertEqual(stats.pop().ncall, 10)  # aggregated if no tag is given
-        for i in range(1, 11):
-            yappi.get_func_stats(tag=i).print_all()
+        self.assertEqual(stats.pop().ncall, 3)  # aggregated if no tag is given
+        stats = yappi.get_func_stats(tag=1)
 
+        for i in range(1, 3):
+            stats = yappi.get_func_stats(tag=i)
             stats = yappi.get_func_stats(
                 tag=i, filter_callback=lambda x: yappi.func_matches(x, [a])
             )

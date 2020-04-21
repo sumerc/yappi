@@ -177,7 +177,7 @@ static _ctx * _profile_thread(PyThreadState *ts);
 static int _pitenumdel(_hitem *item, void *arg);
 
 // funcs
-/*
+
 static void _DebugPrintObjects(unsigned int arg_count, ...)
 {
     unsigned int i;
@@ -189,7 +189,7 @@ static void _DebugPrintObjects(unsigned int arg_count, ...)
     }
     printf("\n");
     va_end(vargs);
-} */
+}
 
 int IS_ASYNC(PyFrameObject *frame)
 {
@@ -879,10 +879,10 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     _pit_children_info *pci;
     uintptr_t current_tag;
 
-    //printf("call ENTER:%s %s\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
-    //                             PyStr_AS_CSTRING(frame->f_code->co_name));
-
     current_tag = _current_tag();
+
+    //printf("call ENTER:%s %s %d\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
+    //                             PyStr_AS_CSTRING(frame->f_code->co_name), current_tag);
 
     if (ccall) {
         cp = _ccode2pit((PyCFunctionObject *)arg, current_tag);
@@ -1481,7 +1481,6 @@ _pitenumstat(_hitem *item, void *arg)
     PyObject *children;
     _pit_children_info *pci;
     _ctxfuncenumarg *eargs;
-    //uintptr_t tag;
 
     children = NULL;
     pt = (_pit *)item->val;
@@ -1519,11 +1518,6 @@ _pitenumstat(_hitem *item, void *arg)
         pt->tsubtotal = 0;
     if (pt->callcount == 0)
         pt->callcount = 1;
-
-    // tag = 0;
-    // if (eargs->enum_args->func_filter.tag) {
-    //     tag = PyLong_AsVoidPtr(eargs->enum_args->func_filter.tag);
-    // }
 
     exc = PyObject_CallFunction(eargs->enum_args->enumfn, "((OOkkkIffIOkOkO))", 
                         pt->name, pt->modname, pt->lineno, pt->callcount,
@@ -1627,6 +1621,7 @@ _filterdict_to_statfilter(PyObject *filter_dict, _fast_func_stat_filter* filter)
         PyLong_AsVoidPtr(fv);
         if (PyErr_Occurred()) {
             yerr("invalid tag passed to get_func_stats.");
+            filter->tag = NULL;
             return 0;
         }
         filter->tag = fv;
@@ -1636,6 +1631,7 @@ _filterdict_to_statfilter(PyObject *filter_dict, _fast_func_stat_filter* filter)
         PyLong_AsVoidPtr(fv);
         if (PyErr_Occurred()) {
             yerr("invalid ctx_id passed to get_func_stats.");
+            filter->ctx_id = NULL;
             return 0;
         }
         filter->ctx_id = fv;
