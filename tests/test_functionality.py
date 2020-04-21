@@ -50,12 +50,14 @@ class BasicUsage(utils.YappiUnitTestCase):
         for _ in range(10):
             a()
         yappi.stop()
-        for i in range(10):
+        stats = yappi.get_func_stats()
+        self.assertEqual(stats.pop().ncall, 10)  # aggregated if no tag is given
+        for i in range(1, 11):
             stats = yappi.get_func_stats(
                 tag=i, filter_callback=lambda x: yappi.func_matches(x, [a])
             )
             stat = stats.pop()
-            self.assertTrue(stat.ncall, 1)
+            self.assertEqual(stat.ncall, 1)
 
         yappi.set_tag_callback(None)
         yappi.clear_stats()
@@ -63,9 +65,9 @@ class BasicUsage(utils.YappiUnitTestCase):
         b()
         b()
         stats = yappi.get_func_stats()
-        self.assertTrue(len(stats), 1)
+        self.assertEqual(len(stats), 1)
         stat = stats.pop()
-        self.assertTrue(stat.ncall, 2)
+        self.assertEqual(stat.ncall, 2)
 
     def test_filter(self):
 
