@@ -1,6 +1,16 @@
 import unittest
 import sys
 
+
+def _testsuite_from_tests(tests):
+    suite = unittest.TestSuite()
+    loader = unittest.defaultTestLoader
+    for t in tests:
+        test = loader.loadTestsFromName('tests.%s' % (t))
+        suite.addTest(test)
+    return suite
+
+
 if __name__ == '__main__':
     sys.path.append('tests/')
     test_loader = unittest.defaultTestLoader
@@ -10,7 +20,12 @@ if __name__ == '__main__':
         tests += ['test_asyncio']
     if sys.version_info >= (3, 7):
         tests += ['test_asyncio_context_vars']
-    #tests = ['test_functionality.BasicUsage.test_run_as_script']
     test_suite = test_loader.loadTestsFromNames(tests)
+
+    if len(sys.argv) > 1:
+        test_suite = _testsuite_from_tests(sys.argv[1:])
+
+    #tests = ['test_functionality.BasicUsage.test_run_as_script']
+
     result = test_runner.run(test_suite)
     sys.exit(not result.wasSuccessful())

@@ -1076,7 +1076,7 @@ def start(builtins=False, profile_threads=True):
     _yappi.start(builtins, profile_threads)
 
 
-def get_func_stats(tag=None, ctx_id=None, filter={}, filter_callback=None):
+def get_func_stats(tag=None, ctx_id=None, filter=None, filter_callback=None):
     """
     Gets the function profiler results with given filters and returns an iterable.
 
@@ -1091,8 +1091,13 @@ def get_func_stats(tag=None, ctx_id=None, filter={}, filter_callback=None):
     maybe, but simply that is not worth the effort for an extra filter() call. Maybe
     in the future.
     """
-    tag = filter.get('tag', tag)
-    ctx_id = filter.get('ctx_id', tag)
+    if not filter:
+        filter = {}
+
+    if tag:
+        filter['tag'] = tag
+    if ctx_id:
+        filter['ctx_id'] = ctx_id
 
     # multiple invocation pause/resume is allowed. This is needed because
     # not only get() is executed here.

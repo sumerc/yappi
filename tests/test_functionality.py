@@ -9,6 +9,8 @@ import utils
 import multiprocessing  # added to fix http://bugs.python.org/issue15881 for > Py2.6
 import subprocess
 
+_counter = 0
+
 
 class BasicUsage(utils.YappiUnitTestCase):
 
@@ -29,6 +31,41 @@ class BasicUsage(utils.YappiUnitTestCase):
         yappi.set_tag_callback(_unsigned_overflow_margin)
         yappi.start()
         foo()
+
+    def test_issue54(self):
+
+        def _tag_cbk():
+            global _counter
+            _counter += 1
+            return _counter
+
+        def a():
+            pass
+
+        def b():
+            pass
+
+        yappi.set_tag_callback(_tag_cbk)
+        yappi.start()
+        for _ in range(10):
+            a()
+        yappi.stop()
+        for i in range(10):
+            stats = yappi.get_func_stats(
+                tag=i, filter_callback=lambda x: yappi.func_matches(x, [a])
+            )
+            stat = stats.pop()
+            self.assertTrue(stat.ncall, 1)
+
+        yappi.set_tag_callback(None)
+        yappi.clear_stats()
+        yappi.start()
+        b()
+        b()
+        stats = yappi.get_func_stats()
+        self.assertTrue(len(stats), 1)
+        stat = stats.pop()
+        self.assertTrue(stat.ncall, 2)
 
     def test_filter(self):
 
@@ -92,6 +129,14 @@ class BasicUsage(utils.YappiUnitTestCase):
         yappi.stop()
         fstats = yappi.get_func_stats(filter={"module": "time"})
         self.assertEqual(len(fstats), 1)
+
+        # invalid filters`
+        self.assertRaises(
+            TypeError, yappi.get_func_stats, filter={'tag': "sss"}
+        )
+        self.assertRaises(
+            TypeError, yappi.get_func_stats, filter={'ctx_id': "None"}
+        )
 
     def test_filter_callback(self):
 
