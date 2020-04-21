@@ -150,13 +150,14 @@ def module_matches(stat, modules):
             "Argument 'stat' shall be a YStat object. (%s)" % (stat)
         )
 
-    if not len(modules):
-        raise YappiError("Argument 'modules' cannot be empty.")
-
     if not isinstance(modules, list):
         raise YappiError(
             "Argument 'modules' is not a list object. (%s)" % (modules)
         )
+
+    if not len(modules):
+        raise YappiError("Argument 'modules' cannot be empty.")
+
     if stat.full_name not in _fn_descriptor_dict:
         return False
 
@@ -180,13 +181,13 @@ def func_matches(stat, funcs):
             "Argument 'stat' shall be a YStat object. (%s)" % (stat)
         )
 
-    if not len(funcs):
-        raise YappiError("Argument 'funcs' cannot be empty.")
-
     if not isinstance(funcs, list):
         raise YappiError(
             "Argument 'funcs' is not a list object. (%s)" % (funcs)
         )
+
+    if not len(funcs):
+        raise YappiError("Argument 'funcs' cannot be empty.")
 
     if stat.full_name not in _fn_descriptor_dict:
         return False
