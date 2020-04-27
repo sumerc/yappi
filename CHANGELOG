@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+1.2.5 (2020-04-27)
+
+- Fix tag/ctx_id filtering on get_func_stats
+
 1.2.4 (2020-04-13)
 
 - Add filter_callback to get_func_stats() for filtering function/module descriptors
