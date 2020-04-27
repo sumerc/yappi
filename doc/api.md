@@ -29,7 +29,7 @@ All results stay in memory unless application (all threads including th
 
 #### `get_func_stats(tag=None, ctx_id=None, filter_callback=None)`
 
-Returns the function stats as a [`YFuncStat`](#yfuncstat) object. As YAppi is a C extension, it catches the profile data in C API.
+Returns the function stats as a list of [`YFuncStat`](#yfuncstat) object. As Yappi is a C extension, it catches the profile data in C API.
 Thus, the profile data collected is buffered until `clear_stats` is called. `get_func_stats` function enumerates the underlying
 buffered data and aggregates the information there. The functions that contain same index id will be aggregated in a single `YFuncStat`
 object. So, if you want to select a specific `tag` or `ctx_id`, you need to select by providing them as arguments to `get_func_stats`.
