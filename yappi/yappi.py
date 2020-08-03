@@ -77,6 +77,7 @@ DEFAULT_SORT_TYPE = "totaltime"
 DEFAULT_SORT_ORDER = "desc"
 
 CLOCK_TYPES = {"WALL": 0, "CPU": 1}
+BACKEND_TYPES = {"NATIVE_THREAD": 0, "GREENLET": 1}
 
 
 def _validate_sorttype(sort_type, list):
@@ -1210,6 +1211,22 @@ def set_tag_callback(cbk):
     to filter on stats via tag field.
     """
     return _yappi.set_tag_callback(cbk)
+
+
+def set_ctx_backend(type):
+    """
+    Sets the internal threading backend used to track execution context
+
+    type must be one of 'greenlet' or 'native_thread'. For example:
+
+    >>> import greenlet, yappi
+    >>> yappi.set_ctx_backend("greenlet")
+    """
+    type = type.upper()
+    if type not in BACKEND_TYPES:
+        raise YappiError("Invalid backend type: %s" % (type))
+
+    _yappi.set_context_backend(BACKEND_TYPES[type])
 
 
 def set_context_id_callback(callback):

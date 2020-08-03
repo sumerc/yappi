@@ -3,6 +3,7 @@
 import io
 import os
 import sys
+from _setuputils import get_include_dirs
 from setuptools import setup
 from distutils.core import Extension
 from distutils.ccompiler import new_compiler
@@ -60,6 +61,10 @@ CLASSIFIERS = [
     'Topic :: Software Development :: Libraries :: Python Modules',
 ]
 
+greenlet_requires = [
+    'greenlet >= 0.4.16; platform_python_implementation=="CPython"'
+]
+
 setup(
     name=NAME,
     version=VERSION,
@@ -76,6 +81,7 @@ setup(
             libraries=user_libraries,
             extra_compile_args=compile_args,
             extra_link_args=link_args,
+            include_dirs=get_include_dirs()
         )
     ],
     package_dir={'': 'yappi'},
@@ -92,4 +98,5 @@ setup(
     classifiers=CLASSIFIERS,
     license="MIT",
     url=HOMEPAGE,
+    setup_requires=greenlet_requires
 )

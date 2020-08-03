@@ -23,6 +23,7 @@
 #include "timing.h"
 #include "freelist.h"
 #include "mem.h"
+#include "greenlet/greenlet.h"
 
 #ifdef IS_PY3K
 PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
@@ -104,6 +105,9 @@ typedef struct {
     unsigned long sched_cnt;
 
     PyThreadState *ts_ptr;
+
+    int paused;
+    long long paused_at;
 } _ctx; // context
 
 typedef struct {
@@ -130,6 +134,12 @@ typedef struct {
     int multithreaded;
 } _flag; // flags passed from yappi.start()
 
+typedef enum
+{
+    NATIVE_THREAD = 0x00,
+    GREENLET = 0x01,
+} _subsystem_type_t;
+
 // globals
 static PyObject *YappiProfileError;
 static _htab *contexts;
@@ -145,6 +155,7 @@ static int paused;
 static time_t yappstarttime;
 static long long yappstarttick;
 static long long yappstoptick;
+static __thread _ctx *tl_prev_ctx = NULL;
 static _ctx *prev_ctx = NULL;
 static _ctx *current_ctx = NULL;
 static _ctx *initial_ctx = NULL; // used for holding the context that called start()
@@ -153,6 +164,7 @@ static PyObject *tag_callback = NULL;
 static PyObject *context_name_callback = NULL;
 static PyObject *test_timings; // used for testing
 static const uintptr_t DEFAULT_TAG = 0;
+static _subsystem_type_t subsystem_type = NATIVE_THREAD;
 
 // defines
 #define UNINITIALIZED_STRING_VAL "N/A"
@@ -170,9 +182,12 @@ static const uintptr_t DEFAULT_TAG = 0;
 #endif
 
 #define PyLong_AsVoidPtr (uintptr_t)PyLong_AsVoidPtr
-
+ 
 // forwards
 static _ctx * _profile_thread(PyThreadState *ts);
+static int profile_event_c(PyObject *self, PyFrameObject *frame, int what, PyObject *arg);
+static void _pause_greenlet_ctx(_ctx *ctx);
+static void _resume_greenlet_ctx(_ctx *ctx);
 static int _pitenumdel(_hitem *item, void *arg);
 
 // funcs
@@ -366,11 +381,31 @@ error:
     return 0;
 }
 
+static PyObject*
+_current_greenlet_dict()
+{
+    // Returns a *new reference* to the current greenlet's dict
+    // Ref count of returned dict must be decremented to avoid leaks
+    PyGreenlet *curr_greenlet;
+    PyObject *dict;
+
+    curr_greenlet = PyGreenlet_GetCurrent();
+    if (curr_greenlet->dict != NULL) {
+        dict = curr_greenlet->dict;
+        Py_INCREF(dict);
+    } else {
+        dict = PyObject_GetAttrString((PyObject*)curr_greenlet, "__dict__");
+    }
+
+    Py_DECREF(curr_greenlet);
+    return dict;
+}
+
 static uintptr_t
 _current_context_id(PyThreadState *ts)
 {
     uintptr_t rc;
-    PyObject *callback_rc, *ytid;
+    PyObject *callback_rc, *ytid, *dict;
 
     if (context_id_callback) {
         callback_rc = _call_funcobjargs(context_id_callback, NULL);
@@ -386,7 +421,7 @@ _current_context_id(PyThreadState *ts)
         }
 
         return rc;
-    } else {
+    } else if (subsystem_type == NATIVE_THREAD) {
         // Use thread_id instead of ts pointer, because when we create/delete many threads, some
         // of them do not show up in the thread_stats, because ts pointers are recycled in the VM.
         // Also, OS tids are recycled, too. The only valid way is to give ctx's custom tids which
@@ -420,6 +455,24 @@ _current_context_id(PyThreadState *ts)
         rc = PyLong_AsVoidPtr(ytid);
 
         return rc;
+    } else if (subsystem_type == GREENLET) {
+
+        dict = _current_greenlet_dict();
+        if (dict == NULL) {
+            return 0;
+        }
+
+        ytid = PyDict_GetItemString(dict, "_yappi_tid");
+        if (!ytid) {
+            ytid = PyLong_FromLongLong(ycurthreadindex++);
+            PyDict_SetItemString(dict, "_yappi_tid", ytid);
+            Py_DECREF(ytid);
+        }
+
+        rc = PyLong_AsVoidPtr(ytid);
+
+        Py_DECREF(dict);
+        return rc;
     }
 
 error:
@@ -437,6 +490,7 @@ _thread2ctx(PyThreadState *ts)
         // callback functions in some circumtances, can be called before the context entry is not
         // created. (See issue 21). To prevent this problem we need to ensure the context entry for
         // the thread is always available here.
+        // TODO: describe how this manages multiple contexts on the same thread
         return _profile_thread(ts);
     }
     return (_ctx *)it->val;
@@ -878,8 +932,8 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     _pit_children_info *pci;
     uintptr_t current_tag;
 
-    //printf("call ENTER:%s %s\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
-    //                             PyStr_AS_CSTRING(frame->f_code->co_name));
+    // printf("call ENTER:%s %s\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
+    //                              PyStr_AS_CSTRING(frame->f_code->co_name));
 
     current_tag = _current_tag();
 
@@ -932,8 +986,8 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     int yielded = 0;
     pci = ppci = NULL;
 
-    //printf("call LEAVE:%s %s\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
-    //                             PyStr_AS_CSTRING(frame->f_code->co_name));
+    // printf("call LEAVE:%s %s\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
+    //                              PyStr_AS_CSTRING(frame->f_code->co_name));
 
     elapsed = _get_frame_elapsed();
 
@@ -1084,6 +1138,12 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         goto finally;
     }
 
+    if (current_ctx != tl_prev_ctx && subsystem_type == GREENLET && get_timing_clock_type() == CPU_CLOCK) {
+        _pause_greenlet_ctx(tl_prev_ctx);
+        _resume_greenlet_ctx(current_ctx);
+    }
+    tl_prev_ctx = current_ctx;
+
     // do not profile if multi-threaded is off and the context is different than
     // the context that called start.
     if (!flags.multithreaded && current_ctx != initial_ctx) {
@@ -1136,7 +1196,7 @@ finally:
     // there shall be no context switch happenning inside 
     // profile events and no concurent running events is possible
     if (current_ctx->ts_ptr != PyThreadState_GET()) {
-        //printf("call EVENT %d %s %s %p %p\n", what, PyStr_AS_CSTRING(frame->f_code->co_filename),
+        // printf("call EVENT %d %s %s %p %p\n", what, PyStr_AS_CSTRING(frame->f_code->co_filename),
         //                     PyStr_AS_CSTRING(frame->f_code->co_name), 
         //                     current_ctx->ts_ptr, PyThreadState_GET());
 
@@ -1145,6 +1205,47 @@ finally:
     }
 
     return 0;
+}
+
+static void
+_pause_greenlet_ctx(_ctx *ctx)
+{
+    ydprintf("pausing context: %ld %s\n", ctx->id, ctx->name);
+    ctx->paused = 1;
+    ctx->paused_at = tickcount();
+}
+
+static void
+_resume_greenlet_ctx(_ctx *ctx)
+{
+    long long shift;
+    int i;
+
+    if (!ctx->paused) {
+        return;
+    }
+
+    ctx->paused = 0;
+    if (ctx->cs->head < 0) {
+        return;
+    }
+
+    shift = tickcount() - ctx->paused_at;
+
+    for (i = 0; i <= ctx->cs->head; i++) {
+        ctx->cs->_items[i].t0 += shift;
+    }
+
+    ctx->t0 += shift;
+    ydprintf("resuming context: %ld, shift: %ld %s\n", ctx->id, shift, ctx->name);
+}
+
+static _ctx *
+_bootstrap_thread(PyThreadState *ts)
+{
+    ts->use_tracing = 1;
+    ts->c_profilefunc = profile_event_c;
+    return NULL;
 }
 
 static _ctx *
@@ -1160,7 +1261,7 @@ _profile_thread(PyThreadState *ts)
         ctx = _create_ctx();
         if (!ctx) {
             return NULL;
-        }    
+        }
         if (!hadd(contexts, ctx_id, (uintptr_t)ctx)) {
             _del_ctx(ctx);
             if (!flput(flctx, ctx)) {
@@ -1178,8 +1279,10 @@ _profile_thread(PyThreadState *ts)
     ctx->id = ctx_id;
     ctx->tid = ts->thread_id;
     ctx->ts_ptr = ts;
+    ctx->paused = 0;
+    ctx->paused_at = 0;
 
-    //printf("Thread profile STARTED. ctx=%p, ts_ptr=%p, ctx_id=%ld, ts param=%p\n", ctx, 
+    // printf("Thread profile STARTED. ctx=%p, ts_ptr=%p, ctx_id=%ld, ts param=%p\n", ctx, 
     //        ctx->ts_ptr, ctx->id, ts);
 
     return ctx;
@@ -1198,7 +1301,7 @@ static void
 _ensure_thread_profiled(PyThreadState *ts)
 {
     if (ts->c_profilefunc != _yapp_callback)
-        _profile_thread(ts);
+        tl_prev_ctx = _profile_thread(ts);
 }
 
 static void
@@ -1263,6 +1366,10 @@ profile_event(PyObject *self, PyObject *args)
         return NULL;
     }
 
+    // TODO(suhail): Understand how it is possible to reach here when
+    // 'flags.multithreaded' is false. Also if multithreaded is false, then
+    // this is definitely not the initial thread that called 'start' and so
+    // we should not continue to invoke '_yapp_callback' as we do now.
     if (flags.multithreaded) {
         _ensure_thread_profiled(PyThreadState_GET());
     }
@@ -1281,6 +1388,17 @@ profile_event(PyObject *self, PyObject *args)
         _yapp_callback(self, frame, PyTrace_C_EXCEPTION, arg);
 
     Py_RETURN_NONE;
+}
+
+static int
+profile_event_c(PyObject *self, PyFrameObject *frame, int what,
+                 PyObject *arg)
+{
+    if (flags.multithreaded) {
+        _ensure_thread_profiled(PyThreadState_GET());
+    }
+
+    return _yapp_callback(self, frame, what, arg);
 }
 
 static long long
@@ -1314,7 +1432,7 @@ _start(void)
     }
 
     if (flags.multithreaded) {
-        _enum_threads(&_profile_thread);
+        _enum_threads(&_bootstrap_thread);
     } else {
         _ensure_thread_profiled(PyThreadState_GET());
         initial_ctx = _thread2ctx(PyThreadState_GET());
@@ -1753,6 +1871,40 @@ set_context_name_callback(PyObject *self, PyObject *args)
 }
 
 static PyObject *
+set_context_backend(PyObject *self, PyObject *args)
+{
+    _subsystem_type_t input_sub_type;
+    
+    if (!PyArg_ParseTuple(args, "i", &input_sub_type)) {
+        return NULL;
+    }
+    
+    if (input_sub_type == subsystem_type)
+    {
+        Py_RETURN_NONE;
+    }
+    
+    // TODO(suhail.muhammed): Is this the correct condition to check?
+    if (yapprunning) {
+        PyErr_SetString(YappiProfileError, "backend type cannot be changed while yappi is running");
+        return NULL;
+    }
+
+    if (input_sub_type != NATIVE_THREAD && input_sub_type != GREENLET)  {
+        PyErr_SetString(YappiProfileError, "Invalid backend type.");
+        return NULL;
+    }
+
+    if (input_sub_type == GREENLET) {
+        PyGreenlet_Import();
+    }
+
+    subsystem_type = input_sub_type;
+
+    Py_RETURN_NONE;
+}
+
+static PyObject *
 set_test_timings(PyObject *self, PyObject *args)
 {
     if (!PyArg_ParseTuple(args, "O", &test_timings)) {
@@ -1922,6 +2074,7 @@ static PyMethodDef yappi_methods[] = {
     {"set_context_id_callback", set_context_id_callback, METH_VARARGS, NULL},
     {"set_tag_callback", set_tag_callback, METH_VARARGS, NULL},
     {"set_context_name_callback", set_context_name_callback, METH_VARARGS, NULL},
+    {"set_context_backend", set_context_backend, METH_VARARGS, NULL},
     {"_get_start_flags", get_start_flags, METH_VARARGS, NULL}, // for internal usage.
     {"_set_test_timings", set_test_timings, METH_VARARGS, NULL}, // for internal usage.
     {"_profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage.
