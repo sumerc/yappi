@@ -9,6 +9,7 @@ import threading
 import warnings
 import types
 import inspect
+import itertools
 try:
     from thread import get_ident  # Python 2
 except ImportError:
@@ -24,7 +25,7 @@ class YappiError(Exception):
 __all__ = [
     'start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats',
     'is_running', 'get_clock_time', 'get_clock_type', 'set_clock_type',
-    'get_clock_info', 'get_mem_usage'
+    'get_clock_info', 'get_mem_usage', 'set_context_backend'
 ]
 
 LINESEP = os.linesep
@@ -79,6 +80,10 @@ DEFAULT_SORT_ORDER = "desc"
 CLOCK_TYPES = {"WALL": 0, "CPU": 1}
 BACKEND_TYPES = {"NATIVE_THREAD": 0, "GREENLET": 1}
 
+try:
+    GREENLET_COUNTER = itertools.count(start=1).next
+except AttributeError:
+    GREENLET_COUNTER = itertools.count(start=1).__next__
 
 def _validate_sorttype(sort_type, list):
     sort_type = sort_type.lower()
@@ -113,7 +118,6 @@ def _ctx_name_callback():
         # Threads may not be registered yet in first few profile callbacks.
         return None
 
-
 def _profile_thread_callback(frame, event, arg):
     """
     _profile_thread_callback will only be called once per-thread. _yappi will detect
@@ -122,6 +126,27 @@ def _profile_thread_callback(frame, event, arg):
     """
     _yappi._profile_event(frame, event, arg)
 
+def _create_greenlet_id_callback():
+    """
+    Returns a function that can identify unique greenlets. Identity of a greenlet
+    cannot be reused once a greenlet dies. 'id(greenlet)' cannot be used because
+    'id' returns an identifier that can be reused once a greenlet object is garbage
+    collected.
+    """
+    try:
+        from greenlet import getcurrent
+    except ImportError as exc:
+        raise YappiError("'greenlet' import failed with: %s" % repr(exc))
+
+    def _get_greenlet_id():
+        curr_greenlet = getcurrent()
+        id_ = getattr(curr_greenlet, "_yappi_tid", None)
+        if id_ is None:
+            id_ = GREENLET_COUNTER()
+            curr_greenlet._yappi_tid = id_
+        return id_
+
+    return _get_greenlet_id
 
 def _fft(x, COL_SIZE=8):
     """
@@ -1212,20 +1237,22 @@ def set_tag_callback(cbk):
     """
     return _yappi.set_tag_callback(cbk)
 
-
-def set_ctx_backend(type):
+def set_context_backend(type):
     """
     Sets the internal threading backend used to track execution context
 
     type must be one of 'greenlet' or 'native_thread'. For example:
 
     >>> import greenlet, yappi
-    >>> yappi.set_ctx_backend("greenlet")
+    >>> yappi.set_context_backend("greenlet")
     """
     type = type.upper()
     if type not in BACKEND_TYPES:
         raise YappiError("Invalid backend type: %s" % (type))
 
+    if type == "GREENLET":
+        greenlet_id_callback = _create_greenlet_id_callback()
+        _yappi.set_context_id_callback(greenlet_id_callback)
     _yappi.set_context_backend(BACKEND_TYPES[type])
 
 

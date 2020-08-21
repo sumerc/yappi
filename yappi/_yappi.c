@@ -23,7 +23,6 @@
 #include "timing.h"
 #include "freelist.h"
 #include "mem.h"
-#include "greenlet/greenlet.h"
 
 #ifdef IS_PY3K
 PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
@@ -381,31 +380,11 @@ error:
     return 0;
 }
 
-static PyObject*
-_current_greenlet_dict()
-{
-    // Returns a *new reference* to the current greenlet's dict
-    // Ref count of returned dict must be decremented to avoid leaks
-    PyGreenlet *curr_greenlet;
-    PyObject *dict;
-
-    curr_greenlet = PyGreenlet_GetCurrent();
-    if (curr_greenlet->dict != NULL) {
-        dict = curr_greenlet->dict;
-        Py_INCREF(dict);
-    } else {
-        dict = PyObject_GetAttrString((PyObject*)curr_greenlet, "__dict__");
-    }
-
-    Py_DECREF(curr_greenlet);
-    return dict;
-}
-
 static uintptr_t
 _current_context_id(PyThreadState *ts)
 {
     uintptr_t rc;
-    PyObject *callback_rc, *ytid, *dict;
+    PyObject *callback_rc, *ytid;
 
     if (context_id_callback) {
         callback_rc = _call_funcobjargs(context_id_callback, NULL);
@@ -421,7 +400,7 @@ _current_context_id(PyThreadState *ts)
         }
 
         return rc;
-    } else if (subsystem_type == NATIVE_THREAD) {
+    } else {
         // Use thread_id instead of ts pointer, because when we create/delete many threads, some
         // of them do not show up in the thread_stats, because ts pointers are recycled in the VM.
         // Also, OS tids are recycled, too. The only valid way is to give ctx's custom tids which
@@ -454,24 +433,6 @@ _current_context_id(PyThreadState *ts)
         }
         rc = PyLong_AsVoidPtr(ytid);
 
-        return rc;
-    } else if (subsystem_type == GREENLET) {
-
-        dict = _current_greenlet_dict();
-        if (dict == NULL) {
-            return 0;
-        }
-
-        ytid = PyDict_GetItemString(dict, "_yappi_tid");
-        if (!ytid) {
-            ytid = PyLong_FromLongLong(ycurthreadindex++);
-            PyDict_SetItemString(dict, "_yappi_tid", ytid);
-            Py_DECREF(ytid);
-        }
-
-        rc = PyLong_AsVoidPtr(ytid);
-
-        Py_DECREF(dict);
         return rc;
     }
 
@@ -1893,10 +1854,6 @@ set_context_backend(PyObject *self, PyObject *args)
     if (input_sub_type != NATIVE_THREAD && input_sub_type != GREENLET)  {
         PyErr_SetString(YappiProfileError, "Invalid backend type.");
         return NULL;
-    }
-
-    if (input_sub_type == GREENLET) {
-        PyGreenlet_Import();
     }
 
     subsystem_type = input_sub_type;

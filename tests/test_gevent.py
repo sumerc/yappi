@@ -21,6 +21,7 @@ class SingleThreadTests(YappiUnitTestCase):
             g2.get()
 
         yappi.set_clock_type("cpu")
+        yappi.set_context_backend("greenlet")
         yappi.start()
         g = gevent.spawn(a, 3)
         g.get() # run until complete, report exception (if any)
@@ -45,6 +46,7 @@ class SingleThreadTests(YappiUnitTestCase):
             burn_cpu(0.3)
 
         yappi.set_clock_type("wall")
+        yappi.set_context_backend("greenlet")
         yappi.start(builtins=True)
         g1 = gevent.spawn(a)
         g1.get()
@@ -55,12 +57,11 @@ class SingleThreadTests(YappiUnitTestCase):
         r1 = '''
         ..p/yappi/tests/test_asyncio.py:43 a  2      0.000118  1.604049  0.802024
         ..e-packages/gevent/hub.py:126 sleep  6      0.000000  0.603239  0.100540
-        ../yappi/tests/utils.py:126 burn_cpu  2      0.576313  0.600026  0.300013
+        ../yappi/tests/utils.py:126 burn_cpu  2      0.446499  0.600026  0.300013
         ..p/yappi/tests/utils.py:135 burn_io  4      0.000025  0.400666  0.100166
         time.sleep                            4      0.400641  0.400641  0.100160
         '''
         stats = yappi.get_func_stats()
-
         self.assert_traces_almost_equal(r1, stats)
 
         yappi.clear_stats()
@@ -110,7 +111,7 @@ class MultiThreadTests(YappiUnitTestCase):
                 return -1
 
         yappi.set_clock_type("cpu")
-        yappi.set_ctx_backend("greenlet")
+        yappi.set_context_backend("greenlet")
         tlocal._tag = 0
         yappi.set_tag_callback(tag_cbk)
 
@@ -156,7 +157,7 @@ class MultiThreadTests(YappiUnitTestCase):
         yappi.stop()
         traces = yappi.get_func_stats()
         t1 = '''
-        ../yappi/tests/utils.py:126 burn_cpu  12     3.226683  3.801261  0.316772
+        ../yappi/tests/utils.py:126 burn_cpu  12     2.529676  3.801261  0.316772
         tests/test_gevent.py:96 recursive_a   12     0.001707  3.014276  0.251190
         tests/test_gevent.py:88 a             2      0.000088  0.800840  0.400420
         ..e-packages/gevent/hub.py:126 sleep  12     0.011484  0.011484  0.000957
@@ -184,7 +185,7 @@ class MultiThreadTests(YappiUnitTestCase):
 
 
         yappi.set_clock_type("cpu")
-        yappi.set_ctx_backend("greenlet")
+        yappi.set_context_backend("greenlet")
 
         class GeventTestThread(threading.Thread):
             def __init__(self, func, args):
