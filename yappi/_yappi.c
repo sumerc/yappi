@@ -23,6 +23,7 @@
 #include "timing.h"
 #include "freelist.h"
 #include "mem.h"
+#include "tls.h"
 
 #ifdef IS_PY3K
 PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
@@ -154,7 +155,7 @@ static int paused;
 static time_t yappstarttime;
 static long long yappstarttick;
 static long long yappstoptick;
-static __thread _ctx *tl_prev_ctx = NULL;
+static tls_key_t* tl_prev_ctx_key = NULL;
 static _ctx *prev_ctx = NULL;
 static _ctx *current_ctx = NULL;
 static _ctx *initial_ctx = NULL; // used for holding the context that called start()
@@ -184,7 +185,6 @@ static _subsystem_type_t subsystem_type = NATIVE_THREAD;
  
 // forwards
 static _ctx * _profile_thread(PyThreadState *ts);
-static int profile_event_c(PyObject *self, PyFrameObject *frame, int what, PyObject *arg);
 static void _pause_greenlet_ctx(_ctx *ctx);
 static void _resume_greenlet_ctx(_ctx *ctx);
 static int _pitenumdel(_hitem *item, void *arg);
@@ -1087,6 +1087,7 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
                PyObject *arg)
 {
     PyObject *last_type, *last_value, *last_tb;
+    _ctx* tl_prev_ctx;
     PyErr_Fetch(&last_type, &last_value, &last_tb);
 
     //printf("call EVENT %d %s %s", what, PyStr_AS_CSTRING(frame->f_code->co_filename),
@@ -1099,11 +1100,18 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         goto finally;
     }
 
-    if (current_ctx != tl_prev_ctx && subsystem_type == GREENLET && get_timing_clock_type() == CPU_CLOCK) {
-        _pause_greenlet_ctx(tl_prev_ctx);
-        _resume_greenlet_ctx(current_ctx);
+    if (subsystem_type == GREENLET && get_timing_clock_type() == CPU_CLOCK) {
+        tl_prev_ctx = (_ctx*)(get_tls_key_value(tl_prev_ctx_key));
+ 
+        if (tl_prev_ctx != current_ctx) {
+            if (tl_prev_ctx) {
+                _pause_greenlet_ctx(tl_prev_ctx);
+                _resume_greenlet_ctx(current_ctx);
+            }
+            if (set_tls_key_value(tl_prev_ctx_key, current_ctx) != 0)
+                goto finally;
+        }
     }
-    tl_prev_ctx = current_ctx;
 
     // do not profile if multi-threaded is off and the context is different than
     // the context that called start.
@@ -1171,7 +1179,7 @@ finally:
 static void
 _pause_greenlet_ctx(_ctx *ctx)
 {
-    ydprintf("pausing context: %ld %s\n", ctx->id, ctx->name);
+    ydprintf("pausing context: %ld %s", ctx->id, ctx->name);
     ctx->paused = 1;
     ctx->paused_at = tickcount();
 }
@@ -1181,6 +1189,8 @@ _resume_greenlet_ctx(_ctx *ctx)
 {
     long long shift;
     int i;
+
+    ydprintf("resuming context: %ld %s", ctx->id, ctx->name);
 
     if (!ctx->paused) {
         return;
@@ -1205,7 +1215,7 @@ static _ctx *
 _bootstrap_thread(PyThreadState *ts)
 {
     ts->use_tracing = 1;
-    ts->c_profilefunc = profile_event_c;
+    ts->c_profilefunc = _yapp_callback;
     return NULL;
 }
 
@@ -1262,7 +1272,7 @@ static void
 _ensure_thread_profiled(PyThreadState *ts)
 {
     if (ts->c_profilefunc != _yapp_callback)
-        tl_prev_ctx = _profile_thread(ts);
+        _profile_thread(ts);
 }
 
 static void
@@ -1294,6 +1304,9 @@ _init_profiler(void)
         flctx = flcreate(sizeof(_ctx), FL_CTX_SIZE);
         if (!flctx)
             goto error;
+        tl_prev_ctx_key = create_tls_key();
+        if (!tl_prev_ctx_key)
+            goto error;
         yappinitialized = 1;
     }
     return 1;
@@ -1310,6 +1323,10 @@ error:
     if (flctx) {
         fldestroy(flctx);
         flctx = NULL;
+    }
+    if (tl_prev_ctx_key) {
+        delete_tls_key(tl_prev_ctx_key);
+        tl_prev_ctx_key = NULL;
     }
 
     return 0;
@@ -1349,17 +1366,6 @@ profile_event(PyObject *self, PyObject *args)
         _yapp_callback(self, frame, PyTrace_C_EXCEPTION, arg);
 
     Py_RETURN_NONE;
-}
-
-static int
-profile_event_c(PyObject *self, PyFrameObject *frame, int what,
-                 PyObject *arg)
-{
-    if (flags.multithreaded) {
-        _ensure_thread_profiled(PyThreadState_GET());
-    }
-
-    return _yapp_callback(self, frame, what, arg);
 }
 
 static long long
@@ -1440,6 +1446,9 @@ clear_stats(PyObject *self, PyObject *args)
 
     fldestroy(flctx);
     flctx = NULL;
+
+    delete_tls_key(tl_prev_ctx_key);
+    tl_prev_ctx_key = NULL;
 
     yappinitialized = 0;
     yapphavestats = 0;

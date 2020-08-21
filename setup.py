@@ -70,7 +70,8 @@ setup(
             "_yappi",
             sources=[
                 "yappi/_yappi.c", "yappi/callstack.c", "yappi/hashtab.c",
-                "yappi/mem.c", "yappi/freelist.c", "yappi/timing.c"
+                "yappi/mem.c", "yappi/freelist.c", "yappi/timing.c",
+                "yappi/tls.c"
             ],
             define_macros=user_macros,
             libraries=user_libraries,
