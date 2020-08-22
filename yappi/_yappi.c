@@ -84,6 +84,11 @@ typedef struct {
 } _pit; // profile_item
 
 typedef struct {
+    int paused;
+    long long paused_at;
+} _glstate;
+
+typedef struct {
     _cstack *cs;
     _htab *rec_levels;
 
@@ -106,8 +111,7 @@ typedef struct {
 
     PyThreadState *ts_ptr;
 
-    int paused;
-    long long paused_at;
+    _glstate gl_state;
 } _ctx; // context
 
 typedef struct {
@@ -138,7 +142,7 @@ typedef enum
 {
     NATIVE_THREAD = 0x00,
     GREENLET = 0x01,
-} _subsystem_type_t;
+} _ctx_type_t;
 
 // globals
 static PyObject *YappiProfileError;
@@ -164,7 +168,7 @@ static PyObject *tag_callback = NULL;
 static PyObject *context_name_callback = NULL;
 static PyObject *test_timings; // used for testing
 static const uintptr_t DEFAULT_TAG = 0;
-static _subsystem_type_t subsystem_type = NATIVE_THREAD;
+static _ctx_type_t ctx_type = NATIVE_THREAD;
 
 // defines
 #define UNINITIALIZED_STRING_VAL "N/A"
@@ -451,7 +455,8 @@ _thread2ctx(PyThreadState *ts)
         // callback functions in some circumtances, can be called before the context entry is not
         // created. (See issue 21). To prevent this problem we need to ensure the context entry for
         // the thread is always available here.
-        // TODO: describe how this manages multiple contexts on the same thread
+        //
+        // This path is also excercised when new greenlets are encountered on an already profiled thread.
         return _profile_thread(ts);
     }
     return (_ctx *)it->val;
@@ -1100,7 +1105,7 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         goto finally;
     }
 
-    if (subsystem_type == GREENLET && get_timing_clock_type() == CPU_CLOCK) {
+    if (ctx_type == GREENLET && get_timing_clock_type() == CPU_CLOCK) {
         tl_prev_ctx = (_ctx*)(get_tls_key_value(tl_prev_ctx_key));
  
         if (tl_prev_ctx != current_ctx) {
@@ -1180,8 +1185,8 @@ static void
 _pause_greenlet_ctx(_ctx *ctx)
 {
     ydprintf("pausing context: %ld %s", ctx->id, ctx->name);
-    ctx->paused = 1;
-    ctx->paused_at = tickcount();
+    ctx->gl_state.paused = 1;
+    ctx->gl_state.paused_at = tickcount();
 }
 
 static void
@@ -1192,16 +1197,16 @@ _resume_greenlet_ctx(_ctx *ctx)
 
     ydprintf("resuming context: %ld %s", ctx->id, ctx->name);
 
-    if (!ctx->paused) {
+    if (!ctx->gl_state.paused) {
         return;
     }
 
-    ctx->paused = 0;
+    ctx->gl_state.paused = 0;
     if (ctx->cs->head < 0) {
         return;
     }
 
-    shift = tickcount() - ctx->paused_at;
+    shift = tickcount() - ctx->gl_state.paused_at;
 
     for (i = 0; i <= ctx->cs->head; i++) {
         ctx->cs->_items[i].t0 += shift;
@@ -1250,8 +1255,8 @@ _profile_thread(PyThreadState *ts)
     ctx->id = ctx_id;
     ctx->tid = ts->thread_id;
     ctx->ts_ptr = ts;
-    ctx->paused = 0;
-    ctx->paused_at = 0;
+    ctx->gl_state.paused = 0;
+    ctx->gl_state.paused_at = 0;
 
     // printf("Thread profile STARTED. ctx=%p, ts_ptr=%p, ctx_id=%ld, ts param=%p\n", ctx, 
     //        ctx->ts_ptr, ctx->id, ts);
@@ -1344,13 +1349,7 @@ profile_event(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    // TODO(suhail): Understand how it is possible to reach here when
-    // 'flags.multithreaded' is false. Also if multithreaded is false, then
-    // this is definitely not the initial thread that called 'start' and so
-    // we should not continue to invoke '_yapp_callback' as we do now.
-    if (flags.multithreaded) {
-        _ensure_thread_profiled(PyThreadState_GET());
-    }
+    _ensure_thread_profiled(PyThreadState_GET());
 
     ev = PyStr_AS_CSTRING(event);
 
@@ -1843,29 +1842,28 @@ set_context_name_callback(PyObject *self, PyObject *args)
 static PyObject *
 set_context_backend(PyObject *self, PyObject *args)
 {
-    _subsystem_type_t input_sub_type;
+    _ctx_type_t input_type;
     
-    if (!PyArg_ParseTuple(args, "i", &input_sub_type)) {
+    if (!PyArg_ParseTuple(args, "i", &input_type)) {
         return NULL;
     }
     
-    if (input_sub_type == subsystem_type)
+    if (input_type == ctx_type)
     {
         Py_RETURN_NONE;
     }
     
-    // TODO(suhail.muhammed): Is this the correct condition to check?
-    if (yapprunning) {
-        PyErr_SetString(YappiProfileError, "backend type cannot be changed while yappi is running");
+    if (yapphavestats) {
+        PyErr_SetString(YappiProfileError, "backend type cannot be changed while stats are available. clear stats first.");
         return NULL;
     }
 
-    if (input_sub_type != NATIVE_THREAD && input_sub_type != GREENLET)  {
+    if (input_type != NATIVE_THREAD && input_type != GREENLET)  {
         PyErr_SetString(YappiProfileError, "Invalid backend type.");
         return NULL;
     }
 
-    subsystem_type = input_sub_type;
+    ctx_type = input_type;
 
     Py_RETURN_NONE;
 }
