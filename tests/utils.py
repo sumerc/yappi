@@ -2,6 +2,7 @@ import sys
 import yappi
 import time
 import unittest
+import gevent
 
 
 class YappiUnitTestCase(unittest.TestCase):
@@ -135,6 +136,8 @@ def burn_cpu(sec):
 def burn_io(sec):
     time.sleep(sec)
 
+def burn_io_gevent(sec):
+    gevent.sleep(sec)
 
 from contextlib import contextmanager
 
