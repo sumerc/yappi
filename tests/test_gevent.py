@@ -56,7 +56,7 @@ class SingleThreadTests(YappiUnitTestCase):
         r1 = '''
         ..p/yappi/tests/test_asyncio.py:43 a  2      0.000118  1.604049  0.802024
         ..e-packages/gevent/hub.py:126 sleep  6      0.000000  0.603239  0.100540
-        ../yappi/tests/utils.py:126 burn_cpu  2      0.446499  0.600026  0.300013
+        ../yappi/tests/utils.py:126 burn_cpu  2      0.000000  0.600026  0.300013
         ..p/yappi/tests/utils.py:135 burn_io  4      0.000025  0.400666  0.100166
         time.sleep                            4      0.400641  0.400641  0.100160
         '''
@@ -136,7 +136,7 @@ class SingleThreadTests(YappiUnitTestCase):
         stats = yappi.get_func_stats()
         t1 = '''
         tests/test_gevent.py:118 a            4/1    0.000149  0.400614  0.100153
-        ../yappi/tests/utils.py:126 burn_cpu  4      0.204143  0.400208  0.100052
+        ../yappi/tests/utils.py:126 burn_cpu  4      0.000000  0.400208  0.100052
         '''
         self.assert_traces_almost_equal(t1, stats)
 
