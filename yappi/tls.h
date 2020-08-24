@@ -5,17 +5,17 @@
 #define YTLS_H
 
 #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 7
-#define PY_NEW_TSS_API
+    #define USE_NEW_TSS_API
+#endif
+
+#ifdef USE_NEW_TSS_API
+    #define YPY_KEY_TYPE Py_tss_t*
+#else
+    #define YPY_KEY_TYPE int
 #endif
 
 typedef struct {
-
-#ifdef PY_NEW_TSS_API
-    Py_tss_t* _key;
-#else
-    int _key;
-#endif
-
+    YPY_KEY_TYPE _key;
 } tls_key_t;
 
 
