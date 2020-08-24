@@ -15,5 +15,5 @@ environment:
 build: off
 
 test_script:
-    - "%PYTHON%\\python.exe setup.py install"
+    - "%PYTHON%\\python.exe -m pip install .[test]"
     - "%PYTHON%\\python.exe run_tests.py"

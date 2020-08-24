@@ -92,5 +92,8 @@ setup(
     keywords="python thread multithread profiler",
     classifiers=CLASSIFIERS,
     license="MIT",
-    url=HOMEPAGE
+    url=HOMEPAGE,
+    extras_require={
+        'test': ['gevent>=20.6.2'],
+    }
 )
