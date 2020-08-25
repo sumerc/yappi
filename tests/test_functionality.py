@@ -547,7 +547,7 @@ class BasicUsage(utils.YappiUnitTestCase):
 
         a()
         self.assertEqual(_yappi._get_start_flags()["profile_builtins"], 0)
-        self.assertEqual(_yappi._get_start_flags()["profile_multithread"], 1)
+        self.assertEqual(_yappi._get_start_flags()["profile_multicontext"], 1)
         self.assertEqual(len(yappi.get_thread_stats()), 1)
 
     def test_builtin_profiling(self):
@@ -830,7 +830,7 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
         t.join()
 
         self.assertEqual(_yappi._get_start_flags()["profile_builtins"], 0)
-        self.assertEqual(_yappi._get_start_flags()["profile_multithread"], 1)
+        self.assertEqual(_yappi._get_start_flags()["profile_multicontext"], 1)
         yappi.get_func_stats().save("tests/ystats2.ys")
 
         stats = yappi.YFuncStats([

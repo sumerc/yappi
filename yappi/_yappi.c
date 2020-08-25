@@ -135,7 +135,7 @@ typedef struct
 
 typedef struct {
     int builtins;
-    int multithreaded;
+    int multicontext;
 } _flag; // flags passed from yappi.start()
 
 typedef enum
@@ -414,7 +414,7 @@ _current_context_id(PyThreadState *ts)
         // thread. Therefore, we need to identify the "context" concept independent from ThreadState 
         // objects.
 
-        if (!flags.multithreaded) {
+        if (!flags.multicontext) {
             return 0;
         }
 
@@ -1118,9 +1118,9 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         }
     }
 
-    // do not profile if multi-threaded is off and the context is different than
+    // do not profile if multi-context is off and the context is different than
     // the context that called start.
-    if (!flags.multithreaded && current_ctx != initial_ctx) {
+    if (!flags.multicontext && current_ctx != initial_ctx) {
         goto finally;
     }
 
@@ -1397,7 +1397,7 @@ _start(void)
         return 0;
     }
 
-    if (flags.multithreaded) {
+    if (flags.multicontext) {
         _enum_threads(&_bootstrap_thread);
     } else {
         _ensure_thread_profiled(PyThreadState_GET());
@@ -1515,7 +1515,7 @@ _ctxenumstat(_hitem *item, void *arg)
 }
 
 static PyObject*
-enum_thread_stats(PyObject *self, PyObject *args)
+enum_context_stats(PyObject *self, PyObject *args)
 {
     PyObject *enumfn;
 
@@ -1524,7 +1524,7 @@ enum_thread_stats(PyObject *self, PyObject *args)
     }
 
     if (!PyArg_ParseTuple(args, "O", &enumfn)) {
-        PyErr_SetString(YappiProfileError, "invalid param to enum_thread_stats");
+        PyErr_SetString(YappiProfileError, "invalid param to enum_context_stats");
         return NULL;
     }
 
@@ -1681,7 +1681,7 @@ start(PyObject *self, PyObject *args)
     if (yapprunning)
         Py_RETURN_NONE;
 
-    if (!PyArg_ParseTuple(args, "ii", &flags.builtins, &flags.multithreaded))
+    if (!PyArg_ParseTuple(args, "ii", &flags.builtins, &flags.multicontext))
         return NULL;
 
     if (!_start())
@@ -1914,6 +1914,16 @@ set_clock_type(PyObject *self, PyObject *args)
 }
 
 static PyObject *
+get_context_backend(PyObject *self, PyObject *args)
+{
+    if (ctx_type == GREENLET) {
+        return Py_BuildValue("s", "GREENLET");
+    }  else {
+        return Py_BuildValue("s", "NATIVE_THREAD");
+    }
+}
+
+static PyObject *
 get_clock_time(PyObject *self, PyObject *args)
 {
     return PyFloat_FromDouble(tickfactor() * tickcount());
@@ -1981,20 +1991,20 @@ get_start_flags(PyObject *self, PyObject *args)
 {
     PyObject *result = NULL;
     PyObject *profile_builtins = NULL;
-    PyObject *profile_multithread = NULL;
+    PyObject *profile_multicontext = NULL;
     
     if (!yapphavestats) {
         Py_RETURN_NONE;
     }
 
     profile_builtins = Py_BuildValue("i", flags.builtins);
-    profile_multithread = Py_BuildValue("i", flags.multithreaded);
+    profile_multicontext = Py_BuildValue("i", flags.multicontext);
     result = PyDict_New();
     PyDict_SetItemString(result, "profile_builtins", profile_builtins);
-    PyDict_SetItemString(result, "profile_multithread", profile_multithread);
+    PyDict_SetItemString(result, "profile_multicontext", profile_multicontext);
     
     Py_XDECREF(profile_builtins);
-    Py_XDECREF(profile_multithread);
+    Py_XDECREF(profile_multicontext);
     return result;
 }
 
@@ -2027,7 +2037,7 @@ static PyMethodDef yappi_methods[] = {
     {"start", start, METH_VARARGS, NULL},
     {"stop", (PyCFunction)stop, METH_NOARGS, NULL},
     {"enum_func_stats", enum_func_stats, METH_VARARGS, NULL},
-    {"enum_thread_stats", enum_thread_stats, METH_VARARGS, NULL},
+    {"enum_context_stats", enum_context_stats, METH_VARARGS, NULL},
     {"clear_stats", clear_stats, METH_VARARGS, NULL},
     {"is_running", is_running, METH_VARARGS, NULL},
     {"get_clock_type", get_clock_type, METH_VARARGS, NULL},
@@ -2039,6 +2049,7 @@ static PyMethodDef yappi_methods[] = {
     {"set_tag_callback", set_tag_callback, METH_VARARGS, NULL},
     {"set_context_name_callback", set_context_name_callback, METH_VARARGS, NULL},
     {"set_context_backend", set_context_backend, METH_VARARGS, NULL},
+    {"get_context_backend", get_context_backend, METH_VARARGS, NULL},
     {"_get_start_flags", get_start_flags, METH_VARARGS, NULL}, // for internal usage.
     {"_set_test_timings", set_test_timings, METH_VARARGS, NULL}, // for internal usage.
     {"_profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage.
@@ -2090,7 +2101,7 @@ init_yappi(void)
     yapprunning = 0;
     paused = 0;
     flags.builtins = 0;
-    flags.multithreaded = 0;
+    flags.multicontext = 0;
     test_timings = NULL;
     
     if (!_init_profiler()) {

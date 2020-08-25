@@ -1,4 +1,5 @@
 import unittest
+import _yappi
 import yappi
 import gevent
 from gevent.event import Event
@@ -7,6 +8,58 @@ from utils import (
     YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io,
     burn_io_gevent
 )
+
+class TestAPI(YappiUnitTestCase):
+
+    def test_start_flags(self):
+        self.assertEqual(_yappi._get_start_flags(), None)
+        yappi.set_context_backend("greenlet")
+        yappi.start()
+
+        def a():
+            pass
+
+        a()
+        self.assertEqual(_yappi._get_start_flags()["profile_builtins"], 0)
+        self.assertEqual(_yappi._get_start_flags()["profile_multicontext"], 1)
+        self.assertEqual(len(yappi.get_greenlet_stats()), 1)
+
+        yappi.stop()
+        yappi.clear_stats()
+
+        yappi.start(builtins=True, profile_greenlets=True, profile_threads=False)
+        self.assertEqual(_yappi._get_start_flags()["profile_builtins"], 1)
+        self.assertEqual(_yappi._get_start_flags()["profile_multicontext"], 1)
+        self.assertEqual(len(yappi.get_greenlet_stats()), 1)
+
+    def test_context_change_exception(self):
+        yappi.set_context_backend("greenlet")
+        yappi.start()
+        def a():
+            pass
+
+        a()
+        # Setting to same backend should succeed
+        yappi.set_context_backend("greenlet")
+        # Changing backend should fail
+        self.assertRaises(_yappi.error, yappi.set_context_backend, "native_thread")
+        yappi.stop()
+        # Still fail, stats need to be cleared
+        self.assertRaises(_yappi.error, yappi.set_context_backend, "native_thread")
+        yappi.clear_stats()
+        # Should succeed now
+        yappi.set_context_backend("native_thread")
+
+    def test_get_context_stat_exception(self):
+        yappi.set_context_backend("greenlet")
+        yappi.start()
+        def a():
+            pass
+
+        a()
+        yappi.stop()
+        self.assertRaises(yappi.YappiError, yappi.get_thread_stats)
+        self.assertEqual(len(yappi.get_greenlet_stats()), 1)
 
 class SingleThreadTests(YappiUnitTestCase):
 
@@ -320,7 +373,7 @@ class MultiThreadTests(YappiUnitTestCase):
         '''
         self.assert_traces_almost_equal(t1, traces)
 
-    def test_profile_threads_false(self):
+    def test_profile_greenlets_false(self):
 
         def recursive_a(n):
             if not n:
@@ -364,7 +417,7 @@ class MultiThreadTests(YappiUnitTestCase):
             for t in ts:
                 t.result()
 
-        yappi.start(profile_threads=False)
+        yappi.start(profile_greenlets=False)
 
         driver()
 
@@ -376,6 +429,7 @@ class MultiThreadTests(YappiUnitTestCase):
         ../yappi/tests/utils.py:126 burn_cpu  1      0.000000  0.100082  0.100082
         '''
         self.assert_traces_almost_equal(t1, traces)
+
 
 
 if __name__ == '__main__':
