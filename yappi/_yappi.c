@@ -2038,6 +2038,7 @@ static PyMethodDef yappi_methods[] = {
     {"stop", (PyCFunction)stop, METH_NOARGS, NULL},
     {"enum_func_stats", enum_func_stats, METH_VARARGS, NULL},
     {"enum_context_stats", enum_context_stats, METH_VARARGS, NULL},
+    {"enum_thread_stats", enum_context_stats, METH_VARARGS, NULL},
     {"clear_stats", clear_stats, METH_VARARGS, NULL},
     {"is_running", is_running, METH_VARARGS, NULL},
     {"get_clock_type", get_clock_type, METH_VARARGS, NULL},
