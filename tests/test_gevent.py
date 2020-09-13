@@ -8,12 +8,52 @@ from utils import (
     YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io,
     burn_io_gevent
 )
+class GeventTestThread(threading.Thread):
+    def __init__(self, name, *args, **kwargs):
+        super(GeventTestThread, self).__init__(*args, **kwargs)
+        self.name = name
 
-class TestAPI(YappiUnitTestCase):
+    def run(self):
+        gevent.getcurrent().name = self.name
+        gevent.get_hub().name = "Hub"
+        super(GeventTestThread, self).run()
+
+class GeventTest(YappiUnitTestCase):
+
+    def setUp(self):
+        super(GeventTest, self).setUp()
+        yappi.set_clock_type("cpu")
+        yappi.set_context_backend("greenlet")
+        yappi.set_context_name_callback(self.get_greenlet_name)
+        gevent.getcurrent().name = "Main"
+        gevent.get_hub().name = "Hub"
+
+    @classmethod
+    def get_greenlet_name(cls):
+        try:
+            return gevent.getcurrent().name
+        except AttributeError:
+            return None
+
+    @classmethod
+    def spawn_greenlet(cls, name, func, *args, **kwargs):
+        name = "%s/%s" % (cls.get_greenlet_name(), name)
+        gl = gevent.Greenlet(func, *args, **kwargs)
+        gl.name = name
+        gl.start()
+        return gl
+
+    @classmethod
+    def spawn_thread(cls, name, func, *args, **kwargs):
+        name = "%s/%s" % (cls.get_greenlet_name(), name)
+        t = GeventTestThread(name, target=func, args=args, kwargs=kwargs)
+        t.start()
+        return t
+
+class TestAPI(GeventTest):
 
     def test_start_flags(self):
         self.assertEqual(_yappi._get_start_flags(), None)
-        yappi.set_context_backend("greenlet")
         yappi.start()
 
         def a():
@@ -33,14 +73,12 @@ class TestAPI(YappiUnitTestCase):
         self.assertEqual(len(yappi.get_greenlet_stats()), 1)
 
     def test_context_change_exception(self):
-        yappi.set_context_backend("greenlet")
         yappi.start()
         def a():
             pass
 
         a()
         # Setting to same backend should succeed
-        yappi.set_context_backend("greenlet")
         # Changing backend should fail
         self.assertRaises(_yappi.error, yappi.set_context_backend, "native_thread")
         yappi.stop()
@@ -51,7 +89,6 @@ class TestAPI(YappiUnitTestCase):
         yappi.set_context_backend("native_thread")
 
     def test_get_context_stat_exception(self):
-        yappi.set_context_backend("greenlet")
         yappi.start()
         def a():
             pass
@@ -61,24 +98,22 @@ class TestAPI(YappiUnitTestCase):
         self.assertRaises(yappi.YappiError, yappi.get_thread_stats)
         self.assertEqual(len(yappi.get_greenlet_stats()), 1)
 
-class SingleThreadTests(YappiUnitTestCase):
+class SingleThreadTests(GeventTest):
 
-    def test_recursive_coroutine(self):
+    def test_recursive_greenlet(self):
 
         def a(n):
             if n <= 0:
                 return
             burn_io_gevent(0.1)
             burn_cpu(0.1)
-            g1 = gevent.spawn(a, n - 1)
+            g1 = self.spawn_greenlet("a_%d" % (n-1), a, n - 1)
             g1.get()
-            g2 = gevent.spawn(a, n - 2)
+            g2 = self.spawn_greenlet("a_%d" % (n-2), a, n - 2)
             g2.get()
 
-        yappi.set_clock_type("cpu")
-        yappi.set_context_backend("greenlet")
         yappi.start()
-        g = gevent.spawn(a, 3)
+        g = self.spawn_greenlet("a", a, 3)
         g.get() # run until complete, report exception (if any)
         yappi.stop()
 
@@ -89,6 +124,21 @@ class SingleThreadTests(YappiUnitTestCase):
         '''
         stats = yappi.get_func_stats()
         self.assert_traces_almost_equal(r1, stats)
+
+        gstats = yappi.get_greenlet_stats()
+        r2 = '''
+        Main/a/a_1            9      0.100588  3
+        Main/a/a_2            4      0.100588  3
+        Main/a                3      0.100584  3
+        Main/a/a_2/a_1        5      0.100549  3
+        Main                  1      0.000356  2
+        Main/a/a_1/a_0        10     0.000046  1
+        Main/a/a_2/a_1/a_0    6      0.000044  1
+        Main/a/a_2/a_1/a_-1   7      0.000036  1
+        Main/a/a_2/a_0        8      0.000035  1
+        Main/a/a_1/a_-1       11     0.000029  1
+        '''
+        self.assert_ctx_stats_almost_equal(r2, gstats)
 
     def test_basic_old_style(self):
 
@@ -101,11 +151,10 @@ class SingleThreadTests(YappiUnitTestCase):
             burn_cpu(0.3)
 
         yappi.set_clock_type("wall")
-        yappi.set_context_backend("greenlet")
         yappi.start(builtins=True)
-        g1 = gevent.spawn(a)
+        g1 = self.spawn_greenlet("a_1", a)
         g1.get()
-        g2 = gevent.spawn(a)
+        g2 = self.spawn_greenlet("a_2", a)
         g2.get()
         yappi.stop()
 
@@ -117,13 +166,20 @@ class SingleThreadTests(YappiUnitTestCase):
         '''
         stats = yappi.get_func_stats()
         self.assert_traces_almost_equal(r1, stats)
+        gstats = yappi.get_greenlet_stats()
+        r2 = '''
+        Main           1      1.623057  3
+        Main/a_1       3      0.812399  1
+        Main/a_2       4      0.810234  1
+        '''
+        self.assert_ctx_stats_almost_equal(r2, gstats)
 
         yappi.clear_stats()
         yappi.set_clock_type("cpu")
         yappi.start(builtins=True)
-        g1 = gevent.spawn(a)
+        g1 = self.spawn_greenlet("a_1", a)
         g1.get()
-        g2 = gevent.spawn(a)
+        g2 = self.spawn_greenlet("a_2", a)
         g2.get()
         yappi.stop()
         stats = yappi.get_func_stats()
@@ -133,14 +189,21 @@ class SingleThreadTests(YappiUnitTestCase):
         burn_io_gevent                        6      0.000159  0.000801  0.000134
         '''
         self.assert_traces_almost_equal(r1, stats)
-
+        gstats = yappi.get_greenlet_stats()
+        r2 = '''
+        Main/a_2       6      0.301190  1
+        Main/a_1       5      0.300960  1
+        Main           1      0.000447  3
+        '''
+        self.assert_ctx_stats_almost_equal(r2, gstats)
 
     def test_recursive_function(self):
         def a(n):
-            burn_io_gevent(0.001)
-            burn_cpu(0.1)
             if (n <= 0):
                 return
+
+            burn_io_gevent(0.001)
+            burn_cpu(0.1)
 
             a(n - 1)
             a(n - 2)
@@ -148,24 +211,32 @@ class SingleThreadTests(YappiUnitTestCase):
         def driver():
             gls = []
             for i in (3, 4):
-                gls.append(gevent.spawn(a, i))
+                gls.append(self.spawn_greenlet("recursive_%d" % (i), a, i))
             for gl in gls:
                 gl.get()
 
         yappi.set_clock_type("cpu")
-        yappi.set_context_backend("greenlet")
         yappi.start()
         driver()
         yappi.stop()
 
         r1 = '''
-        tests/test_gevent.py:84 a             24/2   0.000524  2.402342  0.100098
-        ../yappi/tests/utils.py:126 burn_cpu  24     0.000000  2.400939  0.100039
-        burn_io_gevent                        24     0.000879  0.000879  0.000037
-        tests/test_gevent.py:93 driver        1      0.000202  0.000820  0.000820
+        tests/test_gevent.py:209 a            24/2   0.000407  1.102129  0.045922
+        ../yappi/tests/utils.py:142 burn_cpu  11     0.000000  1.100660  0.100060
+        ../tests/utils.py:154 burn_io_gevent  11     0.000159  0.001062  0.000097
+        ..e-packages/gevent/hub.py:126 sleep  11     0.000903  0.000903  0.000082
+        tests/test_gevent.py:219 driver       1      0.000208  0.000467  0.000467
         '''
         stats = yappi.get_func_stats()
         self.assert_traces_almost_equal(r1, stats)
+
+        gstats = yappi.get_greenlet_stats()
+        r2 = '''
+        Main/recursive_4  4      0.701283  5
+        Main/recursive_3  3      0.400664  5
+        Main              1      0.000439  3
+        '''
+        self.assert_ctx_stats_almost_equal(r2, gstats)
 
     def test_exception_raised(self):
         def a(n):
@@ -178,7 +249,6 @@ class SingleThreadTests(YappiUnitTestCase):
             a(n-1)
 
         yappi.set_clock_type("cpu")
-        yappi.set_context_backend("greenlet")
         yappi.start()
 
         try:
@@ -217,19 +287,17 @@ class SingleThreadTests(YappiUnitTestCase):
 
         ev1 = Event()
         ev2 = Event()
-        gl = gevent.spawn(a, ev1, ev2)
+        gl = self.spawn_greenlet("a", a, ev1, ev2)
 
         # wait for greenlet to pause
         ev1.wait()
 
         yappi.set_clock_type("cpu")
-        yappi.set_context_backend("greenlet")
         yappi.start()
 
         # resume greenlet and wait for completion
         ev2.set()
         gl.get()
-
         yappi.stop()
         stats = yappi.get_func_stats()
         t1 = '''
@@ -237,6 +305,13 @@ class SingleThreadTests(YappiUnitTestCase):
         tests/test_gevent.py:161 a_inner_3    1      0.000041  0.100209  0.100209
         '''
         self.assert_traces_almost_equal(t1, stats)
+        gstats = yappi.get_greenlet_stats()
+        r2 = '''
+        Main/a                2      0.300425  1
+        Main                  1      0.000145  2
+        '''
+        self.assert_ctx_stats_almost_equal(r2, gstats)
+
 
     def test_many_context_switches(self):
 
@@ -261,14 +336,13 @@ class SingleThreadTests(YappiUnitTestCase):
 
         def driver():
             gls = []
-            for func in (a, a, b, b):
-                gls.append(gevent.spawn(func))
+            for idx, func in enumerate((a, a, b, b)):
+                gls.append(self.spawn_greenlet("func_%d" % (idx), func))
 
             for gl in gls:
                 gl.get()
 
         yappi.set_clock_type("cpu")
-        yappi.set_context_backend("greenlet")
         yappi.start()
         driver()
         yappi.stop()
@@ -281,8 +355,17 @@ class SingleThreadTests(YappiUnitTestCase):
         tests/test_gevent.py:144 b            2      0.000021  0.809314  0.404657
         '''
         self.assert_traces_almost_equal(t1, stats)
+        gstats = yappi.get_greenlet_stats()
+        r2 = '''
+        Main/func_3    6      0.417321  201
+        Main/func_2    5      0.416521  201
+        Main/func_0    3      0.414553  201
+        Main/func_1    4      0.413268  201
+        Main           1      0.000579  3
+        '''
+        self.assert_ctx_stats_almost_equal(r2, gstats)
 
-class MultiThreadTests(YappiUnitTestCase):
+class MultiThreadTests(GeventTest):
 
     def test_basic(self):
 
@@ -291,7 +374,7 @@ class MultiThreadTests(YappiUnitTestCase):
             burn_cpu(0.4)
 
         def b():
-            g = gevent.spawn(a)
+            g = self.spawn_greenlet("a", a)
             return g.get()
 
         def recursive_a(n):
@@ -299,39 +382,12 @@ class MultiThreadTests(YappiUnitTestCase):
                 return
             burn_cpu(0.3)
             burn_io_gevent(0.3)
-            g = gevent.spawn(recursive_a, n - 1)
+            g = self.spawn_greenlet("rec_a", recursive_a, n - 1)
             return g.get()
 
-        tlocal = threading.local()
-
-        def tag_cbk():
-            try:
-                return tlocal._tag
-            except:
-                return -1
-
         yappi.set_clock_type("cpu")
-        yappi.set_context_backend("greenlet")
-        tlocal._tag = 0
-        yappi.set_tag_callback(tag_cbk)
-
-        class GeventTestThread(threading.Thread):
-            def __init__(self, tag, func, args):
-                super(GeventTestThread, self).__init__()
-                self.tag = tag
-                self.func = func
-                self.args = args
-            def run(self):
-                tlocal._tag = self.tag
-                self.g = gevent.spawn(self.func, *self.args)
-                self.g.join()
-            def result(self):
-                self.join() # wait for thread completion
-                return self.g.get() # get greenlet result
 
         def driver():
-            _ctag = 1
-
             to_run = [
                 (a, ()),
                 (b, ()),
@@ -340,15 +396,12 @@ class MultiThreadTests(YappiUnitTestCase):
             ]
 
             ts = []
-            for func, args in to_run:
-                t = GeventTestThread(_ctag, func, args)
-                t.start()
-
+            for idx, (func, args) in enumerate(to_run):
+                t = self.spawn_thread("%s-%d" %  (func.__name__, idx), func, *args)
                 ts.append(t)
-                _ctag += 1
 
             for t in ts:
-                t.result()
+                t.join()
 
         yappi.start()
 
@@ -366,12 +419,26 @@ class MultiThreadTests(YappiUnitTestCase):
         '''
         self.assert_traces_almost_equal(t1, traces)
 
-        traces = yappi.get_func_stats(filter={'tag': 3})
-        t1 = '''
-        tests/test_gevent.py:101 recursive_a  6      0.001180  1.503081  0.250514
-        ../yappi/tests/utils.py:126 burn_cpu  5      0.000000  1.500896  0.300179
+        stats = yappi.get_greenlet_stats()
+        r2 = '''
+        Main/a-0                                            2      0.400421  59
+        Main/b-1/a                                          6      0.400228  58
+        Main/recursive_a-3                                  8      0.301177  33
+        Main/recursive_a-2                                  7      0.300615  36
+        Main/recursive_a-2/rec_a/rec_a/rec_a                16     0.300509  42
+        Main/recursive_a-2/rec_a/rec_a/rec_a/rec_a          18     0.300505  42
+        Main/recursive_a-3/rec_a/rec_a/rec_a/rec_a          17     0.300481  39
+        Main/recursive_a-3/rec_a                            11     0.300464  45
+        Main/recursive_a-3/rec_a/rec_a                      13     0.300456  35
+        Main/recursive_a-3/rec_a/rec_a/rec_a                15     0.300456  36
+        Main/recursive_a-2/rec_a/rec_a                      14     0.300423  29
+        Main/recursive_a-2/rec_a                            12     0.300359  41
+        Main                                                1      0.002443  7
+        Main/b-1                                            4      0.000595  2
+        Main/recursive_a-3/rec_a/rec_a/rec_a/rec_a/rec_a    19     0.000048  1
+        Main/recursive_a-2/rec_a/rec_a/rec_a/rec_a/rec_a    20     0.000047  1
         '''
-        self.assert_traces_almost_equal(t1, traces)
+        self.assert_ctx_stats_almost_equal(r2, stats)
 
     def test_profile_greenlets_false(self):
 
@@ -380,24 +447,10 @@ class MultiThreadTests(YappiUnitTestCase):
                 return
             burn_cpu(0.1)
             burn_io_gevent(0.1)
-            g = gevent.spawn(recursive_a, n - 1)
+            g = self.spawn_greenlet("rec", recursive_a, n - 1)
             return g.get()
 
-
         yappi.set_clock_type("cpu")
-        yappi.set_context_backend("greenlet")
-
-        class GeventTestThread(threading.Thread):
-            def __init__(self, func, args):
-                super(GeventTestThread, self).__init__()
-                self.func = func
-                self.args = args
-            def run(self):
-                self.g = gevent.spawn(self.func, *self.args)
-                self.g.join()
-            def result(self):
-                self.join() # wait for thread completion
-                return self.g.get() # get greenlet result
 
         def driver():
 
@@ -407,15 +460,14 @@ class MultiThreadTests(YappiUnitTestCase):
             ]
 
             ts = []
-            for func, args in to_run:
-                t = GeventTestThread(func, args)
-                t.start()
+            for idx, (func, args) in enumerate(to_run):
+                t = self.spawn_thread("%s_%d" % (func.__name__, idx), func, *args)
                 ts.append(t)
 
             recursive_a(6)
 
             for t in ts:
-                t.result()
+                t.join()
 
         yappi.start(profile_greenlets=False)
 
@@ -429,8 +481,11 @@ class MultiThreadTests(YappiUnitTestCase):
         ../yappi/tests/utils.py:126 burn_cpu  1      0.000000  0.100082  0.100082
         '''
         self.assert_traces_almost_equal(t1, traces)
-
-
+        gstats = yappi.get_greenlet_stats()
+        r2 = '''
+        Main           1      0.101944  1
+        '''
+        self.assert_ctx_stats_almost_equal(r2, gstats)
 
 if __name__ == '__main__':
     unittest.main()

@@ -109,6 +109,8 @@ typedef struct {
     // how many times this thread is scheduled
     unsigned long sched_cnt;
 
+    long long last_seen;
+
     PyThreadState *ts_ptr;
 
     _glstate gl_state;
@@ -291,6 +293,7 @@ _create_ctx(void)
     ctx->tid = 0;
     ctx->name = NULL;
     ctx->t0 = tickcount();
+    ctx->last_seen = ctx->t0;
     ctx->rec_levels = htcreate(HT_RLEVEL_SIZE);
     if (!ctx->rec_levels)
         return NULL;
@@ -784,6 +787,16 @@ decr_rec_level(uintptr_t key)
     return 1;
 }
 
+
+static long long
+_ctx_tickcount() {
+    long long now;
+
+    now = tickcount();
+    current_ctx->last_seen = now;
+    return now;
+}
+
 static long long
 _get_frame_elapsed(void)
 {
@@ -811,11 +824,12 @@ _get_frame_elapsed(void)
         }
 
     } else {
-        result = tickcount() - ci->t0;
+        result = _ctx_tickcount() - ci->t0;
     }
 
     return result;
 }
+
 
 static int 
 _coro_enter(_pit *cp, PyFrameObject *frame)
@@ -933,7 +947,7 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         return;
     }
 
-    ci->t0 = tickcount();
+    ci->t0 = _ctx_tickcount();
 
     incr_rec_level((uintptr_t)cp);
 
@@ -1107,7 +1121,7 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
 
     if (ctx_type == GREENLET && get_timing_clock_type() == CPU_CLOCK) {
         tl_prev_ctx = (_ctx*)(get_tls_key_value(tl_prev_ctx_key));
- 
+
         if (tl_prev_ctx != current_ctx) {
             if (tl_prev_ctx) {
                 _pause_greenlet_ctx(tl_prev_ctx);
@@ -1184,7 +1198,7 @@ finally:
 static void
 _pause_greenlet_ctx(_ctx *ctx)
 {
-    ydprintf("pausing context: %ld %s", ctx->id, ctx->name);
+    ydprintf("pausing context: %ld", ctx->id);
     ctx->gl_state.paused = 1;
     ctx->gl_state.paused_at = tickcount();
 }
@@ -1195,25 +1209,21 @@ _resume_greenlet_ctx(_ctx *ctx)
     long long shift;
     int i;
 
-    ydprintf("resuming context: %ld %s", ctx->id, ctx->name);
+    ydprintf("resuming context: %ld", ctx->id);
 
     if (!ctx->gl_state.paused) {
         return;
     }
 
     ctx->gl_state.paused = 0;
-    if (ctx->cs->head < 0) {
-        return;
-    }
-
     shift = tickcount() - ctx->gl_state.paused_at;
+    ctx->t0 += shift;
 
     for (i = 0; i <= ctx->cs->head; i++) {
         ctx->cs->_items[i].t0 += shift;
     }
 
-    ctx->t0 += shift;
-    ydprintf("resuming context: %ld, shift: %ld %s\n", ctx->id, shift, ctx->name);
+    ydprintf("resuming context: %ld, shift: %lld", ctx->id, shift);
 }
 
 static _ctx *
@@ -1501,7 +1511,7 @@ _ctxenumstat(_hitem *item, void *arg)
 
     efn = (PyObject *)arg;
 
-    cumdiff = _calc_cumdiff(tickcount(), ctx->t0);
+    cumdiff = _calc_cumdiff(ctx->last_seen, ctx->t0);
 
     exc = PyObject_CallFunction(efn, "((skkfk))", tcname, ctx->id, ctx->tid,
         cumdiff * tickfactor(), ctx->sched_cnt);
