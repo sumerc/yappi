@@ -239,6 +239,34 @@ doc4.py:15 baz                        1      0.000013  1.001397  1.001397
 '''
 ```
 
+### Profile a greenlet application:
+
+You can use yappi to profile greenlet applications now!
+
+```python
+import yappi
+from greenlet import greenlet
+import time
+
+class GreenletA(greenlet):
+    def run(self):
+        time.sleep(1)
+
+yappi.set_context_backend("greenlet")
+yappi.set_clock_type("wall")
+
+yappi.start(builtins=True)
+a = GreenletA()
+a.switch()
+yappi.stop()
+
+yappi.get_func_stats().print_all()
+'''
+name                                  ncall  tsub      ttot      tavg
+tests/test_random.py:6 GreenletA.run  1      0.000007  1.000494  1.000494
+time.sleep                            1      1.000487  1.000487  1.000487
+'''
+```
 
 ## Documentation
 
