@@ -65,8 +65,6 @@ class YappiUnitTestCase(unittest.TestCase):
                 ttot_orig = float(t[-2].strip())
 
                 ctx = find_ctx_stats_by_name(actual_stats, t[0])
-                if ctx == None:
-                    print("Heeere ", t[0])
                 if ttot_orig:
                     self.assert_almost_equal(ttot_orig, ctx.ttot, err_msg=tline)
 

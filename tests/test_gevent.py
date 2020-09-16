@@ -71,6 +71,7 @@ class TestAPI(GeventTest):
         self.assertEqual(_yappi._get_start_flags()["profile_builtins"], 1)
         self.assertEqual(_yappi._get_start_flags()["profile_multicontext"], 1)
         self.assertEqual(len(yappi.get_greenlet_stats()), 1)
+        yappi.stop()
 
     def test_context_change_exception(self):
         yappi.start()
@@ -87,6 +88,7 @@ class TestAPI(GeventTest):
         yappi.clear_stats()
         # Should succeed now
         yappi.set_context_backend("native_thread")
+        yappi.stop()
 
     def test_get_context_stat_exception(self):
         yappi.start()
@@ -97,6 +99,44 @@ class TestAPI(GeventTest):
         yappi.stop()
         self.assertRaises(yappi.YappiError, yappi.get_thread_stats)
         self.assertEqual(len(yappi.get_greenlet_stats()), 1)
+
+    def test_context_cbks_reset_to_default(self):
+        yappi.set_context_backend("greenlet")
+        yappi.set_context_backend("native_thread")
+
+        class ThreadA(threading.Thread):
+            def run(self):
+                burn_cpu(0.05)
+
+        def a():
+            pass
+
+        yappi.start()
+
+        t = ThreadA()
+        t.start()
+        t.join()
+
+        # Spawn a greenlet to test that greenlet context is not recognised
+        g = gevent.Greenlet(a)
+        g.start()
+        g.get()
+
+        yappi.stop()
+
+        tstats = yappi.get_thread_stats()
+
+        self.assertEqual(len(tstats), 2, "Incorrect number of contexts captured")
+
+        # First stat should be of threadA since it is sorted by ttot
+        statsA = tstats[0]
+        self.assertEqual(statsA.tid, t.ident)
+        self.assertEqual(statsA.name, t.__class__.__name__)
+
+        statsMain = tstats[1]
+        main_thread = threading.current_thread()
+        self.assertEqual(statsMain.tid, main_thread.ident)
+        self.assertEqual(statsMain.name, main_thread.__class__.__name__)
 
 class SingleThreadTests(GeventTest):
 
@@ -365,6 +405,31 @@ class SingleThreadTests(GeventTest):
         '''
         self.assert_ctx_stats_almost_equal(r2, gstats)
 
+    def test_default_context_name_cbk(self):
+
+        # Set context backend to configure default callbacks
+        yappi.set_context_backend("greenlet")
+
+        def a():
+            burn_cpu(0.1)
+
+        class GreenletA(gevent.Greenlet):
+            pass
+
+        yappi.start()
+        g = GreenletA(a)
+        g.start()
+        g.get()
+        yappi.stop()
+
+        gstats = yappi.get_greenlet_stats()
+        r2 = '''
+        GreenletA      3      0.100060  1
+        greenlet       1      0.000240  2
+        '''
+        self.assert_ctx_stats_almost_equal(r2, gstats)
+
+
 class MultiThreadTests(GeventTest):
 
     def test_basic(self):
@@ -484,6 +549,51 @@ class MultiThreadTests(GeventTest):
         gstats = yappi.get_greenlet_stats()
         r2 = '''
         Main           1      0.101944  1
+        '''
+        self.assert_ctx_stats_almost_equal(r2, gstats)
+
+    def test_default_ctx_name_callback(self):
+
+        # Set context backend to confgiure default callbacks
+        yappi.set_context_backend("greenlet")
+
+
+        class GreenletA(gevent.Greenlet):
+            pass
+
+        def thread_a():
+            g = GreenletA(a)
+            g.start()
+            g.get()
+
+        def a():
+            burn_cpu(0.1)
+
+        def thread_b():
+            g = GreenletB(b)
+            g.start()
+            g.get()
+
+        class GreenletB(gevent.Greenlet):
+            pass
+
+        def b():
+            burn_cpu(0.2)
+
+        def driver():
+            tA = self.spawn_thread("a", thread_a)
+            tB = self.spawn_thread("b", thread_b)
+            tA.join()
+            tB.join()
+
+        yappi.start()
+        driver()
+        yappi.stop()
+
+        gstats = yappi.get_greenlet_stats()
+        r2 = '''
+        GreenletB      7      0.200104  9
+        GreenletA      4      0.100082  8
         '''
         self.assert_ctx_stats_almost_equal(r2, gstats)
 

@@ -119,12 +119,14 @@ def _profile_thread_callback(frame, event, arg):
     """
     _yappi._profile_event(frame, event, arg)
 
-def _create_greenlet_id_callback():
+def _create_greenlet_callbacks():
     """
-    Returns a function that can identify unique greenlets. Identity of a greenlet
-    cannot be reused once a greenlet dies. 'id(greenlet)' cannot be used because
-    'id' returns an identifier that can be reused once a greenlet object is garbage
-    collected.
+    Returns two functions:
+    - one that can identify unique greenlets. Identity of a greenlet
+      cannot be reused once a greenlet dies. 'id(greenlet)' cannot be used because
+      'id' returns an identifier that can be reused once a greenlet object is garbage
+      collected.
+    - one that can return the name of the greenlet class used to spawn the greenlet
     """
     try:
         from greenlet import getcurrent
@@ -139,7 +141,10 @@ def _create_greenlet_id_callback():
             curr_greenlet._yappi_tid = id_
         return id_
 
-    return _get_greenlet_id
+    def _get_greenlet_name():
+        return getcurrent().__class__.__name__
+
+    return _get_greenlet_id, _get_greenlet_name
 
 def _fft(x, COL_SIZE=8):
     """
@@ -1341,14 +1346,26 @@ def set_context_backend(type):
 
     >>> import greenlet, yappi
     >>> yappi.set_context_backend("greenlet")
+
+    Setting the context backend will reset any callbacks configured via:
+      - set_context_id_callback
+      - set_context_name_callback
+
+    The default callbacks for the backend provided will be installed instead.
+    Configure the callbacks each time after setting context backend.
     """
     type = type.upper()
     if type not in BACKEND_TYPES:
         raise YappiError("Invalid backend type: %s" % (type))
 
     if type == GREENLET:
-        greenlet_id_callback = _create_greenlet_id_callback()
-        _yappi.set_context_id_callback(greenlet_id_callback)
+        id_cbk, name_cbk = _create_greenlet_callbacks()
+        _yappi.set_context_id_callback(id_cbk)
+        set_context_name_callback(name_cbk)
+    else:
+        _yappi.set_context_id_callback(None)
+        set_context_name_callback(None)
+
     _yappi.set_context_backend(BACKEND_TYPES[type])
 
 
