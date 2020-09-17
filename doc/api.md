@@ -29,7 +29,22 @@ All results stay in memory unless application (all threads including th
 
 #### `get_func_stats(tag=None, ctx_id=None, filter_callback=None)`
 
-Returns the function stats as a [`YFuncStat`](#yfuncstat) object.
+Returns the function stats as a list of [`YFuncStat`](#yfuncstat) object. As Yappi is a C extension, it catches the profile data in C API.
+Thus, the profile data collected is buffered until `clear_stats` is called. `get_func_stats` function enumerates the underlying
+buffered data and aggregates the information there. The functions that contain same index id will be aggregated in a single `YFuncStat`
+object. So, if you want to select a specific `tag` or `ctx_id`, you need to select by providing them as arguments to `get_func_stats`.
+Otherwise, data with different `tag`/`ctx_id` will be combined into one `YFuncStat` object. If you really would like to enumerate
+buffered stats in raw, you can use an undocumented function: `_yappi.enum_func_stats(enum_callback, filter_dict)`. You can see
+the usage in `get_func_stats` function.
+
+---
+**Note:**
+
+Filtering `tag` and `ctx_id` are very fast compared to using `filter_callback` since the filtering is completely done on the C extension
+with an internal hash table.
+
+---
+
 
 `tag` retrieves the `YFuncStat` objects having the same `tag` as specified.
 
@@ -57,14 +72,6 @@ stats = yappi.get_func_stats(
 
 There are handy functions that can be used with `filter_callback` to match multiple functions or modules easily.
 See [func_matches](#func_matchesstat-funcs) and [module_matches](#module_matchesstat-modules).
-
----
-**Note:**
-
-`tag` and `ctx_id` are explicitly filtered rather than using `filter_callback`. Filtering `tag` and `ctx_id` are
-very fast compared to using `filter_callback` since the filtering is completely done on the C extension. 
-
----
 
 
 #### `get_thread_stats()`

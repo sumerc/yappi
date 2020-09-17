@@ -174,13 +174,14 @@ def module_matches(stat, modules):
             "Argument 'stat' shall be a YStat object. (%s)" % (stat)
         )
 
-    if not len(modules):
-        raise YappiError("Argument 'modules' cannot be empty.")
-
     if not isinstance(modules, list):
         raise YappiError(
             "Argument 'modules' is not a list object. (%s)" % (modules)
         )
+
+    if not len(modules):
+        raise YappiError("Argument 'modules' cannot be empty.")
+
     if stat.full_name not in _fn_descriptor_dict:
         return False
 
@@ -204,13 +205,13 @@ def func_matches(stat, funcs):
             "Argument 'stat' shall be a YStat object. (%s)" % (stat)
         )
 
-    if not len(funcs):
-        raise YappiError("Argument 'funcs' cannot be empty.")
-
     if not isinstance(funcs, list):
         raise YappiError(
             "Argument 'funcs' is not a list object. (%s)" % (funcs)
         )
+
+    if not len(funcs):
+        raise YappiError("Argument 'funcs' cannot be empty.")
 
     if stat.full_name not in _fn_descriptor_dict:
         return False
@@ -1203,7 +1204,7 @@ def start(builtins=False, profile_threads=True, profile_greenlets=True):
     _yappi.start(builtins, profile_contexts)
 
 
-def get_func_stats(tag=None, ctx_id=None, filter={}, filter_callback=None):
+def get_func_stats(tag=None, ctx_id=None, filter=None, filter_callback=None):
     """
     Gets the function profiler results with given filters and returns an iterable.
 
@@ -1218,8 +1219,13 @@ def get_func_stats(tag=None, ctx_id=None, filter={}, filter_callback=None):
     maybe, but simply that is not worth the effort for an extra filter() call. Maybe
     in the future.
     """
-    tag = filter.get('tag', tag)
-    ctx_id = filter.get('ctx_id', tag)
+    if not filter:
+        filter = {}
+
+    if tag:
+        filter['tag'] = tag
+    if ctx_id:
+        filter['ctx_id'] = ctx_id
 
     # multiple invocation pause/resume is allowed. This is needed because
     # not only get() is executed here.

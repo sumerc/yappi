@@ -121,17 +121,18 @@ typedef struct {
     PyObject *tag;
     PyObject *name;
     PyObject *modname;
-} _func_stat_filter;
+} _fast_func_stat_filter;
 
 typedef struct
 {
-    _func_stat_filter func_filter;
+    _fast_func_stat_filter func_filter;
     PyObject *enumfn;
 } _ctxenumarg;
 
 typedef struct
 {
     _ctxenumarg *enum_args;
+    uintptr_t tag;
     _ctx *ctx;
 } _ctxfuncenumarg;
 
@@ -196,7 +197,7 @@ static void _resume_greenlet_ctx(_ctx *ctx);
 static int _pitenumdel(_hitem *item, void *arg);
 
 // funcs
-/*
+
 static void _DebugPrintObjects(unsigned int arg_count, ...)
 {
     unsigned int i;
@@ -208,7 +209,7 @@ static void _DebugPrintObjects(unsigned int arg_count, ...)
     }
     printf("\n");
     va_end(vargs);
-} */
+}
 
 int IS_ASYNC(PyFrameObject *frame)
 {
@@ -248,7 +249,7 @@ _log_err(unsigned int code)
 }
 
 static _pit *
-_create_pit()
+_create_pit(void)
 {
     _pit *pit;
 
@@ -917,6 +918,9 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 
     current_tag = _current_tag();
 
+    //printf("call ENTER:%s %s %d\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
+    //                             PyStr_AS_CSTRING(frame->f_code->co_name), current_tag);
+
     if (ccall) {
         cp = _ccode2pit((PyCFunctionObject *)arg, current_tag);
     } else {
@@ -1550,7 +1554,7 @@ enum_context_stats(PyObject *self, PyObject *args)
 
 int _pit_filtered(_pit *pt, _ctxfuncenumarg *eargs)
 {
-    _func_stat_filter filter;
+    _fast_func_stat_filter filter;
 
     filter = eargs->enum_args->func_filter;
 
@@ -1577,7 +1581,6 @@ _pitenumstat(_hitem *item, void *arg)
     PyObject *children;
     _pit_children_info *pci;
     _ctxfuncenumarg *eargs;
-    uintptr_t tag;
 
     children = NULL;
     pt = (_pit *)item->val;
@@ -1586,7 +1589,7 @@ _pitenumstat(_hitem *item, void *arg)
     if (_pit_filtered(pt, eargs)) {
         return 0;
     }
-    
+
     // do not show builtin pits if specified
     if  ((!flags.builtins) && (pt->builtin)) {
         return 0;
@@ -1616,17 +1619,12 @@ _pitenumstat(_hitem *item, void *arg)
     if (pt->callcount == 0)
         pt->callcount = 1;
 
-    tag = 0;
-    if (eargs->enum_args->func_filter.tag) {
-        tag = PyLong_AsVoidPtr(eargs->enum_args->func_filter.tag);
-    }
-
     exc = PyObject_CallFunction(eargs->enum_args->enumfn, "((OOkkkIffIOkOkO))", 
                         pt->name, pt->modname, pt->lineno, pt->callcount,
                         pt->nonrecursive_callcount, pt->builtin, 
                         _normt(pt->ttotal), _normt(pt->tsubtotal),
                         pt->index, children, eargs->ctx->id, eargs->ctx->name,
-                        tag, pt->fn_descriptor);
+                        eargs->tag, pt->fn_descriptor);
 
     if (!exc) {
         PyErr_Print();
@@ -1646,11 +1644,12 @@ _tagenumstat(_hitem *item, void *arg)
     _htab *pits;
     uintptr_t current_tag;
     _ctxfuncenumarg *eargs;
-    _func_stat_filter filter;
+    _fast_func_stat_filter filter;
 
     current_tag = item->key;
     eargs = (_ctxfuncenumarg *)arg;
     filter = eargs->enum_args->func_filter;
+    eargs->tag = current_tag;
 
     if (filter.tag) {
         if (current_tag != PyLong_AsVoidPtr(filter.tag)) {
@@ -1672,6 +1671,7 @@ _ctxfuncenumstat(_hitem *item, void *arg)
 
     ext_args.ctx = (_ctx *)item->val; 
     ext_args.enum_args = (_ctxenumarg *)arg;
+    ext_args.tag = 0; // default
 
     filtered_ctx_id = ext_args.enum_args->func_filter.ctx_id;
     if (filtered_ctx_id) {
@@ -1708,8 +1708,8 @@ stop(PyObject *self)
     Py_RETURN_NONE;
 }
 
-void 
-_filterdict_to_statfilter(PyObject *filter_dict, _func_stat_filter* filter)
+int
+_filterdict_to_statfilter(PyObject *filter_dict, _fast_func_stat_filter* filter)
 {
     // we use a _statfilter struct to hold the struct and not to always 
     // as the filter_dict to get its values for each pit enumerated. This
@@ -1718,8 +1718,25 @@ _filterdict_to_statfilter(PyObject *filter_dict, _func_stat_filter* filter)
 
     fv = PyDict_GetItemString(filter_dict, "tag");
     if (fv) {
+        PyLong_AsVoidPtr(fv);
+        if (PyErr_Occurred()) {
+            yerr("invalid tag passed to get_func_stats.");
+            filter->tag = NULL;
+            return 0;
+        }
         filter->tag = fv;
     }
+    fv = PyDict_GetItemString(filter_dict, "ctx_id");
+    if (fv) {
+        PyLong_AsVoidPtr(fv);
+        if (PyErr_Occurred()) {
+            yerr("invalid ctx_id passed to get_func_stats.");
+            filter->ctx_id = NULL;
+            return 0;
+        }
+        filter->ctx_id = fv;
+    }
+
     fv = PyDict_GetItemString(filter_dict, "name");
     if (fv) {
         filter->name = fv;
@@ -1728,10 +1745,8 @@ _filterdict_to_statfilter(PyObject *filter_dict, _func_stat_filter* filter)
     if (fv) {
         filter->modname = fv;
     }
-    fv = PyDict_GetItemString(filter_dict, "ctx_id");
-    if (fv) {
-        filter->ctx_id = fv;
-    }
+
+    return 1;
 }
 
 static PyObject*
@@ -1762,7 +1777,9 @@ enum_func_stats(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    _filterdict_to_statfilter(filter_dict, &ext_args.func_filter);
+    if (!_filterdict_to_statfilter(filter_dict, &ext_args.func_filter)) {
+        return NULL;
+    }
 
     henum(contexts, _ctxfuncenumstat, &ext_args);
 
