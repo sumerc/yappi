@@ -15,7 +15,7 @@ if __name__ == '__main__':
     sys.path.append('tests/')
     test_loader = unittest.defaultTestLoader
     test_runner = unittest.TextTestRunner(verbosity=2)
-    tests = ['test_functionality', 'test_hooks', 'test_tags']
+    tests = ['test_functionality', 'test_hooks', 'test_tags', 'test_gevent']
     if sys.version_info >= (3, 4):
         tests += ['test_asyncio']
     if sys.version_info >= (3, 7):

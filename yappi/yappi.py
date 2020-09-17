@@ -9,6 +9,7 @@ import threading
 import warnings
 import types
 import inspect
+import itertools
 try:
     from thread import get_ident  # Python 2
 except ImportError:
@@ -24,7 +25,7 @@ class YappiError(Exception):
 __all__ = [
     'start', 'stop', 'get_func_stats', 'get_thread_stats', 'clear_stats',
     'is_running', 'get_clock_time', 'get_clock_type', 'set_clock_type',
-    'get_clock_info', 'get_mem_usage'
+    'get_clock_info', 'get_mem_usage', 'set_context_backend'
 ]
 
 LINESEP = os.linesep
@@ -40,7 +41,6 @@ YPICKLE_PROTOCOL = 2
 _fn_descriptor_dict = {}
 
 COLUMNS_FUNCSTATS = ["name", "ncall", "ttot", "tsub", "tavg"]
-COLUMNS_THREADSTATS = ["name", "id", "tid", "ttot", "scnt"]
 SORT_TYPES_FUNCSTATS = {
     "name": 0,
     "callcount": 3,
@@ -63,21 +63,20 @@ SORT_TYPES_CHILDFUNCSTATS = {
     "tsub": 4,
     "tavg": 5
 }
-SORT_TYPES_THREADSTATS = {
-    "name": 0,
-    "id": 1,
-    "tid": 2,
-    "totaltime": 3,
-    "schedcount": 4,
-    "ttot": 3,
-    "scnt": 4
-}
+
 SORT_ORDERS = {"ascending": 0, "asc": 0, "descending": 1, "desc": 1}
 DEFAULT_SORT_TYPE = "totaltime"
 DEFAULT_SORT_ORDER = "desc"
 
 CLOCK_TYPES = {"WALL": 0, "CPU": 1}
+NATIVE_THREAD = "NATIVE_THREAD"
+GREENLET = "GREENLET"
+BACKEND_TYPES = {NATIVE_THREAD: 0, GREENLET: 1}
 
+try:
+    GREENLET_COUNTER = itertools.count(start=1).next
+except AttributeError:
+    GREENLET_COUNTER = itertools.count(start=1).__next__
 
 def _validate_sorttype(sort_type, list):
     sort_type = sort_type.lower()
@@ -112,7 +111,6 @@ def _ctx_name_callback():
         # Threads may not be registered yet in first few profile callbacks.
         return None
 
-
 def _profile_thread_callback(frame, event, arg):
     """
     _profile_thread_callback will only be called once per-thread. _yappi will detect
@@ -121,6 +119,32 @@ def _profile_thread_callback(frame, event, arg):
     """
     _yappi._profile_event(frame, event, arg)
 
+def _create_greenlet_callbacks():
+    """
+    Returns two functions:
+    - one that can identify unique greenlets. Identity of a greenlet
+      cannot be reused once a greenlet dies. 'id(greenlet)' cannot be used because
+      'id' returns an identifier that can be reused once a greenlet object is garbage
+      collected.
+    - one that can return the name of the greenlet class used to spawn the greenlet
+    """
+    try:
+        from greenlet import getcurrent
+    except ImportError as exc:
+        raise YappiError("'greenlet' import failed with: %s" % repr(exc))
+
+    def _get_greenlet_id():
+        curr_greenlet = getcurrent()
+        id_ = getattr(curr_greenlet, "_yappi_tid", None)
+        if id_ is None:
+            id_ = GREENLET_COUNTER()
+            curr_greenlet._yappi_tid = id_
+        return id_
+
+    def _get_greenlet_name():
+        return getcurrent().__class__.__name__
+
+    return _get_greenlet_id, _get_greenlet_name
 
 def _fft(x, COL_SIZE=8):
     """
@@ -555,6 +579,44 @@ class YThreadStat(YStat):
                 out.write(StatString(self.sched_count).rtrim(size))
         out.write(LINESEP)
 
+
+class YGreenletStat(YStat):
+    """
+    Class holding information for thread stats.
+    """
+    _KEYS = {
+        'name': 0,
+        'id': 1,
+        'ttot': 3,
+        'sched_count': 4,
+    }
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+        return self.id == other.id
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __hash__(self, *args, **kwargs):
+        return hash(self.id)
+
+    def _print(self, out, columns):
+        for x in sorted(columns.keys()):
+            title, size = columns[x]
+            if title == "name":
+                out.write(StatString(self.name).ltrim(size))
+                out.write(" " * COLUMN_GAP)
+            elif title == "id":
+                out.write(StatString(self.id).rtrim(size))
+                out.write(" " * COLUMN_GAP)
+            elif title == "ttot":
+                out.write(StatString(_fft(self.ttot, size)).rtrim(size))
+                out.write(" " * COLUMN_GAP)
+            elif title == "scnt":
+                out.write(StatString(self.sched_count).rtrim(size))
+        out.write(LINESEP)
 
 class YStats(object):
     """
@@ -1007,50 +1069,61 @@ class YFuncStats(YStatsIndexable):
             console.write(LINESEP)
 
 
-class YThreadStats(YStats):
+class _YContextStats(YStats):
+
+    _BACKEND = None
+    _STAT_CLASS = None
+    _SORT_TYPES = None
+    _DEFAULT_PRINT_COLUMNS = None
+    _ALL_COLUMNS = None
 
     def get(self):
+
+        backend = _yappi.get_context_backend()
+        if self._BACKEND != backend:
+            raise YappiError(
+                "Cannot retrieve stats for '%s' when backend is set as '%s'" %
+                (self._BACKEND.lower(), backend.lower())
+            )
+
         _yappi._pause()
         self.clear()
         try:
-            _yappi.enum_thread_stats(self._enumerator)
-            result = super(YThreadStats, self).get()
+            _yappi.enum_context_stats(self._enumerator)
+            result = super(_YContextStats, self).get()
         finally:
             _yappi._resume()
         return result
 
     def _enumerator(self, stat_entry):
-        tstat = YThreadStat(stat_entry)
+        tstat = self._STAT_CLASS(stat_entry)
         self.append(tstat)
 
     def sort(self, sort_type, sort_order="desc"):
-        sort_type = _validate_sorttype(sort_type, SORT_TYPES_THREADSTATS)
+        sort_type = _validate_sorttype(sort_type, self._SORT_TYPES)
         sort_order = _validate_sortorder(sort_order)
 
-        return super(YThreadStats, self).sort(
-            SORT_TYPES_THREADSTATS[sort_type], SORT_ORDERS[sort_order]
+        return super(_YContextStats, self).sort(
+            self._SORT_TYPES[sort_type], SORT_ORDERS[sort_order]
         )
 
     def print_all(
         self,
         out=sys.stdout,
-        columns={
-            0: ("name", 13),
-            1: ("id", 5),
-            2: ("tid", 15),
-            3: ("ttot", 8),
-            4: ("scnt", 10)
-        }
+        columns=None
     ):
         """
         Prints all of the thread profiler results to a given file. (stdout by default)
         """
 
+        if columns is None:
+            columns = self._DEFAULT_PRINT_COLUMNS
+
         if self.empty():
             return
 
         for _, col in columns.items():
-            _validate_columns(col[0], COLUMNS_THREADSTATS)
+            _validate_columns(col[0], self._ALL_COLUMNS)
 
         out.write(LINESEP)
         self._print_header(out, columns)
@@ -1061,6 +1134,46 @@ class YThreadStats(YStats):
         pass  # do nothing
 
 
+class YThreadStats(_YContextStats):
+    _BACKEND = NATIVE_THREAD
+    _STAT_CLASS = YThreadStat
+    _SORT_TYPES = {
+        "name": 0,
+        "id": 1,
+        "tid": 2,
+        "totaltime": 3,
+        "schedcount": 4,
+        "ttot": 3,
+        "scnt": 4
+    }
+    _DEFAULT_PRINT_COLUMNS = {
+        0: ("name", 13),
+        1: ("id", 5),
+        2: ("tid", 15),
+        3: ("ttot", 8),
+        4: ("scnt", 10)
+    }
+    _ALL_COLUMNS = ["name", "id", "tid", "ttot", "scnt"]
+
+class YGreenletStats(_YContextStats):
+    _BACKEND = GREENLET
+    _STAT_CLASS = YGreenletStat
+    _SORT_TYPES = {
+        "name": 0,
+        "id": 1,
+        "totaltime": 3,
+        "schedcount": 4,
+        "ttot": 3,
+        "scnt": 4
+    }
+    _DEFAULT_PRINT_COLUMNS = {
+        0: ("name", 13),
+        1: ("id", 5),
+        2: ("ttot", 8),
+        3: ("scnt", 10)
+    }
+    _ALL_COLUMNS = ["name", "id", "ttot", "scnt"]
+
 def is_running():
     """
     Returns true if the profiler is running, false otherwise.
@@ -1068,13 +1181,27 @@ def is_running():
     return bool(_yappi.is_running())
 
 
-def start(builtins=False, profile_threads=True):
+def start(builtins=False, profile_threads=True, profile_greenlets=True):
     """
     Start profiler.
+
+    profile_threads: Set to True to profile multiple threads. Set to false
+    to profile only the invoking thread. This argument is only respected when
+    context backend is 'native_thread' and ignored otherwise.
+
+    profile_greenlets: Set to True to to profile multiple greenlets. Set to
+    False to profile only the invoking greenlet. This argument is only respected
+    when context backend is 'greenlet' and ignored otherwise.
     """
-    if profile_threads:
+    backend = _yappi.get_context_backend()
+    profile_contexts = (
+        (profile_threads and backend == NATIVE_THREAD)
+        or
+        (profile_greenlets and backend == GREENLET)
+    )
+    if profile_contexts:
         threading.setprofile(_profile_thread_callback)
-    _yappi.start(builtins, profile_threads)
+    _yappi.start(builtins, profile_contexts)
 
 
 def get_func_stats(tag=None, ctx_id=None, filter=None, filter_callback=None):
@@ -1114,13 +1241,13 @@ def get_thread_stats():
     """
     Gets the thread profiler results with given filters and returns an iterable.
     """
-    _yappi._pause()
-    try:
-        stats = YThreadStats().get()
-    finally:
-        _yappi._resume()
-    return stats
+    return YThreadStats().get()
 
+def get_greenlet_stats():
+    """
+    Gets the greenlet stats captured by the profiler
+    """
+    return YGreenletStats().get()
 
 def stop():
     """
@@ -1131,7 +1258,7 @@ def stop():
 
 
 @contextmanager
-def run(builtins=False, profile_threads=True):
+def run(builtins=False, profile_threads=True, profile_greenlets=True):
     """
     Context manger for profiling block of code.
 
@@ -1151,7 +1278,7 @@ def run(builtins=False, profile_threads=True):
                 print("this call will be profiled")
             print("this call will *not* be profiled")
     """
-    start(builtins=builtins, profile_threads=profile_threads)
+    start(builtins=builtins, profile_threads=profile_threads, profile_greenlets=profile_greenlets)
     try:
         yield
     finally:
@@ -1216,6 +1343,36 @@ def set_tag_callback(cbk):
     to filter on stats via tag field.
     """
     return _yappi.set_tag_callback(cbk)
+
+def set_context_backend(type):
+    """
+    Sets the internal threading backend used to track execution context
+
+    type must be one of 'greenlet' or 'native_thread'. For example:
+
+    >>> import greenlet, yappi
+    >>> yappi.set_context_backend("greenlet")
+
+    Setting the context backend will reset any callbacks configured via:
+      - set_context_id_callback
+      - set_context_name_callback
+
+    The default callbacks for the backend provided will be installed instead.
+    Configure the callbacks each time after setting context backend.
+    """
+    type = type.upper()
+    if type not in BACKEND_TYPES:
+        raise YappiError("Invalid backend type: %s" % (type))
+
+    if type == GREENLET:
+        id_cbk, name_cbk = _create_greenlet_callbacks()
+        _yappi.set_context_id_callback(id_cbk)
+        set_context_name_callback(name_cbk)
+    else:
+        _yappi.set_context_id_callback(None)
+        set_context_name_callback(None)
+
+    _yappi.set_context_backend(BACKEND_TYPES[type])
 
 
 def set_context_id_callback(callback):

@@ -599,7 +599,7 @@ class BasicUsage(utils.YappiUnitTestCase):
 
         a()
         self.assertEqual(_yappi._get_start_flags()["profile_builtins"], 0)
-        self.assertEqual(_yappi._get_start_flags()["profile_multithread"], 1)
+        self.assertEqual(_yappi._get_start_flags()["profile_multicontext"], 1)
         self.assertEqual(len(yappi.get_thread_stats()), 1)
 
     def test_builtin_profiling(self):
@@ -882,7 +882,7 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
         t.join()
 
         self.assertEqual(_yappi._get_start_flags()["profile_builtins"], 0)
-        self.assertEqual(_yappi._get_start_flags()["profile_multithread"], 1)
+        self.assertEqual(_yappi._get_start_flags()["profile_multicontext"], 1)
         yappi.get_func_stats().save("tests/ystats2.ys")
 
         stats = yappi.YFuncStats([
@@ -1284,6 +1284,51 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         self.assertRaises(
             yappi.YappiError, stats.sort, "invalid_thread_sortorder_arg"
         )
+
+    def test_ctx_stats_cpu(self):
+
+        def get_thread_name():
+            try:
+                return threading.current_thread().name
+            except AttributeError:
+                return "Anonymous"
+
+        def burn_cpu(sec):
+            t0 = yappi.get_clock_time()
+            elapsed = 0
+            while (elapsed < sec):
+                for _ in range(1000):
+                    pass
+                elapsed = yappi.get_clock_time() - t0
+
+        def test():
+
+            ts = []
+            for i in (0.01, 0.05, 0.1):
+                t = threading.Thread(target=burn_cpu, args=(i, ))
+                t.name = "burn_cpu-%s" % str(i)
+                t.start()
+                ts.append(t)
+            for t in ts:
+                t.join()
+
+        yappi.set_clock_type("cpu")
+        yappi.set_context_name_callback(get_thread_name)
+
+        yappi.start()
+
+        test()
+
+        yappi.stop()
+
+        tstats = yappi.get_thread_stats()
+        r1 = '''
+        burn_cpu-0.1      3      123145356058624  0.100105  8
+        burn_cpu-0.05     2      123145361313792  0.050149  8
+        burn_cpu-0.01     1      123145356058624  0.010127  2
+        MainThread        0      4321620864       0.001632  6
+        '''
+        self.assert_ctx_stats_almost_equal(r1, tstats)
 
     def test_producer_consumer_with_queues(self):
         # we currently just stress yappi, no functionality test is done here.

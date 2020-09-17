@@ -23,6 +23,7 @@
 #include "timing.h"
 #include "freelist.h"
 #include "mem.h"
+#include "tls.h"
 
 #ifdef IS_PY3K
 PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
@@ -83,6 +84,11 @@ typedef struct {
 } _pit; // profile_item
 
 typedef struct {
+    int paused;
+    long long paused_at;
+} _glstate;
+
+typedef struct {
     _cstack *cs;
     _htab *rec_levels;
 
@@ -103,7 +109,11 @@ typedef struct {
     // how many times this thread is scheduled
     unsigned long sched_cnt;
 
+    long long last_seen;
+
     PyThreadState *ts_ptr;
+
+    _glstate gl_state;
 } _ctx; // context
 
 typedef struct {
@@ -128,8 +138,14 @@ typedef struct
 
 typedef struct {
     int builtins;
-    int multithreaded;
+    int multicontext;
 } _flag; // flags passed from yappi.start()
+
+typedef enum
+{
+    NATIVE_THREAD = 0x00,
+    GREENLET = 0x01,
+} _ctx_type_t;
 
 // globals
 static PyObject *YappiProfileError;
@@ -146,6 +162,7 @@ static int paused;
 static time_t yappstarttime;
 static long long yappstarttick;
 static long long yappstoptick;
+static tls_key_t* tl_prev_ctx_key = NULL;
 static _ctx *prev_ctx = NULL;
 static _ctx *current_ctx = NULL;
 static _ctx *initial_ctx = NULL; // used for holding the context that called start()
@@ -154,6 +171,7 @@ static PyObject *tag_callback = NULL;
 static PyObject *context_name_callback = NULL;
 static PyObject *test_timings; // used for testing
 static const uintptr_t DEFAULT_TAG = 0;
+static _ctx_type_t ctx_type = NATIVE_THREAD;
 
 // defines
 #define UNINITIALIZED_STRING_VAL "N/A"
@@ -171,9 +189,11 @@ static const uintptr_t DEFAULT_TAG = 0;
 #endif
 
 #define PyLong_AsVoidPtr (uintptr_t)PyLong_AsVoidPtr
-
+ 
 // forwards
 static _ctx * _profile_thread(PyThreadState *ts);
+static void _pause_greenlet_ctx(_ctx *ctx);
+static void _resume_greenlet_ctx(_ctx *ctx);
 static int _pitenumdel(_hitem *item, void *arg);
 
 // funcs
@@ -274,6 +294,7 @@ _create_ctx(void)
     ctx->tid = 0;
     ctx->name = NULL;
     ctx->t0 = tickcount();
+    ctx->last_seen = ctx->t0;
     ctx->rec_levels = htcreate(HT_RLEVEL_SIZE);
     if (!ctx->rec_levels)
         return NULL;
@@ -397,7 +418,7 @@ _current_context_id(PyThreadState *ts)
         // thread. Therefore, we need to identify the "context" concept independent from ThreadState 
         // objects.
 
-        if (!flags.multithreaded) {
+        if (!flags.multicontext) {
             return 0;
         }
 
@@ -438,6 +459,8 @@ _thread2ctx(PyThreadState *ts)
         // callback functions in some circumtances, can be called before the context entry is not
         // created. (See issue 21). To prevent this problem we need to ensure the context entry for
         // the thread is always available here.
+        //
+        // This path is also excercised when new greenlets are encountered on an already profiled thread.
         return _profile_thread(ts);
     }
     return (_ctx *)it->val;
@@ -765,6 +788,16 @@ decr_rec_level(uintptr_t key)
     return 1;
 }
 
+
+static long long
+_ctx_tickcount() {
+    long long now;
+
+    now = tickcount();
+    current_ctx->last_seen = now;
+    return now;
+}
+
 static long long
 _get_frame_elapsed(void)
 {
@@ -792,11 +825,12 @@ _get_frame_elapsed(void)
         }
 
     } else {
-        result = tickcount() - ci->t0;
+        result = _ctx_tickcount() - ci->t0;
     }
 
     return result;
 }
+
 
 static int 
 _coro_enter(_pit *cp, PyFrameObject *frame)
@@ -879,6 +913,9 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     _pit_children_info *pci;
     uintptr_t current_tag;
 
+    // printf("call ENTER:%s %s\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
+    //                              PyStr_AS_CSTRING(frame->f_code->co_name));
+
     current_tag = _current_tag();
 
     //printf("call ENTER:%s %s %d\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
@@ -914,7 +951,7 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         return;
     }
 
-    ci->t0 = tickcount();
+    ci->t0 = _ctx_tickcount();
 
     incr_rec_level((uintptr_t)cp);
 
@@ -933,8 +970,8 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     int yielded = 0;
     pci = ppci = NULL;
 
-    //printf("call LEAVE:%s %s\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
-    //                             PyStr_AS_CSTRING(frame->f_code->co_name));
+    // printf("call LEAVE:%s %s\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
+    //                              PyStr_AS_CSTRING(frame->f_code->co_name));
 
     elapsed = _get_frame_elapsed();
 
@@ -1073,6 +1110,7 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
                PyObject *arg)
 {
     PyObject *last_type, *last_value, *last_tb;
+    _ctx* tl_prev_ctx;
     PyErr_Fetch(&last_type, &last_value, &last_tb);
 
     //printf("call EVENT %d %s %s", what, PyStr_AS_CSTRING(frame->f_code->co_filename),
@@ -1085,9 +1123,22 @@ _yapp_callback(PyObject *self, PyFrameObject *frame, int what,
         goto finally;
     }
 
-    // do not profile if multi-threaded is off and the context is different than
+    if (ctx_type == GREENLET && get_timing_clock_type() == CPU_CLOCK) {
+        tl_prev_ctx = (_ctx*)(get_tls_key_value(tl_prev_ctx_key));
+
+        if (tl_prev_ctx != current_ctx) {
+            if (tl_prev_ctx) {
+                _pause_greenlet_ctx(tl_prev_ctx);
+                _resume_greenlet_ctx(current_ctx);
+            }
+            if (set_tls_key_value(tl_prev_ctx_key, current_ctx) != 0)
+                goto finally;
+        }
+    }
+
+    // do not profile if multi-context is off and the context is different than
     // the context that called start.
-    if (!flags.multithreaded && current_ctx != initial_ctx) {
+    if (!flags.multicontext && current_ctx != initial_ctx) {
         goto finally;
     }
 
@@ -1137,7 +1188,7 @@ finally:
     // there shall be no context switch happenning inside 
     // profile events and no concurent running events is possible
     if (current_ctx->ts_ptr != PyThreadState_GET()) {
-        //printf("call EVENT %d %s %s %p %p\n", what, PyStr_AS_CSTRING(frame->f_code->co_filename),
+        // printf("call EVENT %d %s %s %p %p\n", what, PyStr_AS_CSTRING(frame->f_code->co_filename),
         //                     PyStr_AS_CSTRING(frame->f_code->co_name), 
         //                     current_ctx->ts_ptr, PyThreadState_GET());
 
@@ -1146,6 +1197,45 @@ finally:
     }
 
     return 0;
+}
+
+static void
+_pause_greenlet_ctx(_ctx *ctx)
+{
+    ydprintf("pausing context: %ld", ctx->id);
+    ctx->gl_state.paused = 1;
+    ctx->gl_state.paused_at = tickcount();
+}
+
+static void
+_resume_greenlet_ctx(_ctx *ctx)
+{
+    long long shift;
+    int i;
+
+    ydprintf("resuming context: %ld", ctx->id);
+
+    if (!ctx->gl_state.paused) {
+        return;
+    }
+
+    ctx->gl_state.paused = 0;
+    shift = tickcount() - ctx->gl_state.paused_at;
+    ctx->t0 += shift;
+
+    for (i = 0; i <= ctx->cs->head; i++) {
+        ctx->cs->_items[i].t0 += shift;
+    }
+
+    ydprintf("resuming context: %ld, shift: %lld", ctx->id, shift);
+}
+
+static _ctx *
+_bootstrap_thread(PyThreadState *ts)
+{
+    ts->use_tracing = 1;
+    ts->c_profilefunc = _yapp_callback;
+    return NULL;
 }
 
 static _ctx *
@@ -1161,7 +1251,7 @@ _profile_thread(PyThreadState *ts)
         ctx = _create_ctx();
         if (!ctx) {
             return NULL;
-        }    
+        }
         if (!hadd(contexts, ctx_id, (uintptr_t)ctx)) {
             _del_ctx(ctx);
             if (!flput(flctx, ctx)) {
@@ -1179,8 +1269,10 @@ _profile_thread(PyThreadState *ts)
     ctx->id = ctx_id;
     ctx->tid = ts->thread_id;
     ctx->ts_ptr = ts;
+    ctx->gl_state.paused = 0;
+    ctx->gl_state.paused_at = 0;
 
-    //printf("Thread profile STARTED. ctx=%p, ts_ptr=%p, ctx_id=%ld, ts param=%p\n", ctx, 
+    // printf("Thread profile STARTED. ctx=%p, ts_ptr=%p, ctx_id=%ld, ts param=%p\n", ctx, 
     //        ctx->ts_ptr, ctx->id, ts);
 
     return ctx;
@@ -1231,6 +1323,9 @@ _init_profiler(void)
         flctx = flcreate(sizeof(_ctx), FL_CTX_SIZE);
         if (!flctx)
             goto error;
+        tl_prev_ctx_key = create_tls_key();
+        if (!tl_prev_ctx_key)
+            goto error;
         yappinitialized = 1;
     }
     return 1;
@@ -1248,6 +1343,10 @@ error:
         fldestroy(flctx);
         flctx = NULL;
     }
+    if (tl_prev_ctx_key) {
+        delete_tls_key(tl_prev_ctx_key);
+        tl_prev_ctx_key = NULL;
+    }
 
     return 0;
 }
@@ -1264,9 +1363,7 @@ profile_event(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    if (flags.multithreaded) {
-        _ensure_thread_profiled(PyThreadState_GET());
-    }
+    _ensure_thread_profiled(PyThreadState_GET());
 
     ev = PyStr_AS_CSTRING(event);
 
@@ -1314,8 +1411,8 @@ _start(void)
         return 0;
     }
 
-    if (flags.multithreaded) {
-        _enum_threads(&_profile_thread);
+    if (flags.multicontext) {
+        _enum_threads(&_bootstrap_thread);
     } else {
         _ensure_thread_profiled(PyThreadState_GET());
         initial_ctx = _thread2ctx(PyThreadState_GET());
@@ -1362,6 +1459,9 @@ clear_stats(PyObject *self, PyObject *args)
 
     fldestroy(flctx);
     flctx = NULL;
+
+    delete_tls_key(tl_prev_ctx_key);
+    tl_prev_ctx_key = NULL;
 
     yappinitialized = 0;
     yapphavestats = 0;
@@ -1415,7 +1515,7 @@ _ctxenumstat(_hitem *item, void *arg)
 
     efn = (PyObject *)arg;
 
-    cumdiff = _calc_cumdiff(tickcount(), ctx->t0);
+    cumdiff = _calc_cumdiff(ctx->last_seen, ctx->t0);
 
     exc = PyObject_CallFunction(efn, "((skkfk))", tcname, ctx->id, ctx->tid,
         cumdiff * tickfactor(), ctx->sched_cnt);
@@ -1429,7 +1529,7 @@ _ctxenumstat(_hitem *item, void *arg)
 }
 
 static PyObject*
-enum_thread_stats(PyObject *self, PyObject *args)
+enum_context_stats(PyObject *self, PyObject *args)
 {
     PyObject *enumfn;
 
@@ -1438,7 +1538,7 @@ enum_thread_stats(PyObject *self, PyObject *args)
     }
 
     if (!PyArg_ParseTuple(args, "O", &enumfn)) {
-        PyErr_SetString(YappiProfileError, "invalid param to enum_thread_stats");
+        PyErr_SetString(YappiProfileError, "invalid param to enum_context_stats");
         return NULL;
     }
 
@@ -1591,7 +1691,7 @@ start(PyObject *self, PyObject *args)
     if (yapprunning)
         Py_RETURN_NONE;
 
-    if (!PyArg_ParseTuple(args, "ii", &flags.builtins, &flags.multithreaded))
+    if (!PyArg_ParseTuple(args, "ii", &flags.builtins, &flags.multicontext))
         return NULL;
 
     if (!_start())
@@ -1767,6 +1867,35 @@ set_context_name_callback(PyObject *self, PyObject *args)
 }
 
 static PyObject *
+set_context_backend(PyObject *self, PyObject *args)
+{
+    _ctx_type_t input_type;
+    
+    if (!PyArg_ParseTuple(args, "i", &input_type)) {
+        return NULL;
+    }
+    
+    if (input_type == ctx_type)
+    {
+        Py_RETURN_NONE;
+    }
+    
+    if (yapphavestats) {
+        PyErr_SetString(YappiProfileError, "backend type cannot be changed while stats are available. clear stats first.");
+        return NULL;
+    }
+
+    if (input_type != NATIVE_THREAD && input_type != GREENLET)  {
+        PyErr_SetString(YappiProfileError, "Invalid backend type.");
+        return NULL;
+    }
+
+    ctx_type = input_type;
+
+    Py_RETURN_NONE;
+}
+
+static PyObject *
 set_test_timings(PyObject *self, PyObject *args)
 {
     if (!PyArg_ParseTuple(args, "O", &test_timings)) {
@@ -1809,6 +1938,16 @@ set_clock_type(PyObject *self, PyObject *args)
     }   
     
     Py_RETURN_NONE;
+}
+
+static PyObject *
+get_context_backend(PyObject *self, PyObject *args)
+{
+    if (ctx_type == GREENLET) {
+        return Py_BuildValue("s", "GREENLET");
+    }  else {
+        return Py_BuildValue("s", "NATIVE_THREAD");
+    }
 }
 
 static PyObject *
@@ -1879,20 +2018,20 @@ get_start_flags(PyObject *self, PyObject *args)
 {
     PyObject *result = NULL;
     PyObject *profile_builtins = NULL;
-    PyObject *profile_multithread = NULL;
+    PyObject *profile_multicontext = NULL;
     
     if (!yapphavestats) {
         Py_RETURN_NONE;
     }
 
     profile_builtins = Py_BuildValue("i", flags.builtins);
-    profile_multithread = Py_BuildValue("i", flags.multithreaded);
+    profile_multicontext = Py_BuildValue("i", flags.multicontext);
     result = PyDict_New();
     PyDict_SetItemString(result, "profile_builtins", profile_builtins);
-    PyDict_SetItemString(result, "profile_multithread", profile_multithread);
+    PyDict_SetItemString(result, "profile_multicontext", profile_multicontext);
     
     Py_XDECREF(profile_builtins);
-    Py_XDECREF(profile_multithread);
+    Py_XDECREF(profile_multicontext);
     return result;
 }
 
@@ -1925,7 +2064,8 @@ static PyMethodDef yappi_methods[] = {
     {"start", start, METH_VARARGS, NULL},
     {"stop", (PyCFunction)stop, METH_NOARGS, NULL},
     {"enum_func_stats", enum_func_stats, METH_VARARGS, NULL},
-    {"enum_thread_stats", enum_thread_stats, METH_VARARGS, NULL},
+    {"enum_context_stats", enum_context_stats, METH_VARARGS, NULL},
+    {"enum_thread_stats", enum_context_stats, METH_VARARGS, NULL},
     {"clear_stats", clear_stats, METH_VARARGS, NULL},
     {"is_running", is_running, METH_VARARGS, NULL},
     {"get_clock_type", get_clock_type, METH_VARARGS, NULL},
@@ -1936,6 +2076,8 @@ static PyMethodDef yappi_methods[] = {
     {"set_context_id_callback", set_context_id_callback, METH_VARARGS, NULL},
     {"set_tag_callback", set_tag_callback, METH_VARARGS, NULL},
     {"set_context_name_callback", set_context_name_callback, METH_VARARGS, NULL},
+    {"set_context_backend", set_context_backend, METH_VARARGS, NULL},
+    {"get_context_backend", get_context_backend, METH_VARARGS, NULL},
     {"_get_start_flags", get_start_flags, METH_VARARGS, NULL}, // for internal usage.
     {"_set_test_timings", set_test_timings, METH_VARARGS, NULL}, // for internal usage.
     {"_profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage.
@@ -1987,7 +2129,7 @@ init_yappi(void)
     yapprunning = 0;
     paused = 0;
     flags.builtins = 0;
-    flags.multithreaded = 0;
+    flags.multicontext = 0;
     test_timings = NULL;
     
     if (!_init_profiler()) {
