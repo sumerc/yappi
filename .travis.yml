@@ -7,5 +7,5 @@ python:
   - "3.5"
   - "2.7"
 script:
-  - python setup.py install
+  - pip install .[test]
   - python run_tests.py

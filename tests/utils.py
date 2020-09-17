@@ -2,6 +2,7 @@ import sys
 import yappi
 import time
 import unittest
+import gevent
 
 
 class YappiUnitTestCase(unittest.TestCase):
@@ -11,6 +12,7 @@ class YappiUnitTestCase(unittest.TestCase):
         yappi.stop()
         yappi.clear_stats()
         yappi.set_clock_type('cpu')  # reset to default clock type
+        yappi.set_context_backend('native_thread')
         yappi.set_context_id_callback(None)
         yappi.set_context_name_callback(None)
         yappi.set_tag_callback(None)
@@ -54,6 +56,17 @@ class YappiUnitTestCase(unittest.TestCase):
                     self.assert_almost_equal(ttot_orig, t.ttot, err_msg=tline)
                 if tsub_orig:
                     self.assert_almost_equal(tsub_orig, t.tsub, err_msg=tline)
+
+    def assert_ctx_stats_almost_equal(self, expected_stats_str, actual_stats):
+        for t in expected_stats_str.split('\n'):
+            tline = t.strip()
+            if tline:
+                t = tline.split()
+                ttot_orig = float(t[-2].strip())
+
+                ctx = find_ctx_stats_by_name(actual_stats, t[0])
+                if ttot_orig:
+                    self.assert_almost_equal(ttot_orig, ctx.ttot, err_msg=tline)
 
     def assert_almost_equal(
         self, x, y, negative_err=0.2, positive_err=0.4, err_msg=None
@@ -112,6 +125,10 @@ def find_stat_by_name(stats, name):
         if stat.name == name:
             return stat
 
+def find_ctx_stats_by_name(ctx_stats, name):
+    for stat in ctx_stats:
+        if stat.name == name:
+            return stat
 
 def get_stat_names(stats):
     return [stat.name for stat in stats]
@@ -135,6 +152,8 @@ def burn_cpu(sec):
 def burn_io(sec):
     time.sleep(sec)
 
+def burn_io_gevent(sec):
+    gevent.sleep(sec)
 
 from contextlib import contextmanager
 

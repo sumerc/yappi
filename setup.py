@@ -70,12 +70,13 @@ setup(
             "_yappi",
             sources=[
                 "yappi/_yappi.c", "yappi/callstack.c", "yappi/hashtab.c",
-                "yappi/mem.c", "yappi/freelist.c", "yappi/timing.c"
+                "yappi/mem.c", "yappi/freelist.c", "yappi/timing.c",
+                "yappi/tls.c"
             ],
             define_macros=user_macros,
             libraries=user_libraries,
             extra_compile_args=compile_args,
-            extra_link_args=link_args,
+            extra_link_args=link_args
         )
     ],
     package_dir={'': 'yappi'},
@@ -92,4 +93,7 @@ setup(
     classifiers=CLASSIFIERS,
     license="MIT",
     url=HOMEPAGE,
+    extras_require={
+        'test': ['gevent>=20.6.2'],
+    }
 )
