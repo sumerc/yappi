@@ -25,6 +25,8 @@
 #include "mem.h"
 #include "tls.h"
 
+#define SUPPRESS_WARNING(a) (void)a
+
 #ifdef IS_PY3K
 PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
 #endif
@@ -547,7 +549,7 @@ _ccode2pit(void *cco, uintptr_t current_tag)
 {
     PyCFunctionObject *cfn;
     _hitem *it;
-    PyObject *name;
+    PyObject *name, *mo, *obj_type, *method_descriptor;
     _htab *pits;
 
     pits = _get_pits_tbl(current_tag);
@@ -578,19 +580,19 @@ _ccode2pit(void *cco, uintptr_t current_tag)
             //_DebugPrintObjects(1, cfn);
             name = PyStr_FromString(cfn->m_ml->ml_name);
             if (name != NULL) {
-                PyObject *obj_type = PyObject_Type(cfn->m_self);
+                obj_type = PyObject_Type(cfn->m_self);
 
                 // use method descriptor instead of instance methods for builtin
                 // objects. Othwerwise, there might be some errors since we INCREF
                 // on the bound method. See: https://github.com/sumerc/yappi/issues/60
-                PyObject *method_descriptor = PyObject_GetAttr(obj_type, name);
+                method_descriptor = PyObject_GetAttr(obj_type, name);
                 if (method_descriptor) {
                     pit->fn_descriptor = method_descriptor;
                     Py_INCREF(method_descriptor);
                 }
 
                 // get name from type+name
-                PyObject *mo = _PyType_Lookup((PyTypeObject *)obj_type, name);
+                mo = _PyType_Lookup((PyTypeObject *)obj_type, name);
                 Py_XINCREF(mo);
                 Py_XDECREF(obj_type);
                 Py_DECREF(name);
@@ -808,7 +810,7 @@ decr_rec_level(uintptr_t key)
 
 
 static long long
-_ctx_tickcount() {
+_ctx_tickcount(void) {
     long long now;
 
     now = tickcount();
@@ -2149,7 +2151,9 @@ init_yappi(void)
     flags.builtins = 0;
     flags.multicontext = 0;
     test_timings = NULL;
-    
+
+    SUPPRESS_WARNING(_DebugPrintObjects);
+
     if (!_init_profiler()) {
         PyErr_SetString(YappiProfileError, "profiler cannot be initialized.");
 #ifdef IS_PY3K
