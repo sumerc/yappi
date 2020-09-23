@@ -32,6 +32,24 @@ class BasicUsage(utils.YappiUnitTestCase):
         yappi.start()
         foo()
 
+    def test_issue60(self):
+
+        def foo():
+            buf = bytearray()
+            buf += b't' * 200
+            view = memoryview(buf)[10:]
+            view = view.tobytes()
+            del buf[:10]  # this throws exception
+            return view
+
+        yappi.start()
+        foo()
+        yappi.get_func_stats(
+            filter_callback=lambda x: yappi.
+            func_matches(x, [memoryview.tobytes])
+        ).print_all()
+        yappi.stop()
+
     def test_issue54(self):
 
         def _tag_cbk():
@@ -191,11 +209,11 @@ class BasicUsage(utils.YappiUnitTestCase):
         stats = yappi.get_func_stats(
             filter_callback=lambda x: yappi.func_matches(x, [time.sleep])
         )
+        self.assertEqual(len(stats), 1)
         r1 = '''
         time.sleep                            2      0.206804  0.220000  0.103402
         '''
         self.assert_traces_almost_equal(r1, stats)
-        self.assertEqual(len(stats), 1)
 
     def test_print_formatting(self):
 

@@ -78,6 +78,7 @@ try:
 except AttributeError:
     GREENLET_COUNTER = itertools.count(start=1).__next__
 
+
 def _validate_sorttype(sort_type, list):
     sort_type = sort_type.lower()
     if sort_type not in list:
@@ -111,6 +112,7 @@ def _ctx_name_callback():
         # Threads may not be registered yet in first few profile callbacks.
         return None
 
+
 def _profile_thread_callback(frame, event, arg):
     """
     _profile_thread_callback will only be called once per-thread. _yappi will detect
@@ -118,6 +120,7 @@ def _profile_thread_callback(frame, event, arg):
     structure. This is an internal function please don't mess with it.
     """
     _yappi._profile_event(frame, event, arg)
+
 
 def _create_greenlet_callbacks():
     """
@@ -145,6 +148,7 @@ def _create_greenlet_callbacks():
         return getcurrent().__class__.__name__
 
     return _get_greenlet_id, _get_greenlet_name
+
 
 def _fft(x, COL_SIZE=8):
     """
@@ -198,6 +202,11 @@ def func_matches(stat, funcs):
     because current API of loading stats is as following:
     yappi.get_func_stats(filter_callback=_filter).add('dummy.ys').print_all()
 
+    funcs: is an iterable that selects functions via method descriptor/bound method
+        or function object. selector type depends on the function object: If function
+        is a builtin method, you can use method_descriptor. If it is a builtin function
+        you can select it like e.g: `time.sleep`. For other cases you could use anything 
+        that has a code object.
     '''
 
     if not isinstance(stat, YStat):
@@ -223,8 +232,9 @@ def func_matches(stat, funcs):
 
         # if not a builtin func/method add codeobject. codeobject will be
         # our search key for regular py functions.
-        if not isinstance(func, types.BuiltinFunctionType) or \
-            not isinstance(func, types.BuiltinMethodType):
+        if not isinstance(func, types.BuiltinFunctionType) and \
+           not isinstance(func, types.BuiltinMethodType) and \
+           not isinstance(func, types.MethodDescriptorType):
             funcs.add(func.__code__)
 
     try:
@@ -617,6 +627,7 @@ class YGreenletStat(YStat):
             elif title == "scnt":
                 out.write(StatString(self.sched_count).rtrim(size))
         out.write(LINESEP)
+
 
 class YStats(object):
     """
@@ -1107,11 +1118,7 @@ class _YContextStats(YStats):
             self._SORT_TYPES[sort_type], SORT_ORDERS[sort_order]
         )
 
-    def print_all(
-        self,
-        out=sys.stdout,
-        columns=None
-    ):
+    def print_all(self, out=sys.stdout, columns=None):
         """
         Prints all of the thread profiler results to a given file. (stdout by default)
         """
@@ -1155,6 +1162,7 @@ class YThreadStats(_YContextStats):
     }
     _ALL_COLUMNS = ["name", "id", "tid", "ttot", "scnt"]
 
+
 class YGreenletStats(_YContextStats):
     _BACKEND = GREENLET
     _STAT_CLASS = YGreenletStat
@@ -1173,6 +1181,7 @@ class YGreenletStats(_YContextStats):
         3: ("scnt", 10)
     }
     _ALL_COLUMNS = ["name", "id", "ttot", "scnt"]
+
 
 def is_running():
     """
@@ -1196,8 +1205,7 @@ def start(builtins=False, profile_threads=True, profile_greenlets=True):
     backend = _yappi.get_context_backend()
     profile_contexts = (
         (profile_threads and backend == NATIVE_THREAD)
-        or
-        (profile_greenlets and backend == GREENLET)
+        or (profile_greenlets and backend == GREENLET)
     )
     if profile_contexts:
         threading.setprofile(_profile_thread_callback)
@@ -1243,11 +1251,13 @@ def get_thread_stats():
     """
     return YThreadStats().get()
 
+
 def get_greenlet_stats():
     """
     Gets the greenlet stats captured by the profiler
     """
     return YGreenletStats().get()
+
 
 def stop():
     """
@@ -1278,7 +1288,11 @@ def run(builtins=False, profile_threads=True, profile_greenlets=True):
                 print("this call will be profiled")
             print("this call will *not* be profiled")
     """
-    start(builtins=builtins, profile_threads=profile_threads, profile_greenlets=profile_greenlets)
+    start(
+        builtins=builtins,
+        profile_threads=profile_threads,
+        profile_greenlets=profile_greenlets
+    )
     try:
         yield
     finally:
@@ -1343,6 +1357,7 @@ def set_tag_callback(cbk):
     to filter on stats via tag field.
     """
     return _yappi.set_tag_callback(cbk)
+
 
 def set_context_backend(type):
     """

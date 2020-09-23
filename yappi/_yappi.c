@@ -571,14 +571,25 @@ _ccode2pit(void *cco, uintptr_t current_tag)
         pit->builtin = 1;
         pit->modname = _pycfunction_module_name(cfn);
         pit->lineno = 0;
-        pit->fn_descriptor = (PyObject *)cfn;
-        Py_INCREF(cfn);
+        pit->fn_descriptor = NULL;
 
         // built-in method?
         if (cfn->m_self != NULL) {
+            //_DebugPrintObjects(1, cfn);
             name = PyStr_FromString(cfn->m_ml->ml_name);
             if (name != NULL) {
                 PyObject *obj_type = PyObject_Type(cfn->m_self);
+
+                // use method descriptor instead of instance methods for builtin
+                // objects. Othwerwise, there might be some errors since we INCREF
+                // on the bound method. See: https://github.com/sumerc/yappi/issues/60
+                PyObject *method_descriptor = PyObject_GetAttr(obj_type, name);
+                if (method_descriptor) {
+                    pit->fn_descriptor = method_descriptor;
+                    Py_INCREF(method_descriptor);
+                }
+
+                // get name from type+name
                 PyObject *mo = _PyType_Lookup((PyTypeObject *)obj_type, name);
                 Py_XINCREF(mo);
                 Py_XDECREF(obj_type);
@@ -591,6 +602,13 @@ _ccode2pit(void *cco, uintptr_t current_tag)
             }
             PyErr_Clear();
         }
+
+        if (pit->fn_descriptor == NULL) {
+            pit->fn_descriptor = (PyObject *)cfn;
+            Py_INCREF(cfn);
+        }
+
+        //_DebugPrintObjects(2, pit->name, pit->fn_descriptor);
         pit->name = PyStr_FromString(cfn->m_ml->ml_name);
         return pit;
     }
@@ -915,7 +933,7 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 
     // printf("call ENTER:%s %s\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
     //                              PyStr_AS_CSTRING(frame->f_code->co_name));
-
+    
     current_tag = _current_tag();
 
     //printf("call ENTER:%s %s %d\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
