@@ -230,11 +230,9 @@ def func_matches(stat, funcs):
         if not callable(func):
             raise YappiError("Non-callable item in 'funcs'. (%s)" % (func))
 
-        # if not a builtin func/method add codeobject. codeobject will be
-        # our search key for regular py functions.
-        if not isinstance(func, types.BuiltinFunctionType) and \
-           not isinstance(func, types.BuiltinMethodType) and \
-           not isinstance(func, types.MethodDescriptorType):
+        # If there is no CodeObject found, use func itself. It might be a
+        # method descriptor, builtin func..etc.
+        if getattr(func, "__code__", None):
             funcs.add(func.__code__)
 
     try:
