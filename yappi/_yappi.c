@@ -577,7 +577,6 @@ _ccode2pit(void *cco, uintptr_t current_tag)
 
         // built-in method?
         if (cfn->m_self != NULL) {
-            //_DebugPrintObjects(1, cfn);
             name = PyStr_FromString(cfn->m_ml->ml_name);
             if (name != NULL) {
                 obj_type = PyObject_Type(cfn->m_self);
@@ -610,7 +609,6 @@ _ccode2pit(void *cco, uintptr_t current_tag)
             Py_INCREF(cfn);
         }
 
-        //_DebugPrintObjects(2, pit->name, pit->fn_descriptor);
         pit->name = PyStr_FromString(cfn->m_ml->ml_name);
         return pit;
     }

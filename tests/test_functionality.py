@@ -42,12 +42,16 @@ class BasicUsage(utils.YappiUnitTestCase):
             del buf[:10]  # this throws exception
             return view
 
-        yappi.start()
+        yappi.start(builtins=True)
         foo()
-        yappi.get_func_stats(
-            filter_callback=lambda x: yappi.
-            func_matches(x, [memoryview.tobytes])
-        ).print_all()
+        self.assertTrue(
+            len(
+                yappi.get_func_stats(
+                    filter_callback=lambda x: yappi.
+                    func_matches(x, [memoryview.tobytes])
+                )
+            ) > 0
+        )
         yappi.stop()
 
     def test_issue54(self):
