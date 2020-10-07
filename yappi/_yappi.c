@@ -25,6 +25,8 @@
 #include "mem.h"
 #include "tls.h"
 
+#define SUPPRESS_WARNING(a) (void)a
+
 #ifdef IS_PY3K
 PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
 #endif
@@ -547,7 +549,7 @@ _ccode2pit(void *cco, uintptr_t current_tag)
 {
     PyCFunctionObject *cfn;
     _hitem *it;
-    PyObject *name;
+    PyObject *name, *mo, *obj_type, *method_descriptor;
     _htab *pits;
 
     pits = _get_pits_tbl(current_tag);
@@ -571,15 +573,25 @@ _ccode2pit(void *cco, uintptr_t current_tag)
         pit->builtin = 1;
         pit->modname = _pycfunction_module_name(cfn);
         pit->lineno = 0;
-        pit->fn_descriptor = (PyObject *)cfn;
-        Py_INCREF(cfn);
+        pit->fn_descriptor = NULL;
 
         // built-in method?
         if (cfn->m_self != NULL) {
             name = PyStr_FromString(cfn->m_ml->ml_name);
             if (name != NULL) {
-                PyObject *obj_type = PyObject_Type(cfn->m_self);
-                PyObject *mo = _PyType_Lookup((PyTypeObject *)obj_type, name);
+                obj_type = PyObject_Type(cfn->m_self);
+
+                // use method descriptor instead of instance methods for builtin
+                // objects. Othwerwise, there might be some errors since we INCREF
+                // on the bound method. See: https://github.com/sumerc/yappi/issues/60
+                method_descriptor = PyObject_GetAttr(obj_type, name);
+                if (method_descriptor) {
+                    pit->fn_descriptor = method_descriptor;
+                    Py_INCREF(method_descriptor);
+                }
+
+                // get name from type+name
+                mo = _PyType_Lookup((PyTypeObject *)obj_type, name);
                 Py_XINCREF(mo);
                 Py_XDECREF(obj_type);
                 Py_DECREF(name);
@@ -591,6 +603,12 @@ _ccode2pit(void *cco, uintptr_t current_tag)
             }
             PyErr_Clear();
         }
+
+        if (pit->fn_descriptor == NULL) {
+            pit->fn_descriptor = (PyObject *)cfn;
+            Py_INCREF(cfn);
+        }
+
         pit->name = PyStr_FromString(cfn->m_ml->ml_name);
         return pit;
     }
@@ -790,7 +808,7 @@ decr_rec_level(uintptr_t key)
 
 
 static long long
-_ctx_tickcount() {
+_ctx_tickcount(void) {
     long long now;
 
     now = tickcount();
@@ -915,7 +933,7 @@ _call_enter(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
 
     // printf("call ENTER:%s %s\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
     //                              PyStr_AS_CSTRING(frame->f_code->co_name));
-
+    
     current_tag = _current_tag();
 
     //printf("call ENTER:%s %s %d\n", PyStr_AS_CSTRING(frame->f_code->co_filename),
@@ -2131,7 +2149,9 @@ init_yappi(void)
     flags.builtins = 0;
     flags.multicontext = 0;
     test_timings = NULL;
-    
+
+    SUPPRESS_WARNING(_DebugPrintObjects);
+
     if (!_init_profiler()) {
         PyErr_SetString(YappiProfileError, "profiler cannot be initialized.");
 #ifdef IS_PY3K
