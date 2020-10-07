@@ -1346,7 +1346,7 @@ def set_tag_callback(cbk):
 
 def set_context_backend(type):
     """
-    Sets the internal threading backend used to track execution context
+    Sets the internal context backend used to track execution context.
 
     type must be one of 'greenlet' or 'native_thread'. For example:
 

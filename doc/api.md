@@ -2,7 +2,7 @@
 
 ## Functions
 
-#### `start(builtins=False, profile_threads=True)`
+#### `start(builtins=False, profile_threads=True, profile_greenlets=True)`
 
 Starts profiling all threads in the current interpreter instance. 
 This function can be called from any thread at any time. 
@@ -13,6 +13,9 @@ Resumes profiling if stop() is called previously.
 
 `profile_threads` enables profiling of all threads. If this flag is true, all current threads and the ones that are generated
 in the future will be profiled.
+
+`profile_greenlets` enables profiling of multiple greenlets. This argument is only respected when context backend is 
+'greenlet' and ignored otherwise.
 
 #### `stop()`
 
@@ -78,6 +81,10 @@ See [func_matches](#func_matchesstat-funcs) and [module_matches](#module_matches
 
 Returns the thread stats as a [`YThreadStat`](#ythreadstat) object.
 
+#### `get_greenlet_stats()`
+
+Returns the greenlet stats as a [`YGreenletStats`](#ygreenletstats) object.
+
 #### `is_running()`
 
 Returns a boolean indicating whether profiler is running or not.
@@ -142,6 +149,17 @@ Once a profile session is saved or loaded from a file, you cannot use
 not serialized.
 
 ---
+
+#### `set_context_backend(type='native_thread')`
+
+Sets the internal context backend used to track execution context. Type must be one of 'greenlet' or 'native_thread'.
+Default is `native_thread` and there is no need to call this function for initialization.
+
+Setting the context backend will reset any callbacks configured via:
+
+    - `set_context_id_callback`
+    - `set_context_name_callback`
+
 
 #### `set_ctx_id_callback(callback)`
 
@@ -318,6 +336,17 @@ Debug print prints out callee functions and more detailed info than t
 | name        	| class name of the current thread object which is derived from the `threading.Thread`<br> class 	|
 | id          	| a unique id given by Yappi (ctx_id)                                                            	|
 | tid         	| the real OS thread id                                                                          	|
+| ttot        	| total time spent in the thread                                                                 	|
+| sched_count 	| number of times this thread is scheduled.                                                      	|
+
+## `YGreenletStats`
+
+`YGreenletStats` object has following attributes:
+
+| Attribute   	| Description                                                                                    	|
+|-------------	|------------------------------------------------------------------------------------------------	|
+| name        	| class name of the current greenlet                                                             	|
+| id          	| a unique id given by Yappi (ctx_id)                                                            	|
 | ttot        	| total time spent in the thread                                                                 	|
 | sched_count 	| number of times this thread is scheduled.                                                      	|
 
