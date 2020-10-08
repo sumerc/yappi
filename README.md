@@ -204,7 +204,7 @@ package_a/__init__.py:1 a             1      0.000001  0.000001  0.000001
 '''
 ```
 
-### Profile an async application:
+### Profile an asyncio application:
 
 You can see that coroutine wall-time's are correctly profiled.
 
@@ -239,7 +239,7 @@ doc4.py:15 baz                        1      0.000013  1.001397  1.001397
 '''
 ```
 
-### Profile a greenlet application:
+### Profile a gevent application:
 
 You can use yappi to profile greenlet applications now!
 
