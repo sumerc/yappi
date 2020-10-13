@@ -8,6 +8,7 @@ from utils import (
     YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io,
     burn_io_gevent
 )
+
 class GeventTestThread(threading.Thread):
     def __init__(self, name, *args, **kwargs):
         super(GeventTestThread, self).__init__(*args, **kwargs)
