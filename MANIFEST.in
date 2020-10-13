@@ -1,4 +1,5 @@
 include *.md
 include yappi/*.h
+include run_tests.py
 include tests/*.py
 include LICENSE
