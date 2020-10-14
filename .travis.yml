@@ -1,7 +1,7 @@
 language: python
 python:
   - "3.10-dev"
-  - "3.9"
+  - "3.9-dev"
   - "3.8"
   - "3.7"
   - "3.6"
@@ -9,4 +9,5 @@ python:
   - "2.7"
 script:
   - pip install .[test]
+  - python setup.py install
   - python run_tests.py
