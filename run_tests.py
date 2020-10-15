@@ -15,7 +15,13 @@ if __name__ == '__main__':
     sys.path.append('tests/')
     test_loader = unittest.defaultTestLoader
     test_runner = unittest.TextTestRunner(verbosity=2)
-    tests = ['test_functionality', 'test_hooks', 'test_tags', 'test_gevent']
+    tests = [
+        'test_functionality',
+        'test_hooks',
+        'test_tags',
+    ]
+    if sys.version_info < (3, 10):
+        tests += ['test_gevent']
     if sys.version_info >= (3, 4):
         tests += ['test_asyncio']
     if sys.version_info >= (3, 7):
@@ -26,6 +32,8 @@ if __name__ == '__main__':
         test_suite = _testsuite_from_tests(sys.argv[1:])
 
     #tests = ['test_functionality.BasicUsage.test_run_as_script']
+
+    print("Running following tests: %s" % (tests))
 
     result = test_runner.run(test_suite)
     sys.exit(not result.wasSuccessful())

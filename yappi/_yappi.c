@@ -213,6 +213,16 @@ static void _DebugPrintObjects(unsigned int arg_count, ...)
     va_end(vargs);
 }
 
+int 
+IS_SUSPENDED(PyFrameObject *frame)
+{
+#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 10
+    return (frame->f_state == FRAME_SUSPENDED);
+#else
+    return (frame->f_stacktop != NULL);
+#endif
+}
+
 int IS_ASYNC(PyFrameObject *frame)
 {
     int result = 0;
@@ -999,13 +1009,10 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
         return;
     }
 
-    //if (frame->f_code->co_flags & CO_GENERATOR) {
-        //printf("is a generator func.\n");
-    //}
-
-    // TODO: Comment
+    // if the function that the frame belongs is a coroutine, we check if we RETURN
+    // or YIELD from the coroutine to calculate the correct walltime
     if (IS_ASYNC(frame)) {
-        if (frame->f_stacktop) {
+        if (IS_SUSPENDED(frame)) {
             yielded = 1;
             if (get_timing_clock_type() == WALL_CLOCK) {
                 // In fact setting this zero means following:

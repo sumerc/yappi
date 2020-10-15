@@ -1,5 +1,6 @@
 language: python
 python:
+  - "3.10-dev"
   - "3.9-dev"
   - "3.8"
   - "3.7"
@@ -7,5 +8,6 @@ python:
   - "3.5"
   - "2.7"
 script:
-  - pip install .[test]
+  - pip install .[test] || true
+  - python setup.py install # todo: pip install fails on 3.10
   - python run_tests.py
