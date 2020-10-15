@@ -8,6 +8,5 @@ python:
   - "3.5"
   - "2.7"
 script:
-  - pip install .[test]
-  - python setup.py install
+  - pip install .[test] || true
   - python run_tests.py
