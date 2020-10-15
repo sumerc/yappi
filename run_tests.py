@@ -20,7 +20,6 @@ if __name__ == '__main__':
         'test_hooks',
         'test_tags',
     ]
-    print(sys.version_info)
     if sys.version_info < (3, 10):
         tests += ['test_gevent']
     if sys.version_info >= (3, 4):
