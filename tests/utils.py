@@ -3,6 +3,7 @@ import yappi
 import time
 import unittest
 
+
 class YappiUnitTestCase(unittest.TestCase):
 
     def setUp(self):
@@ -67,7 +68,7 @@ class YappiUnitTestCase(unittest.TestCase):
                     self.assert_almost_equal(ttot_orig, ctx.ttot, err_msg=tline)
 
     def assert_almost_equal(
-        self, x, y, negative_err=0.2, positive_err=0.4, err_msg=None
+        self, x, y, negative_err=0.2, positive_err=0.6, err_msg=None
     ):
         pos_epsilon = (x * positive_err)
         neg_epsilon = (x * negative_err)
@@ -123,10 +124,12 @@ def find_stat_by_name(stats, name):
         if stat.name == name:
             return stat
 
+
 def find_ctx_stats_by_name(ctx_stats, name):
     for stat in ctx_stats:
         if stat.name == name:
             return stat
+
 
 def get_stat_names(stats):
     return [stat.name for stat in stats]
@@ -150,9 +153,11 @@ def burn_cpu(sec):
 def burn_io(sec):
     time.sleep(sec)
 
+
 def burn_io_gevent(sec):
     import gevent
     gevent.sleep(sec)
+
 
 from contextlib import contextmanager
 
