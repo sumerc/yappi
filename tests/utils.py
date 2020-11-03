@@ -70,6 +70,10 @@ class YappiUnitTestCase(unittest.TestCase):
     def assert_almost_equal(
         self, x, y, negative_err=0.2, positive_err=0.6, err_msg=None
     ):
+        # time sensitive tests fail on MacOS CI, increase threshold
+        if sys.platform == 'darwin':
+            positive_err = 1.3
+
         pos_epsilon = (x * positive_err)
         neg_epsilon = (x * negative_err)
 

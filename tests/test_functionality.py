@@ -272,7 +272,7 @@ class BasicUsage(utils.YappiUnitTestCase):
         t0 = yappi.get_clock_time()
         time.sleep(0.1)
         duration = yappi.get_clock_time() - t0
-        self.assertTrue(0.05 < duration < 0.2)
+        self.assertTrue(0.05 < duration < 0.3)
 
     def test_profile_decorator(self):
 
