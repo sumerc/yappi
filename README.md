@@ -9,7 +9,7 @@
 
 <p align="center">
     <img src="https://www.travis-ci.org/sumerc/yappi.svg?branch=master">
-    <img src="https://ci.appveyor.com/api/projects/status/github/sumerc/yappi?branch=master&svg=true">
+    <img src="https://github.com/sumerc/yappi/workflows/CI/badge.svg?branch=master">
     <img src="https://img.shields.io/pypi/v/yappi.svg">
     <img src="https://img.shields.io/pypi/dw/yappi.svg">
     <img src="https://img.shields.io/pypi/pyversions/yappi.svg">
