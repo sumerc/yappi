@@ -274,6 +274,7 @@ time.sleep                            1      1.000487  1.000487  1.000487
 - [Clock Types](https://github.com/sumerc/yappi/blob/master/doc/clock_types.md)
 - [API](https://github.com/sumerc/yappi/blob/master/doc/api.md)
 - [Coroutine Profiling](https://github.com/sumerc/yappi/blob/master/doc/coroutine-profiling.md) _(new in 1.2)_
+- [Greenlet Profiling](https://github.com/sumerc/yappi/blob/master/doc/greenlet-profiling.md) _(new in 1.3)_
 
   Note: Yes. I know I should be moving docs to readthedocs.io. Stay tuned!
 
