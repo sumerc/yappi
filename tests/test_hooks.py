@@ -147,7 +147,7 @@ class ContextIdCallbackTest(utils.YappiUnitTestCase):
         self.assertEqual(2, len(t_stats))
         self.assertEqual(0, t_stats[0].id)
         self.assertEqual(2, t_stats[0].sched_count)
-        self.assertTrue(0.15 < t_stats[0].ttot < 0.3)
+        self.assertTrue(0.15 < t_stats[0].ttot < 0.7, t_stats[0].ttot)
 
         self.assertEqual(1, t_stats[1].id)
         self.assertEqual(1, t_stats[1].sched_count)
