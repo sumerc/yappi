@@ -199,7 +199,7 @@ tlocal = threading.local()
 def _worker_tag_cbk():
     global _req_counter
 
-    if not getattr(tlocal, '_request_id'):
+    if not hasattr(tlocal, '_request_id'):
         _req_counter += 1 # protect this with mutex
         tlocal._request_id = _req_counter
     
