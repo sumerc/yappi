@@ -12,7 +12,7 @@ with io.open('README.md', encoding='UTF-8') as f:
 
 HOMEPAGE = "https://github.com/sumerc/yappi"
 NAME = "yappi"
-VERSION = "1.3.0"
+VERSION = "1.3.2"
 _DEBUG = False  # compile/link code for debugging
 _PROFILE = False  # profile yappi itself
 
@@ -54,6 +54,8 @@ CLASSIFIERS = [
     'Programming Language :: Python :: 3.6',
     'Programming Language :: Python :: 3.7',
     'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: Implementation :: CPython',
     'Operating System :: OS Independent',
     'Topic :: Software Development :: Libraries',
