@@ -1604,6 +1604,7 @@ _pitenumstat(_hitem *item, void *arg)
     _pit *pt;
     PyObject *exc;
     PyObject *children;
+    PyObject *ctx_name;
     _pit_children_info *pci;
     _ctxfuncenumarg *eargs;
 
@@ -1644,11 +1645,19 @@ _pitenumstat(_hitem *item, void *arg)
     if (pt->callcount == 0)
         pt->callcount = 1;
 
+    // normally _yapp_callback sets ctx->name if not set but there is a possibility
+    // that we might end up here even it is not set. We also do not default it to 
+    // Py_None as we will Py_CLEAR() on it later on.
+    ctx_name = eargs->ctx->name;
+    if (!ctx_name) {
+        ctx_name = Py_None;
+    }
+
     exc = PyObject_CallFunction(eargs->enum_args->enumfn, "((OOkkkIffIOkOkO))", 
                         pt->name, pt->modname, pt->lineno, pt->callcount,
                         pt->nonrecursive_callcount, pt->builtin, 
                         _normt(pt->ttotal), _normt(pt->tsubtotal),
-                        pt->index, children, eargs->ctx->id, eargs->ctx->name,
+                        pt->index, children, eargs->ctx->id, ctx_name,
                         eargs->tag, pt->fn_descriptor);
 
     if (!exc) {
