@@ -1,8 +1,8 @@
-#include "Python.h"
-#include "pythread.h"
-
 #ifndef YTLS_H
 #define YTLS_H
+
+#include "Python.h"
+#include "pythread.h"
 
 #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 7
     #define USE_NEW_TSS_API
