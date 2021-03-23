@@ -1,8 +1,7 @@
-
-#include "config.h"
-
 #ifndef YTIMING_H
 #define YTIMING_H
+
+#include "config.h"
 
 #if defined(_WINDOWS)
 #include <windows.h>
@@ -56,5 +55,3 @@ int set_timing_clock_type(clock_type_t type);
 clock_type_t get_timing_clock_type(void);
 
 #endif
-
-
