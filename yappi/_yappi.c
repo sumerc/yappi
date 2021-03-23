@@ -1736,7 +1736,7 @@ start(PyObject *self, PyObject *args)
 }
 
 static PyObject*
-stop(PyObject *self)
+stop(PyObject *self, PyObject *args)
 {
     _stop();
     Py_RETURN_NONE;
@@ -2090,13 +2090,13 @@ _resume(PyObject *self, PyObject *args)
             // error
             return NULL;
     }
-    
+
     Py_RETURN_NONE;
 }
 
 static PyMethodDef yappi_methods[] = {
     {"start", start, METH_VARARGS, NULL},
-    {"stop", (PyCFunction)stop, METH_NOARGS, NULL},
+    {"stop", stop, METH_NOARGS, NULL},
     {"enum_func_stats", enum_func_stats, METH_VARARGS, NULL},
     {"enum_context_stats", enum_context_stats, METH_VARARGS, NULL},
     {"enum_thread_stats", enum_context_stats, METH_VARARGS, NULL},
@@ -2117,7 +2117,7 @@ static PyMethodDef yappi_methods[] = {
     {"_profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage.
     {"_pause", _pause, METH_VARARGS, NULL}, // for internal usage.
     {"_resume", _resume, METH_VARARGS, NULL}, // for internal usage.
-    {NULL, NULL}      /* sentinel */
+    {NULL, NULL, 0, NULL}      /* sentinel */
 };
 
 #ifdef IS_PY3K
