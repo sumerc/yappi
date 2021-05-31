@@ -1258,7 +1258,11 @@ _resume_greenlet_ctx(_ctx *ctx)
 static _ctx *
 _bootstrap_thread(PyThreadState *ts)
 {
+#if PY_VERSION_HEX < 0x030a00b1
     ts->use_tracing = 1;
+#else
+    ts->cframe->use_tracing = 1;
+#endif
     ts->c_profilefunc = _yapp_callback;
     return NULL;
 }
@@ -1289,7 +1293,11 @@ _profile_thread(PyThreadState *ts)
         ctx = (_ctx *)it->val;
     }
     
+#if PY_VERSION_HEX < 0x030a00b1
     ts->use_tracing = 1;
+#else
+    ts->cframe->use_tracing = 1;
+#endif
     ts->c_profilefunc = _yapp_callback;
     ctx->id = ctx_id;
     ctx->tid = ts->thread_id;
@@ -1306,7 +1314,11 @@ _profile_thread(PyThreadState *ts)
 static _ctx*
 _unprofile_thread(PyThreadState *ts)
 {
+#if PY_VERSION_HEX < 0x030a00b1
     ts->use_tracing = 0;
+#else
+    ts->cframe->use_tracing = 0;
+#endif
     ts->c_profilefunc = NULL;
 
     return NULL; //dummy return for enum_threads() func. prototype
