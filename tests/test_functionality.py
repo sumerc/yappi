@@ -5,7 +5,7 @@ import threading
 import unittest
 import yappi
 import _yappi
-import utils
+import tests.utils as utils
 import multiprocessing  # added to fix http://bugs.python.org/issue15881 for > Py2.6
 import subprocess
 
