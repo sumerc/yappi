@@ -46,11 +46,11 @@ SORT_TYPES_FUNCSTATS = {
     "callcount": 3,
     "totaltime": 6,
     "subtime": 7,
-    "avgtime": 10,
+    "avgtime": 14,
     "ncall": 3,
     "ttot": 6,
     "tsub": 7,
-    "tavg": 10
+    "tavg": 14
 }
 SORT_TYPES_CHILDFUNCSTATS = {
     "name": 10,
