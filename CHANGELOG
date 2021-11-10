@@ -1,6 +1,11 @@
 CHANGELOG
 =========
 
+1.3.3 (2021-10-05)
+
+- Fix 3.10 support
+- Fix wrong sorting key when tavg is selected
+
 1.3.2 (2020-11-27)
 
 - Add support for Python 3.10
