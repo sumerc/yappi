@@ -23,7 +23,7 @@ class SingleThreadTests(YappiUnitTestCase):
         yappi.set_clock_type('wall')
 
         with yappi.run():
-            asyncio.run(mt(-2))
+            asyncio.get_event_loop().run_until_complete(mt(-2))
         r1 = '''
         async_sleep 2      0  4.005451  2.002725
         '''
@@ -32,7 +32,7 @@ class SingleThreadTests(YappiUnitTestCase):
         yappi.clear_stats()
 
         with yappi.run():
-            asyncio.run(mt(1))
+            asyncio.get_event_loop().run_until_complete(mt(1))
         r1 = '''
         async_sleep 2      0  7.006886  3.503443
         '''
