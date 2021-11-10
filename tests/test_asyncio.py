@@ -16,7 +16,7 @@ class SingleThreadTests(YappiUnitTestCase):
 
         @asyncio.coroutine
         def mt(d):
-            t = asyncio.create_task(async_sleep(3 + d))
+            t = asyncio.Task(async_sleep(3 + d))
             yield from async_sleep(3)
             yield from t
 
