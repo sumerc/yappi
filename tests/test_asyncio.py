@@ -12,6 +12,33 @@ def async_sleep(sec):
 
 class SingleThreadTests(YappiUnitTestCase):
 
+    def test_issue58(self):
+
+        @asyncio.coroutine
+        def mt(d):
+            t = asyncio.Task(async_sleep(3 + d))
+            yield from async_sleep(3)
+            yield from t
+
+        yappi.set_clock_type('wall')
+
+        with yappi.run():
+            asyncio.get_event_loop().run_until_complete(mt(-2))
+        r1 = '''
+        async_sleep 2      0  4.005451  2.002725
+        '''
+        stats = yappi.get_func_stats()
+        self.assert_traces_almost_equal(r1, stats)
+        yappi.clear_stats()
+
+        with yappi.run():
+            asyncio.get_event_loop().run_until_complete(mt(1))
+        r1 = '''
+        async_sleep 2      0  7.006886  3.503443
+        '''
+        stats = yappi.get_func_stats()
+        self.assert_traces_almost_equal(r1, stats)
+
     def test_recursive_coroutine(self):
 
         @asyncio.coroutine

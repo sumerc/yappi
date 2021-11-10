@@ -859,6 +859,18 @@ _get_frame_elapsed(void)
     return result;
 }
 
+static void
+_print_coros(_pit *cp)
+{
+    _coro *coro;
+
+    printf("Printing coroutines on %s...\n", PyStr_AS_CSTRING(cp->name));
+    coro = cp->coroutines;
+    while(coro) {
+        printf("CORO %s %p %lld\n", PyStr_AS_CSTRING(cp->name), coro->frame, coro->t0);
+        coro = (_coro *)coro->next;
+    }
+}
 
 static int 
 _coro_enter(_pit *cp, PyFrameObject *frame)
@@ -879,7 +891,7 @@ _coro_enter(_pit *cp, PyFrameObject *frame)
         coro = (_coro *)coro->next;
     }
 
-    //printf("CORO ENTER %s %p\n", PyStr_AS_CSTRING(cp->name), frame);
+    //printf("CORO ENTER %s %p %lld\n", PyStr_AS_CSTRING(cp->name), frame, tickcount());
 
     coro = ymalloc(sizeof(_coro));
     if (!coro) {
@@ -909,7 +921,7 @@ _coro_exit(_pit *cp, PyFrameObject *frame)
             return 0;
     }
 
-    //printf("CORO EXIT %s %p\n", PyStr_AS_CSTRING(cp->name), frame);
+    //printf("CORO EXIT %s %p %lld\n", PyStr_AS_CSTRING(cp->name), frame, tickcount());
 
     prev = NULL;
     coro = cp->coroutines;
@@ -919,9 +931,10 @@ _coro_exit(_pit *cp, PyFrameObject *frame)
             if (prev) {
                 prev->next = coro->next;
             } else {
-                cp->coroutines = NULL;
+                cp->coroutines = (_coro *)coro->next;
             }
             yfree(coro);
+            //printf("CORO EXIT(elapsed) %s %p %lld\n", PyStr_AS_CSTRING(cp->name), frame, tickcount()-_t0);
             return tickcount() - _t0;
         }
         prev = coro;
@@ -2179,6 +2192,7 @@ init_yappi(void)
     test_timings = NULL;
 
     SUPPRESS_WARNING(_DebugPrintObjects);
+    SUPPRESS_WARNING(_print_coros);
 
     if (!_init_profiler()) {
         PyErr_SetString(YappiProfileError, "profiler cannot be initialized.");
