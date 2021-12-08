@@ -4,7 +4,7 @@
 
 <h1 align="center">Yappi</h1>
 <p align="center">
-    Yet Another Python Profiler, but this time <b>thread&coroutine&greenlet</b> aware.
+    A tracing profiler that is <b>thread&coroutine&greenlet</b> aware.
 </p>
 
 <p align="center">
