@@ -1,7 +1,7 @@
 CHANGELOG
 =========
 
-1.3.4 (2022-05-20)
+1.3.5 (2022-05-20)
 
 - Fix an exception with matplotlib on Python 3.10 (#97)
 - Fix incorrect walltime when same coroutine is ran with concurrent tasks (#58) 
