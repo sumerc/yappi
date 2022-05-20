@@ -625,6 +625,17 @@ _ccode2pit(void *cco, uintptr_t current_tag)
     return ((_pit *)it->val);
 }
 
+static PyObject *_get_locals(PyFrameObject *fobj) {
+#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 10
+    return PyEval_GetLocals();
+#else
+    PyFrame_FastToLocals(fobj);
+    PyObject* locals = fobj->f_locals;
+    PyFrame_LocalsToFast(fobj, 0);
+    return locals;
+#endif
+}
+
 // maps the PyCodeObject to our internal pit item via hash table.
 static _pit *
 _code2pit(PyFrameObject *fobj, uintptr_t current_tag)
@@ -658,12 +669,11 @@ _code2pit(PyFrameObject *fobj, uintptr_t current_tag)
     pit->fn_descriptor = (PyObject *)cobj;
     Py_INCREF(cobj);
 
-    PyFrame_FastToLocals(fobj);
     if (cobj->co_argcount) {
         const char *firstarg = PyStr_AS_CSTRING(PyTuple_GET_ITEM(cobj->co_varnames, 0));
 
         if (!strcmp(firstarg, "self")) {
-            PyObject* locals = fobj->f_locals;
+            PyObject* locals = _get_locals(fobj);
             if (locals) {
                 PyObject* self = PyDict_GetItemString(locals, "self");
                 if (self) {
@@ -684,8 +694,6 @@ _code2pit(PyFrameObject *fobj, uintptr_t current_tag)
         Py_INCREF(cobj->co_name);
         pit->name = cobj->co_name;
     }
-
-    PyFrame_LocalsToFast(fobj, 0);
 
     return pit;
 }
