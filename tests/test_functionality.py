@@ -1176,6 +1176,7 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         c.join()
         a()
         stats = yappi.get_func_stats()
+        stats.print_all()
         fsa1 = utils.find_stat_by_name(stats, 'Worker1.a')
         fsa2 = utils.find_stat_by_name(stats, 'a')
         self.assertTrue(fsa1 is not None)
