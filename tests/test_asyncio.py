@@ -5,20 +5,18 @@ import threading
 from utils import YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io
 
 
-@asyncio.coroutine
-def async_sleep(sec):
-    yield from asyncio.sleep(sec)
+async def async_sleep(sec):
+    await asyncio.sleep(sec)
 
 
 class SingleThreadTests(YappiUnitTestCase):
 
     def test_issue58(self):
 
-        @asyncio.coroutine
-        def mt(d):
+        async def mt(d):
             t = asyncio.Task(async_sleep(3 + d))
-            yield from async_sleep(3)
-            yield from t
+            await async_sleep(3)
+            await t
 
         yappi.set_clock_type('wall')
 
@@ -41,14 +39,13 @@ class SingleThreadTests(YappiUnitTestCase):
 
     def test_recursive_coroutine(self):
 
-        @asyncio.coroutine
-        def a(n):
+        async def a(n):
             if n <= 0:
                 return
-            yield from async_sleep(0.1)
+            await async_sleep(0.1)
             burn_cpu(0.1)
-            yield from a(n - 1)
-            yield from a(n - 2)
+            await a(n - 1)
+            await a(n - 2)
 
         yappi.set_clock_type("cpu")
         yappi.start()
@@ -65,13 +62,12 @@ class SingleThreadTests(YappiUnitTestCase):
 
     def test_basic_old_style(self):
 
-        @asyncio.coroutine
-        def a():
-            yield from async_sleep(0.1)
+        async def a():
+            await async_sleep(0.1)
             burn_io(0.1)
-            yield from async_sleep(0.1)
+            await async_sleep(0.1)
             burn_io(0.1)
-            yield from async_sleep(0.1)
+            await async_sleep(0.1)
             burn_cpu(0.3)
 
         yappi.set_clock_type("wall")
@@ -111,22 +107,19 @@ class MultiThreadTests(YappiUnitTestCase):
 
     def test_basic(self):
 
-        @asyncio.coroutine
-        def a():
-            yield from async_sleep(0.3)
+        async def a():
+            await async_sleep(0.3)
             burn_cpu(0.4)
 
-        @asyncio.coroutine
-        def b():
-            yield from a()
+        async def b():
+            await a()
 
-        @asyncio.coroutine
-        def recursive_a(n):
+        async def recursive_a(n):
             if not n:
                 return
             burn_io(0.3)
-            yield from async_sleep(0.3)
-            yield from recursive_a(n - 1)
+            await async_sleep(0.3)
+            await recursive_a(n - 1)
 
         tlocal = threading.local()
 
@@ -158,12 +151,10 @@ class MultiThreadTests(YappiUnitTestCase):
             ts.append(t)
             _ctag += 1
 
-        @asyncio.coroutine
-        def stop_loop():
+        async def stop_loop():
             asyncio.get_event_loop().stop()
 
-        @asyncio.coroutine
-        def driver():
+        async def driver():
             futs = []
             fut = asyncio.run_coroutine_threadsafe(a(), ts[0]._loop)
             futs.append(fut)

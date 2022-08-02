@@ -200,6 +200,15 @@ static int _pitenumdel(_hitem *item, void *arg);
 
 // funcs
 
+static PyCodeObject *
+FRAME2CODE(PyFrameObject *frame) {
+#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 10
+    return PyFrame_GetCode(frame);
+#else
+    return frame->f_code;
+#endif
+}
+
 static void _DebugPrintObjects(unsigned int arg_count, ...)
 {
     unsigned int i;
@@ -216,7 +225,9 @@ static void _DebugPrintObjects(unsigned int arg_count, ...)
 int 
 IS_SUSPENDED(PyFrameObject *frame)
 {
-#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 10
+#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 11
+    return 1;
+#elif PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION == 10
     return (frame->f_state == FRAME_SUSPENDED);
 #else
     return (frame->f_stacktop != NULL);
@@ -229,11 +240,11 @@ int IS_ASYNC(PyFrameObject *frame)
 
 #if defined(IS_PY3K) 
 #if PY_MINOR_VERSION >= 4
-    result = frame->f_code->co_flags & CO_COROUTINE || 
-        frame->f_code->co_flags & CO_ITERABLE_COROUTINE;
+    result = FRAME2CODE(frame)->co_flags & CO_COROUTINE || 
+        FRAME2CODE(frame)->co_flags & CO_ITERABLE_COROUTINE;
 #endif
 #if PY_MINOR_VERSION >= 6
-    result = result || frame->f_code->co_flags & CO_ASYNC_GENERATOR;
+    result = result || FRAME2CODE(frame)->co_flags & CO_ASYNC_GENERATOR;
 #endif
 #endif
 
@@ -650,7 +661,7 @@ _code2pit(PyFrameObject *fobj, uintptr_t current_tag)
         return NULL;
     }
 
-    cobj = fobj->f_code;
+    cobj = FRAME2CODE(fobj);
     it = hfind(pits, (uintptr_t)cobj);
     if (it) {
         return ((_pit *)it->val);
