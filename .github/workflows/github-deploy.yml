@@ -1,5 +1,8 @@
 name: Build and upload to PyPI
-on: [push, pull_request]
+on:
+  release:
+    types:
+    - published
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
