@@ -1292,17 +1292,37 @@ _resume_greenlet_ctx(_ctx *ctx)
     ydprintf("resuming context: %ld, shift: %lld", ctx->id, shift);
 }
 
+static void 
+_eval_setprofile(PyThreadState *ts)
+{
+#if PY_VERSION_HEX < 0x030a00b1
+    ts->use_tracing = 1;
+#else
+    ts->cframe->use_tracing = 1;
+#endif
+    ts->c_profilefunc = _yapp_callback;
+
+    //_update_tracing_state()
+
+//  todo: do this only for 3.11
+    ts->cframe->use_tracing = 255;
+}
+
+static void
+_eval_unsetprofile(PyThreadState *ts)
+{
+#if PY_VERSION_HEX < 0x030a00b1
+    ts->use_tracing = 0;
+#else
+    ts->cframe->use_tracing = 0;
+#endif
+    ts->c_profilefunc = NULL;
+}
+
 static _ctx *
 _bootstrap_thread(PyThreadState *ts)
 {
-// #if PY_VERSION_HEX < 0x030a00b1
-//     ts->use_tracing = 1;
-// #else
-//     ts->cframe->use_tracing = 1;
-// #endif
-//     ts->c_profilefunc = _yapp_callback;
-    PyEval_SetProfile(_yapp_callback, NULL);
-
+    _eval_setprofile(ts);
     return NULL;
 }
 
@@ -1331,16 +1351,7 @@ _profile_thread(PyThreadState *ts)
     } else {
         ctx = (_ctx *)it->val;
     }
-    
-// #if PY_VERSION_HEX < 0x030a00b1
-//     ts->use_tracing = 1;
-// #else
-//     ts->cframe->use_tracing = 1;
-// #endif
-//     ts->c_profilefunc = _yapp_callback;
-    // TODO: How to do this for all threads?
-    PyEval_SetProfile(_yapp_callback, NULL);
-
+    _eval_setprofile(ts);
     ctx->id = ctx_id;
     ctx->tid = ts->thread_id;
     ctx->ts_ptr = ts;
@@ -1356,15 +1367,7 @@ _profile_thread(PyThreadState *ts)
 static _ctx*
 _unprofile_thread(PyThreadState *ts)
 {
-// #if PY_VERSION_HEX < 0x030a00b1
-//     ts->use_tracing = 0;
-// #else
-//     ts->cframe->use_tracing = 0;
-// #endif
-//     ts->c_profilefunc = NULL;
-
-    // TODO: How to do this for all threads?
-    PyEval_SetProfile(NULL, NULL);
+    _eval_unsetprofile(ts);
 
     return NULL; //dummy return for enum_threads() func. prototype
 }
