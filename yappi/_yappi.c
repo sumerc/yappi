@@ -1295,12 +1295,14 @@ _resume_greenlet_ctx(_ctx *ctx)
 static _ctx *
 _bootstrap_thread(PyThreadState *ts)
 {
-#if PY_VERSION_HEX < 0x030a00b1
-    ts->use_tracing = 1;
-#else
-    ts->cframe->use_tracing = 1;
-#endif
-    ts->c_profilefunc = _yapp_callback;
+// #if PY_VERSION_HEX < 0x030a00b1
+//     ts->use_tracing = 1;
+// #else
+//     ts->cframe->use_tracing = 1;
+// #endif
+//     ts->c_profilefunc = _yapp_callback;
+    PyEval_SetProfile(_yapp_callback, NULL);
+
     return NULL;
 }
 
@@ -1490,6 +1492,8 @@ _start(void)
         PyErr_SetString(YappiProfileError, "profiler cannot be initialized.");
         return 0;
     }
+
+    //flags.multicontext = 0;
 
     if (flags.multicontext) {
         _enum_threads(&_bootstrap_thread);
