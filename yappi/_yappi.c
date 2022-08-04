@@ -226,6 +226,8 @@ int
 IS_SUSPENDED(PyFrameObject *frame)
 {
 #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 11
+    // See https://discuss.python.org/t/python-3-11-frame-structure-and-various-changes/17895
+    // TODO: _PyFrame_GetGenerator(frame)->gi_frame_state ???
     return 1;
 #elif PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION == 10
     return (frame->f_state == FRAME_SUSPENDED);
@@ -681,7 +683,10 @@ _code2pit(PyFrameObject *fobj, uintptr_t current_tag)
     Py_INCREF(cobj);
 
     if (cobj->co_argcount) {
-        const char *firstarg = PyStr_AS_CSTRING(PyTuple_GET_ITEM(cobj->co_varnames, 0));
+        // todo: this is said to be slower. Maybe there is a better alternative 
+        // like _PyCode_GetVarnames(..). See https://discuss.python.org/t/python-3-11-frame-structure-and-various-changes/17895
+        PyObject *co_varnames = PyObject_GetAttrString((PyObject *)cobj, "co_varnames");
+        const char *firstarg = PyStr_AS_CSTRING(PyTuple_GET_ITEM(co_varnames, 0));
 
         if (!strcmp(firstarg, "self")) {
             PyObject* locals = _get_locals(fobj);
@@ -1325,12 +1330,15 @@ _profile_thread(PyThreadState *ts)
         ctx = (_ctx *)it->val;
     }
     
-#if PY_VERSION_HEX < 0x030a00b1
-    ts->use_tracing = 1;
-#else
-    ts->cframe->use_tracing = 1;
-#endif
-    ts->c_profilefunc = _yapp_callback;
+// #if PY_VERSION_HEX < 0x030a00b1
+//     ts->use_tracing = 1;
+// #else
+//     ts->cframe->use_tracing = 1;
+// #endif
+//     ts->c_profilefunc = _yapp_callback;
+    // TODO: How to do this for all threads?
+    PyEval_SetProfile(_yapp_callback, NULL);
+
     ctx->id = ctx_id;
     ctx->tid = ts->thread_id;
     ctx->ts_ptr = ts;
@@ -1346,12 +1354,15 @@ _profile_thread(PyThreadState *ts)
 static _ctx*
 _unprofile_thread(PyThreadState *ts)
 {
-#if PY_VERSION_HEX < 0x030a00b1
-    ts->use_tracing = 0;
-#else
-    ts->cframe->use_tracing = 0;
-#endif
-    ts->c_profilefunc = NULL;
+// #if PY_VERSION_HEX < 0x030a00b1
+//     ts->use_tracing = 0;
+// #else
+//     ts->cframe->use_tracing = 0;
+// #endif
+//     ts->c_profilefunc = NULL;
+
+    // TODO: How to do this for all threads?
+    PyEval_SetProfile(NULL, NULL);
 
     return NULL; //dummy return for enum_threads() func. prototype
 }
