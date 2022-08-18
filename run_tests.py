@@ -19,9 +19,9 @@ if __name__ == '__main__':
         'test_functionality',
         'test_hooks',
         'test_tags',
+        'test_gevent',
     ]
-    if sys.version_info < (3, 10):
-        tests += ['test_gevent']
+    # TODO: make these auto-skip if cannot be imported
     if sys.version_info >= (3, 4):
         tests += ['test_asyncio']
     if sys.version_info >= (3, 7):

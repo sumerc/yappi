@@ -662,6 +662,7 @@ _code2pit(PyFrameObject *fobj, uintptr_t current_tag)
     PyCodeObject *cobj;
     _pit *pit;
     _htab *pits;
+    PyObject *co_varnames;
 
     pits = _get_pits_tbl(current_tag);
     if (!pits) {
@@ -690,7 +691,11 @@ _code2pit(PyFrameObject *fobj, uintptr_t current_tag)
     if (cobj->co_argcount) {
         // There has been a lot going on with `co_varnames`, but finally in 
         // 3.11.0rc1, it is added as a public API
-        PyObject *co_varnames = PyCode_GetVarnames(cobj);
+#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION == 11
+        co_varnames = PyCode_GetVarnames(cobj);
+#else
+        co_varnames = cobj->co_varnames;
+#endif
         const char *firstarg = PyStr_AS_CSTRING(PyTuple_GET_ITEM(co_varnames, 0));
 
         if (!strcmp(firstarg, "self")) {
@@ -1502,8 +1507,6 @@ _start(void)
         PyErr_SetString(YappiProfileError, "profiler cannot be initialized.");
         return 0;
     }
-
-    //flags.multicontext = 0;
 
     if (flags.multicontext) {
         _enum_threads(&_bootstrap_thread);

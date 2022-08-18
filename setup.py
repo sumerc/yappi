@@ -62,6 +62,11 @@ CLASSIFIERS = [
     'Topic :: Software Development :: Libraries :: Python Modules',
 ]
 
+test_deps = []
+if sys.version_info <= (3, 10):
+    # TODO: fix this when gevent supports 3.11
+    test_deps += ['gevent>=20.6.2']
+
 setup(
     name=NAME,
     version=VERSION,
@@ -91,11 +96,11 @@ setup(
     description="Yet Another Python Profiler",
     long_description=long_description,
     long_description_content_type='text/markdown',
-    keywords="python thread multithread profiler",
+    keywords="python thread multithread asyncio gevent profiler",
     classifiers=CLASSIFIERS,
     license="MIT",
     url=HOMEPAGE,
     extras_require={
-        'test': ['gevent>=20.6.2'],
+        'test': test_deps,
     }
 )
