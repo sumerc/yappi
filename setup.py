@@ -70,7 +70,7 @@ if sys.version_info <= (3, 10):
 setup(
     name=NAME,
     version=VERSION,
-    author="Sumer Cip",
+    author="Sümer Cip",
     author_email="sumerc@gmail.com",
     ext_modules=[
         Extension(
