@@ -687,8 +687,9 @@ _code2pit(PyFrameObject *fobj, uintptr_t current_tag)
     Py_INCREF(cobj);
 
     if (cobj->co_argcount) {
-        // todo: 3.12 this might be a public API
-        PyObject *co_varnames = _PyCode_GetVarnames(cobj);
+        // There has been a lot going on with `co_varnames`, but finally in 
+        // 3.11.0rc1, it is added as a public API
+        PyObject *co_varnames = PyCode_GetVarnames(cobj);
         const char *firstarg = PyStr_AS_CSTRING(PyTuple_GET_ITEM(co_varnames, 0));
 
         if (!strcmp(firstarg, "self")) {
