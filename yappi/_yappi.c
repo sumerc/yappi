@@ -25,10 +25,6 @@
 #include "mem.h"
 #include "tls.h"
 
-#if PY_VERSION_HEX > 0x030b0000
-#include "internal/pycore_code.h"
-#endif
-
 #define SUPPRESS_WARNING(a) (void)a
 
 #ifdef IS_PY3K
@@ -227,12 +223,17 @@ static void _DebugPrintObjects(unsigned int arg_count, ...)
 }
 
 int 
-IS_SUSPENDED(PyFrameObject *frame)
-{
-#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 11
+IS_SUSPENDED(PyFrameObject *frame) {
+#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION == 11
+    PyGenObject *gen = (PyGenObject *)PyFrame_GetGenerator(frame);
+    if (gen == NULL) {
+        return 0;
+    }
+
+    // -1 is FRAME_SUSPENDED. See internal/pycore_frame.h
+    // TODO: Remove these after 3.12 make necessary public APIs.
     // See https://discuss.python.org/t/python-3-11-frame-structure-and-various-changes/17895
-    // TODO: _PyFrame_GetGenerator(frame)->gi_frame_state ???
-    return 1;
+    return gen->gi_frame_state == -1;
 #elif PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION == 10
     return (frame->f_state == FRAME_SUSPENDED);
 #else
