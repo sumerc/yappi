@@ -4,7 +4,7 @@
 
 <h1 align="center">Yappi</h1>
 <p align="center">
-    A tracing profiler that is <b>thread&coroutine&greenlet</b> aware.
+    A tracing profiler that is <b>thread, coroutine and greenlet</b> aware.
 </p>
 
 <p align="center">
