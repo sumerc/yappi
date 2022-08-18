@@ -25,6 +25,10 @@
 #include "mem.h"
 #include "tls.h"
 
+#if PY_VERSION_HEX > 0x030b0000
+#include "internal/pycore_code.h"
+#endif
+
 #define SUPPRESS_WARNING(a) (void)a
 
 #ifdef IS_PY3K
@@ -683,9 +687,8 @@ _code2pit(PyFrameObject *fobj, uintptr_t current_tag)
     Py_INCREF(cobj);
 
     if (cobj->co_argcount) {
-        // todo: this is said to be slower. Maybe there is a better alternative 
-        // like _PyCode_GetVarnames(..). See https://discuss.python.org/t/python-3-11-frame-structure-and-various-changes/17895
-        PyObject *co_varnames = PyObject_GetAttrString((PyObject *)cobj, "co_varnames");
+        // todo: 3.12 this might be a public API
+        PyObject *co_varnames = _PyCode_GetVarnames(cobj);
         const char *firstarg = PyStr_AS_CSTRING(PyTuple_GET_ITEM(co_varnames, 0));
 
         if (!strcmp(firstarg, "self")) {
@@ -1295,28 +1298,30 @@ _resume_greenlet_ctx(_ctx *ctx)
 static void 
 _eval_setprofile(PyThreadState *ts)
 {
-#if PY_VERSION_HEX < 0x030a00b1
+#if PY_VERSION_HEX > 0x030b0000
+    _PyEval_SetProfile(ts, _yapp_callback, NULL);
+    //    ts->cframe->use_tracing = 255;
+#elif PY_VERSION_HEX < 0x030a00b1
     ts->use_tracing = 1;
+    ts->c_profilefunc = _yapp_callback;
 #else
     ts->cframe->use_tracing = 1;
-#endif
     ts->c_profilefunc = _yapp_callback;
-
-    //_update_tracing_state()
-
-//  todo: do this only for 3.11
-    ts->cframe->use_tracing = 255;
+#endif
 }
 
 static void
 _eval_unsetprofile(PyThreadState *ts)
 {
-#if PY_VERSION_HEX < 0x030a00b1
+#if PY_VERSION_HEX > 0x030b0000
+    _PyEval_SetProfile(ts, NULL, NULL);
+#elif PY_VERSION_HEX < 0x030a00b1
     ts->use_tracing = 0;
+    ts->c_profilefunc = NULL;
 #else
     ts->cframe->use_tracing = 0;
-#endif
     ts->c_profilefunc = NULL;
+#endif
 }
 
 static _ctx *
