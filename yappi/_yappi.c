@@ -1307,7 +1307,6 @@ _eval_setprofile(PyThreadState *ts)
 {
 #if PY_VERSION_HEX > 0x030b0000
     _PyEval_SetProfile(ts, _yapp_callback, NULL);
-    //    ts->cframe->use_tracing = 255;
 #elif PY_VERSION_HEX < 0x030a00b1
     ts->use_tracing = 1;
     ts->c_profilefunc = _yapp_callback;
