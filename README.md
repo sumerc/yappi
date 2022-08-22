@@ -19,7 +19,7 @@
 
 ## Highlights
 
-- **Fast**: Yappi is fast. It is completely written in C and lots of love&care went into making it fast.
+- **Fast**: Yappi is fast. It is completely written in C and lots of love and care went into making it fast.
 - **Unique**: Yappi supports multithreaded, [asyncio](https://github.com/sumerc/yappi/blob/master/doc/coroutine-profiling.md) and [gevent](https://github.com/sumerc/yappi/blob/master/doc/greenlet-profiling.md) profiling. Tagging/filtering multiple profiler results has interesting [use cases](https://github.com/sumerc/yappi/blob/master/doc/api.md#set_tag_callback).
 - **Intuitive**: Profiler can be started/stopped and results can be obtained from any time and any thread.
 - **Standards Compliant**: Profiler results can be saved in [callgrind](http://valgrind.org/docs/manual/cl-format.html) or [pstat](http://docs.python.org/3.4/library/profile.html#pstats.Stats) formats.
