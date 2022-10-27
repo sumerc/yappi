@@ -1057,7 +1057,7 @@ _call_leave(PyObject *self, PyFrameObject *frame, PyObject *arg, int ccall)
     }
 
     // if the function that the frame belongs is a coroutine, we check if we RETURN
-    // or YIELD from the coroutine to calculate the correct walltime
+    // or await the coroutine to calculate the correct walltime
     if (IS_ASYNC(frame)) {
         if (IS_SUSPENDED(frame)) {
             yielded = 1;
