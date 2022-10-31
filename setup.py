@@ -12,7 +12,7 @@ with io.open('README.md', encoding='UTF-8') as f:
 
 HOMEPAGE = "https://github.com/sumerc/yappi"
 NAME = "yappi"
-VERSION = "1.3.6"
+VERSION = "1.4.0"
 _DEBUG = False  # compile/link code for debugging
 _PROFILE = False  # profile yappi itself
 
@@ -62,10 +62,7 @@ CLASSIFIERS = [
     'Topic :: Software Development :: Libraries :: Python Modules',
 ]
 
-test_deps = []
-if sys.version_info <= (3, 10):
-    # TODO: fix this when gevent supports 3.11
-    test_deps += ['gevent>=20.6.2']
+test_deps = ['gevent>=20.6.2']
 
 setup(
     name=NAME,
