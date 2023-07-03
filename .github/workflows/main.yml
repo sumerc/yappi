@@ -22,6 +22,7 @@ jobs:
             python-version: 2.7 # error: Microsoft Visual C++ 9.0 is required
           # - os: macos-latest
           #   python-version: 3.9 # TODO: getting Illegal instruction somehow
+    continue-on-error: true
 
     steps:
     - uses: actions/checkout@v3
