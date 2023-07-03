@@ -62,7 +62,10 @@ CLASSIFIERS = [
     'Topic :: Software Development :: Libraries :: Python Modules',
 ]
 
-test_deps = ['gevent>=20.6.2']
+test_deps = [
+    'greenlet>=3.0.0a1',  # needed to test Python 3.12 support
+    'gevent>=20.6.2',
+]
 
 setup(
     name=NAME,
