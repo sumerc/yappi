@@ -942,6 +942,17 @@ class YFuncStats(YStatsIndexable):
                 )
             ]
 
+            # children ids
+            for child in func_stat.children:
+                file_ids += ['fl=(%d) %s' % (child.index, child.module)]
+                func_ids += [
+                'fn=(%d) %s %s:%s' % (
+                    child.index, child.name, child.module,
+                    child.lineno
+                )
+            ]
+            
+
         lines += file_ids + func_ids
 
         # add stats for each function we have a record of
