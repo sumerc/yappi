@@ -13,9 +13,7 @@
 #error "Yappi requires long longs!"
 #endif
 
-#ifdef IS_PY3K
 #include "bytesobject.h"
-#endif
 #include "frameobject.h"
 #include "callstack.h"
 #include "hashtab.h"
@@ -27,9 +25,7 @@
 
 #define SUPPRESS_WARNING(a) (void)a
 
-#ifdef IS_PY3K
 PyDoc_STRVAR(_yappi__doc__, "Yet Another Python Profiler");
-#endif
 
 // linked list for holding callee/caller info in the pit
 // we need to record the timing data on the pairs (parent, child)
@@ -178,17 +174,10 @@ static _ctx_type_t ctx_type = NATIVE_THREAD;
 // defines
 #define UNINITIALIZED_STRING_VAL "N/A"
 
-#ifdef IS_PY3K // string formatting helper functions compatible with with both 2.x and 3.x
 #define PyStr_AS_CSTRING(s) PyUnicode_AsUTF8(s)
 #define PyStr_Check(s) PyUnicode_Check(s)
 #define PyStr_FromString(s) PyUnicode_FromString(s)
 #define PyStr_FromFormatV(fmt, vargs) PyUnicode_FromFormatV(fmt, vargs)
-#else // < Py3x
-#define PyStr_AS_CSTRING(s) PyString_AS_STRING(s)
-#define PyStr_Check(s) PyString_Check(s)
-#define PyStr_FromString(s) PyString_FromString(s)
-#define PyStr_FromFormatV(fmt, vargs) PyString_FromFormatV(fmt, vargs)
-#endif
 
 #define PyLong_AsVoidPtr (uintptr_t)PyLong_AsVoidPtr
  
@@ -245,14 +234,12 @@ int IS_ASYNC(PyFrameObject *frame)
 {
     int result = 0;
 
-#if defined(IS_PY3K) 
 #if PY_MINOR_VERSION >= 4
     result = FRAME2CODE(frame)->co_flags & CO_COROUTINE || 
         FRAME2CODE(frame)->co_flags & CO_ITERABLE_COROUTINE;
 #endif
 #if PY_MINOR_VERSION >= 6
     result = result || FRAME2CODE(frame)->co_flags & CO_ASYNC_GENERATOR;
-#endif
 #endif
 
     return result;
@@ -2191,7 +2178,6 @@ static PyMethodDef yappi_methods[] = {
     {NULL, NULL, 0, NULL}      /* sentinel */
 };
 
-#ifdef IS_PY3K
 static struct PyModuleDef _yappi_module = {
     PyModuleDef_HEAD_INIT,
     "_yappi",
@@ -2203,26 +2189,15 @@ static struct PyModuleDef _yappi_module = {
     NULL,
     NULL
 };
-#endif
 
 PyMODINIT_FUNC
-#ifdef IS_PY3K
 PyInit__yappi(void)
-#else
-init_yappi(void)
-#endif
 {
     PyObject *m, *d;
 
-#ifdef IS_PY3K
     m = PyModule_Create(&_yappi_module);
     if (m == NULL)
         return NULL;
-#else
-    m = Py_InitModule("_yappi",  yappi_methods);
-    if (m == NULL)
-        return;
-#endif
 
     d = PyModule_GetDict(m);
     YappiProfileError = PyErr_NewException("_yappi.error", NULL, NULL);
@@ -2242,14 +2217,8 @@ init_yappi(void)
 
     if (!_init_profiler()) {
         PyErr_SetString(YappiProfileError, "profiler cannot be initialized.");
-#ifdef IS_PY3K
         return NULL;
-#else
-        return;
-#endif
     }
 
-#ifdef IS_PY3K
     return m;
-#endif
 }

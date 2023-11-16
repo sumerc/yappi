@@ -6,7 +6,7 @@ import unittest
 import yappi
 import _yappi
 import utils
-import multiprocessing  # added to fix http://bugs.python.org/issue15881 for > Py2.6
+import multiprocessing
 import subprocess
 
 _counter = 0
@@ -1355,10 +1355,7 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
     def test_producer_consumer_with_queues(self):
         # we currently just stress yappi, no functionality test is done here.
         yappi.start()
-        if utils.is_py3x():
-            from queue import Queue
-        else:
-            from Queue import Queue
+        from queue import Queue
         from threading import Thread
         WORKER_THREAD_COUNT = 50
         WORK_ITEM_COUNT = 2000
@@ -1417,7 +1414,6 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         fsh = utils.find_stat_by_name(stats, "handler")
         self.assertTrue(fsh is not None)
 
-    @unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
     def test_concurrent_futures(self):
         yappi.start()
         from concurrent.futures import ThreadPoolExecutor
@@ -1427,7 +1423,6 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         time.sleep(1.0)
         yappi.stop()
 
-    @unittest.skipIf(not sys.version_info >= (3, 2), "requires Python 3.2")
     def test_barrier(self):
         yappi.start()
         b = threading.Barrier(2, timeout=1)
