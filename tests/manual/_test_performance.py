@@ -22,4 +22,4 @@ yappi.start()
 for _, func in enumerate(funcs):
     for i in range(int(sys.argv[2])):
         func(i)
-print("Elapsed %0.6f secs." % (time.time() - t0))
+print(f"Elapsed {time.time() - t0:0.6f} secs.")

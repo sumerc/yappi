@@ -6,7 +6,7 @@ def _testsuite_from_tests(tests):
     suite = unittest.TestSuite()
     loader = unittest.defaultTestLoader
     for t in tests:
-        test = loader.loadTestsFromName('tests.%s' % (t))
+        test = loader.loadTestsFromName(f'tests.{t}')
         suite.addTest(test)
     return suite
 
@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     #tests = ['test_functionality.BasicUsage.test_run_as_script']
 
-    print("Running following tests: %s" % (tests))
+    print(f"Running following tests: {tests}")
 
     result = test_runner.run(test_suite)
     sys.exit(not result.wasSuccessful())

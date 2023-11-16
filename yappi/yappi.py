@@ -82,21 +82,21 @@ except AttributeError:
 def _validate_sorttype(sort_type, list):
     sort_type = sort_type.lower()
     if sort_type not in list:
-        raise YappiError("Invalid SortType parameter: '%s'" % (sort_type))
+        raise YappiError(f"Invalid SortType parameter: '{sort_type}'")
     return sort_type
 
 
 def _validate_sortorder(sort_order):
     sort_order = sort_order.lower()
     if sort_order not in SORT_ORDERS:
-        raise YappiError("Invalid SortOrder parameter: '%s'" % (sort_order))
+        raise YappiError(f"Invalid SortOrder parameter: '{sort_order}'")
     return sort_order
 
 
 def _validate_columns(name, list):
     name = name.lower()
     if name not in list:
-        raise YappiError("Invalid Column name: '%s'" % (name))
+        raise YappiError(f"Invalid Column name: '{name}'")
 
 
 def _ctx_name_callback():
@@ -134,7 +134,7 @@ def _create_greenlet_callbacks():
     try:
         from greenlet import getcurrent
     except ImportError as exc:
-        raise YappiError("'greenlet' import failed with: %s" % repr(exc))
+        raise YappiError(f"'greenlet' import failed with: {repr(exc)}")
 
     def _get_greenlet_id():
         curr_greenlet = getcurrent()
@@ -175,12 +175,12 @@ def module_matches(stat, modules):
 
     if not isinstance(stat, YStat):
         raise YappiError(
-            "Argument 'stat' shall be a YStat object. (%s)" % (stat)
+            f"Argument 'stat' shall be a YStat object. ({stat})"
         )
 
     if not isinstance(modules, list):
         raise YappiError(
-            "Argument 'modules' is not a list object. (%s)" % (modules)
+            f"Argument 'modules' is not a list object. ({modules})"
         )
 
     if not len(modules):
@@ -192,7 +192,7 @@ def module_matches(stat, modules):
     modules = set(modules)
     for module in modules:
         if not isinstance(module, types.ModuleType):
-            raise YappiError("Non-module item in 'modules'. (%s)" % (module))
+            raise YappiError(f"Non-module item in 'modules'. ({module})")
     return inspect.getmodule(_fn_descriptor_dict[stat.full_name]) in modules
 
 
@@ -211,12 +211,12 @@ def func_matches(stat, funcs):
 
     if not isinstance(stat, YStat):
         raise YappiError(
-            "Argument 'stat' shall be a YStat object. (%s)" % (stat)
+            f"Argument 'stat' shall be a YStat object. ({stat})"
         )
 
     if not isinstance(funcs, list):
         raise YappiError(
-            "Argument 'funcs' is not a list object. (%s)" % (funcs)
+            f"Argument 'funcs' is not a list object. ({funcs})"
         )
 
     if not len(funcs):
@@ -228,7 +228,7 @@ def func_matches(stat, funcs):
     funcs = set(funcs)
     for func in funcs.copy():
         if not callable(func):
-            raise YappiError("Non-callable item in 'funcs'. (%s)" % (func))
+            raise YappiError(f"Non-callable item in 'funcs'. ({func})")
 
         # If there is no CodeObject found, use func itself. It might be a
         # method descriptor, builtin func..etc.
@@ -877,8 +877,7 @@ class YFuncStats(YStatsIndexable):
             saved_stats, saved_clock_type = pickle.load(file)
         except:
             raise YappiError(
-                "Unable to load the saved profile information from %s." %
-                (file.name)
+                f"Unable to load the saved profile information from {file.name}."
             )
 
         # check if we really have some stats to be merged?
@@ -996,7 +995,7 @@ class YFuncStats(YStatsIndexable):
             ]
         for fd in files:
             with open(fd, "rb") as f:
-                add_func = getattr(self, "_add_from_%s" % (type))
+                add_func = getattr(self, f"_add_from_{type}")
                 add_func(file=f)
 
         return self.sort(DEFAULT_SORT_TYPE, DEFAULT_SORT_ORDER)
@@ -1005,10 +1004,10 @@ class YFuncStats(YStatsIndexable):
         type = type.upper()
         if type not in self._SUPPORTED_SAVE_FORMATS:
             raise NotImplementedError(
-                'Saving in "%s" format is not possible currently.' % (type)
+                f'Saving in "{type}" format is not possible currently.'
             )
 
-        save_func = getattr(self, "_save_as_%s" % (type))
+        save_func = getattr(self, f"_save_as_{type}")
         save_func(path=path)
 
     def print_all(
@@ -1032,7 +1031,7 @@ class YFuncStats(YStatsIndexable):
             _validate_columns(col[0], COLUMNS_FUNCSTATS)
 
         out.write(LINESEP)
-        out.write("Clock type: %s" % (self._clock_type.upper()))
+        out.write(f"Clock type: {self._clock_type.upper()}")
         out.write(LINESEP)
         out.write(f"Ordered by: {self._sort_type}, {self._sort_order}")
         out.write(LINESEP)
@@ -1062,13 +1061,13 @@ class YFuncStats(YStatsIndexable):
         for stat in self:
             console.write("index: %d" % stat.index)
             console.write(LINESEP)
-            console.write("full_name: %s" % stat.full_name)
+            console.write(f"full_name: {stat.full_name}")
             console.write(LINESEP)
             console.write("ncall: %d/%d" % (stat.ncall, stat.nactualcall))
             console.write(LINESEP)
-            console.write("ttot: %s" % _fft(stat.ttot))
+            console.write(f"ttot: {_fft(stat.ttot)}")
             console.write(LINESEP)
-            console.write("tsub: %s" % _fft(stat.tsub))
+            console.write(f"tsub: {_fft(stat.tsub)}")
             console.write(LINESEP)
             console.write("children: ")
             console.write(LINESEP)
@@ -1078,7 +1077,7 @@ class YFuncStats(YStatsIndexable):
                 console.write("index: %d" % child_stat.index)
                 console.write(LINESEP)
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
-                console.write("child_full_name: %s" % child_stat.full_name)
+                console.write(f"child_full_name: {child_stat.full_name}")
                 console.write(LINESEP)
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
                 console.write(
@@ -1086,10 +1085,10 @@ class YFuncStats(YStatsIndexable):
                 )
                 console.write(LINESEP)
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
-                console.write("ttot: %s" % _fft(child_stat.ttot))
+                console.write(f"ttot: {_fft(child_stat.ttot)}")
                 console.write(LINESEP)
                 console.write(" " * CHILD_STATS_LEFT_MARGIN)
-                console.write("tsub: %s" % _fft(child_stat.tsub))
+                console.write(f"tsub: {_fft(child_stat.tsub)}")
                 console.write(LINESEP)
             console.write(LINESEP)
 
@@ -1353,7 +1352,7 @@ def set_clock_type(type):
     """
     type = type.upper()
     if type not in CLOCK_TYPES:
-        raise YappiError("Invalid clock type:%s" % (type))
+        raise YappiError(f"Invalid clock type:{type}")
 
     _yappi.set_clock_type(CLOCK_TYPES[type])
 
@@ -1391,7 +1390,7 @@ def set_context_backend(type):
     """
     type = type.upper()
     if type not in BACKEND_TYPES:
-        raise YappiError("Invalid backend type: %s" % (type))
+        raise YappiError(f"Invalid backend type: {type}")
 
     if type == GREENLET:
         id_cbk, name_cbk = _create_greenlet_callbacks()

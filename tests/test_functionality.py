@@ -277,7 +277,7 @@ class BasicUsage(utils.YappiUnitTestCase):
     def test_profile_decorator(self):
 
         def aggregate(func, stats):
-            fname = "tests/%s.profile" % (func.__name__)
+            fname = f"tests/{func.__name__}.profile"
             try:
                 stats.add(fname)
             except OSError:
@@ -1191,7 +1191,7 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         # TODO: I put dummy() to fix below, remove the comments after a while.
         self.assertTrue( # FIX: I see this fails sometimes?
             tsm is not None,
-            'Could not find "_MainThread". Found: %s' % (', '.join(utils.get_stat_names(tstats))))
+            f"Could not find \"_MainThread\". Found: {', '.join(utils.get_stat_names(tstats))}")
 
     def test_ctx_stats(self):
         from threading import Thread
@@ -1271,7 +1271,7 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         # TODO: I put dummy() to fix below, remove the comments after a while.
         self.assertTrue( # FIX: I see this fails sometimes
             tsmain is not None,
-            'Could not find "_MainThread". Found: %s' % (', '.join(utils.get_stat_names(stats))))
+            f"Could not find \"_MainThread\". Found: {', '.join(utils.get_stat_names(stats))}")
         self.assertTrue(1.0 > tst2.ttot >= 0.5)
         self.assertTrue(1.0 > tst1.ttot >= 0.5)
 
@@ -1328,7 +1328,7 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
             ts = []
             for i in (0.01, 0.05, 0.1):
                 t = threading.Thread(target=burn_cpu, args=(i, ))
-                t.name = "burn_cpu-%s" % str(i)
+                t.name = f"burn_cpu-{str(i)}"
                 t.start()
                 ts.append(t)
             for t in ts:

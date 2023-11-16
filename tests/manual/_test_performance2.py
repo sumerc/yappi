@@ -31,5 +31,5 @@ t0 = time.time()
 #yappi.start()
 for f in top_level_funcs:
     f(i)
-print("Elapsed %0.6f secs" % (time.time() - t0))
+print(f"Elapsed {time.time() - t0:0.6f} secs")
 #yappi.get_func_stats().print_all()
