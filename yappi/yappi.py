@@ -166,7 +166,7 @@ def _fft(x, COL_SIZE=8):
 
 def _func_fullname(builtin, module, lineno, name):
     if builtin:
-        return "{}.{}".format(module, name)
+        return f"{module}.{name}"
     else:
         return "%s:%d %s" % (module, lineno, name)
 
@@ -968,7 +968,7 @@ class YFuncStats(YStatsIndexable):
                 'fn=(%d)' % func_stat.index
             ]
             func_stats += [
-                '{} {}'.format(func_stat.lineno, int(func_stat.tsub * 1e6))
+                f'{func_stat.lineno} {int(func_stat.tsub * 1e6)}'
             ]
 
             # children functions stats
@@ -1034,7 +1034,7 @@ class YFuncStats(YStatsIndexable):
         out.write(LINESEP)
         out.write("Clock type: %s" % (self._clock_type.upper()))
         out.write(LINESEP)
-        out.write("Ordered by: {}, {}".format(self._sort_type, self._sort_order))
+        out.write(f"Ordered by: {self._sort_type}, {self._sort_order}")
         out.write(LINESEP)
         out.write(LINESEP)
 

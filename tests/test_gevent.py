@@ -48,7 +48,7 @@ class GeventTest(YappiUnitTestCase):
 
     @classmethod
     def spawn_greenlet(cls, name, func, *args, **kwargs):
-        name = "{}/{}".format(cls.get_greenlet_name(), name)
+        name = f"{cls.get_greenlet_name()}/{name}"
         gl = gevent.Greenlet(func, *args, **kwargs)
         gl.name = name
         gl.start()
@@ -56,7 +56,7 @@ class GeventTest(YappiUnitTestCase):
 
     @classmethod
     def spawn_thread(cls, name, func, *args, **kwargs):
-        name = "{}/{}".format(cls.get_greenlet_name(), name)
+        name = f"{cls.get_greenlet_name()}/{name}"
         t = GeventTestThread(name, target=func, args=args, kwargs=kwargs)
         t.start()
         return t

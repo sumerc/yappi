@@ -4,8 +4,8 @@ import yappi
 
 
 def generate_func(code):
-    func_name = "func_{}".format(i)
-    code = """def {}(*args, **kwargs): {}""".format(func_name, code)
+    func_name = f"func_{i}"
+    code = f"""def {func_name}(*args, **kwargs): {code}"""
     exec(code, {}, locals())
     return locals()[func_name]
 
