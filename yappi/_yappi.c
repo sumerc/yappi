@@ -191,7 +191,7 @@ static int _pitenumdel(_hitem *item, void *arg);
 
 static PyCodeObject *
 FRAME2CODE(PyFrameObject *frame) {
-#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 10
+#if PY_VERSION_HEX >= 0x030A0000 // Python 3.10+
     return PyFrame_GetCode(frame);
 #else
     return frame->f_code;
@@ -223,7 +223,7 @@ IS_SUSPENDED(PyFrameObject *frame) {
     // TODO: Remove these after 3.12 make necessary public APIs.
     // See https://discuss.python.org/t/python-3-11-frame-structure-and-various-changes/17895
     return gen->gi_frame_state == -1;
-#elif PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION == 10
+#elif PY_VERSION_HEX >= 0x030A0000 // Python 3.10+
     return (frame->f_state == FRAME_SUSPENDED);
 #else
     return (frame->f_stacktop != NULL);
@@ -623,7 +623,7 @@ _ccode2pit(void *cco, uintptr_t current_tag)
 }
 
 static PyObject *_get_locals(PyFrameObject *fobj) {
-#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 10
+#if PY_VERSION_HEX >= 0x030A0000 // Python 3.10+
     return PyEval_GetLocals();
 #else
     PyFrame_FastToLocals(fobj);
