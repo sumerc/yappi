@@ -4,7 +4,7 @@ import yappi
 
 
 def generate_func(func_name, code):
-    code = """def {0}(*args, **kwargs): {1}""".format(func_name, code)
+    code = """def {}(*args, **kwargs): {}""".format(func_name, code)
     exec(code, globals(), locals())
     func = locals()[func_name]
     globals()[func.__name__] = func
@@ -20,9 +20,9 @@ top_level_funcs = []
 
 # todo: generate functions that are N stack depth
 for i in range(FUNC_COUNT):
-    func = generate_func('func_{0}'.format(i), "pass")
+    func = generate_func('func_{}'.format(i), "pass")
     for k in range(MAX_STACK_DEPTH):
-        func = generate_func('func_{0}_{1}'.format(i, k), func.__name__ + '()')
+        func = generate_func('func_{}_{}'.format(i, k), func.__name__ + '()')
     top_level_funcs.append(func)
 
 #print(globals())

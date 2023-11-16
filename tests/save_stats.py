@@ -10,7 +10,7 @@ def profile(func):
         yappi.start()
         result = func(*args, **kwargs)
         yappi.stop()
-        prof_file = "%s.%s" % (func.__name__, time.time())
+        prof_file = "{}.{}".format(func.__name__, time.time())
         #prof_file = "callgrind.a.1"
         yappi.get_func_stats().save(prof_file, "ystat")
         return result

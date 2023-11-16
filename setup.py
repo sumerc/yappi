@@ -7,7 +7,7 @@ from setuptools import setup
 from distutils.core import Extension
 from distutils.ccompiler import new_compiler
 
-with io.open('README.md', encoding='UTF-8') as f:
+with open('README.md', encoding='UTF-8') as f:
     long_description = f.read()
 
 HOMEPAGE = "https://github.com/sumerc/yappi"

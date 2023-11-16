@@ -87,7 +87,7 @@ class YappiUnitTestCase(unittest.TestCase):
         if pos_threshold < 0.1:
             pos_threshold = 0.1
 
-        assert neg_threshold <= y <= pos_threshold, "%s <= %s <= %s is not True. [%s]" % (
+        assert neg_threshold <= y <= pos_threshold, "{} <= {} <= {} is not True. [{}]".format(
             neg_threshold, y, pos_threshold, err_msg
         )
 

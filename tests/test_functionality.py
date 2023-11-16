@@ -280,7 +280,7 @@ class BasicUsage(utils.YappiUnitTestCase):
             fname = "tests/%s.profile" % (func.__name__)
             try:
                 stats.add(fname)
-            except IOError:
+            except OSError:
                 pass
             stats.save(fname)
             raise Exception("messing around")

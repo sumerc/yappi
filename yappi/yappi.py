@@ -166,7 +166,7 @@ def _fft(x, COL_SIZE=8):
 
 def _func_fullname(builtin, module, lineno, name):
     if builtin:
-        return "%s.%s" % (module, name)
+        return "{}.{}".format(module, name)
     else:
         return "%s:%d %s" % (module, lineno, name)
 
@@ -361,7 +361,7 @@ def profile(clock_type="cpu", profile_builtins=False, return_callback=None):
                         if return_callback is None:
                             sys.stdout.write(LINESEP)
                             sys.stdout.write(
-                                "Executed in %s %s clock seconds" % (
+                                "Executed in {} {} clock seconds".format(
                                     _fft(get_thread_stats()[0].ttot
                                          ), clock_type.upper()
                                 )
@@ -379,7 +379,7 @@ def profile(clock_type="cpu", profile_builtins=False, return_callback=None):
     return _profile_dec
 
 
-class StatString(object):
+class StatString:
     """
     Class to prettify/trim a profile result column.
     """
@@ -415,14 +415,14 @@ class YStat(dict):
     _KEYS = {}
 
     def __init__(self, values):
-        super(YStat, self).__init__()
+        super().__init__()
 
         for key, i in self._KEYS.items():
             setattr(self, key, values[i])
 
     def __setattr__(self, name, value):
         self[self._KEYS[name]] = value
-        super(YStat, self).__setattr__(name, value)
+        super().__setattr__(name, value)
 
 
 class YFuncStat(YStat):
@@ -627,7 +627,7 @@ class YGreenletStat(YStat):
         out.write(LINESEP)
 
 
-class YStats(object):
+class YStats:
     """
     Main Stats class where we collect the information from _yappi and apply the user filters.
     """
@@ -711,21 +711,21 @@ class YStats(object):
 class YStatsIndexable(YStats):
 
     def __init__(self):
-        super(YStatsIndexable, self).__init__()
+        super().__init__()
         self._additional_indexing = {}
 
     def clear(self):
-        super(YStatsIndexable, self).clear()
+        super().clear()
         self._additional_indexing.clear()
 
     def pop(self):
-        item = super(YStatsIndexable, self).pop()
+        item = super().pop()
         self._additional_indexing.pop(item.index, None)
         self._additional_indexing.pop(item.full_name, None)
         return item
 
     def append(self, item):
-        super(YStatsIndexable, self).append(item)
+        super().append(item)
         # setdefault so that we don't replace them if they're already there.
         self._additional_indexing.setdefault(item.index, item)
         self._additional_indexing.setdefault(item.full_name, item)
@@ -740,7 +740,7 @@ class YStatsIndexable(YStats):
         elif isinstance(key, YFuncStat) or isinstance(key, YChildFuncStat):
             return self._additional_indexing.get(key.index, None)
 
-        return super(YStatsIndexable, self).__getitem__(key)
+        return super().__getitem__(key)
 
 
 class YChildFuncStats(YStatsIndexable):
@@ -749,7 +749,7 @@ class YChildFuncStats(YStatsIndexable):
         sort_type = _validate_sorttype(sort_type, SORT_TYPES_CHILDFUNCSTATS)
         sort_order = _validate_sortorder(sort_order)
 
-        return super(YChildFuncStats, self).sort(
+        return super().sort(
             SORT_TYPES_CHILDFUNCSTATS[sort_type], SORT_ORDERS[sort_order]
         )
 
@@ -793,7 +793,7 @@ class YFuncStats(YStatsIndexable):
     _SUPPORTED_SAVE_FORMATS = ['YSTAT', 'CALLGRIND', 'PSTAT']
 
     def __init__(self, files=[]):
-        super(YFuncStats, self).__init__()
+        super().__init__()
         self.add(files)
 
         self._filter_callback = None
@@ -837,7 +837,7 @@ class YFuncStats(YStatsIndexable):
                     )
                     _childs.append(cfstat)
                 stat.children = _childs
-            result = super(YFuncStats, self).get()
+            result = super().get()
         finally:
             _yappi._resume()
         return result
@@ -968,7 +968,7 @@ class YFuncStats(YStatsIndexable):
                 'fn=(%d)' % func_stat.index
             ]
             func_stats += [
-                '%s %s' % (func_stat.lineno, int(func_stat.tsub * 1e6))
+                '{} {}'.format(func_stat.lineno, int(func_stat.tsub * 1e6))
             ]
 
             # children functions stats
@@ -1034,7 +1034,7 @@ class YFuncStats(YStatsIndexable):
         out.write(LINESEP)
         out.write("Clock type: %s" % (self._clock_type.upper()))
         out.write(LINESEP)
-        out.write("Ordered by: %s, %s" % (self._sort_type, self._sort_order))
+        out.write("Ordered by: {}, {}".format(self._sort_type, self._sort_order))
         out.write(LINESEP)
         out.write(LINESEP)
 
@@ -1049,7 +1049,7 @@ class YFuncStats(YStatsIndexable):
         self._sort_type = sort_type
         self._sort_order = sort_order
 
-        return super(YFuncStats, self).sort(
+        return super().sort(
             SORT_TYPES_FUNCSTATS[sort_type], SORT_ORDERS[sort_order]
         )
 
@@ -1115,7 +1115,7 @@ class _YContextStats(YStats):
         self.clear()
         try:
             _yappi.enum_context_stats(self._enumerator)
-            result = super(_YContextStats, self).get()
+            result = super().get()
         finally:
             _yappi._resume()
         return result
@@ -1128,7 +1128,7 @@ class _YContextStats(YStats):
         sort_type = _validate_sorttype(sort_type, self._SORT_TYPES)
         sort_order = _validate_sortorder(sort_order)
 
-        return super(_YContextStats, self).sort(
+        return super().sort(
             self._SORT_TYPES[sort_type], SORT_ORDERS[sort_order]
         )
 
@@ -1498,18 +1498,11 @@ def main():
         set_clock_type(options.clock_type)
         start(options.profile_builtins, not options.profile_single_thread)
         try:
-            if sys.version_info >= (3, 0):
-                exec(
-                    compile(open(sys.argv[0]).read(), sys.argv[0], 'exec'),
-                    sys._getframe(1).f_globals,
-                    sys._getframe(1).f_locals
-                )
-            else:
-                execfile(
-                    sys.argv[0],
-                    sys._getframe(1).f_globals,
-                    sys._getframe(1).f_locals
-                )
+            exec(
+                compile(open(sys.argv[0]).read(), sys.argv[0], 'exec'),
+                sys._getframe(1).f_globals,
+                sys._getframe(1).f_locals
+            )
         finally:
             stop()
             if options.output_file:

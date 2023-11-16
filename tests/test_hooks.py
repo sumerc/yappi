@@ -161,7 +161,7 @@ class ContextNameCallbackTest(utils.YappiUnitTestCase):
 
     def tearDown(self):
         yappi.set_context_name_callback(None)
-        super(ContextNameCallbackTest, self).tearDown()
+        super().tearDown()
 
     def test_bad_input(self):
         self.assertRaises(TypeError, yappi.set_context_name_callback, 1)
