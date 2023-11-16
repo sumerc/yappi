@@ -232,17 +232,9 @@ IS_SUSPENDED(PyFrameObject *frame) {
 
 int IS_ASYNC(PyFrameObject *frame)
 {
-    int result = 0;
-
-#if PY_MINOR_VERSION >= 4
-    result = FRAME2CODE(frame)->co_flags & CO_COROUTINE || 
-        FRAME2CODE(frame)->co_flags & CO_ITERABLE_COROUTINE;
-#endif
-#if PY_MINOR_VERSION >= 6
-    result = result || FRAME2CODE(frame)->co_flags & CO_ASYNC_GENERATOR;
-#endif
-
-    return result;
+    return FRAME2CODE(frame)->co_flags & CO_COROUTINE ||
+        FRAME2CODE(frame)->co_flags & CO_ITERABLE_COROUTINE ||
+        FRAME2CODE(frame)->co_flags & CO_ASYNC_GENERATOR;
 }
 
 static PyObject *
