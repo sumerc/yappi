@@ -1,9 +1,0 @@
-language: python
-os:
-  - linux
-python:
-  - "3.10-dev"
-script:
-  - pip install .[test] || true
-  - python setup.py install # todo: pip install fails on 3.10
-  - python run_tests.py
