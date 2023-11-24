@@ -7,6 +7,8 @@
     A tracing profiler that is <b>multithreading, asyncio and gevent</b> aware.
 </p>
 
+[![FreePalestine.Dev](https://freepalestine.dev/header/1)](https://freepalestine.dev)
+
 <p align="center">
     <img src="https://www.travis-ci.org/sumerc/yappi.svg?branch=master">
     <img src="https://github.com/sumerc/yappi/workflows/CI/badge.svg?branch=master">
@@ -15,6 +17,7 @@
     <img src="https://img.shields.io/pypi/pyversions/yappi.svg">
     <img src="https://img.shields.io/github/last-commit/sumerc/yappi.svg">
     <img src="https://img.shields.io/github/license/sumerc/yappi.svg">
+    <a href="https://freepalestine.dev"><img src="https://freepalestine.dev/badge?t=d&u=0&r=1" alt="From the river to the sea, Palestine will be free" /></a>
 </p>
 
 ## Highlights
