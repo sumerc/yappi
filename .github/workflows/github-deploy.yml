@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.15.0
+        uses: pypa/cibuildwheel@v2.16.2
       - uses: actions/upload-artifact@v3
         with:
           path: ./wheelhouse/*.whl
@@ -49,7 +49,7 @@ jobs:
           name: artifact
           path: dist
 
-      - uses: pypa/gh-action-pypi-publish@v1.8.10
+      - uses: pypa/gh-action-pypi-publish@v1.8.11
         with:
           user: __token__
           password: ${{ secrets.pypi_password }}

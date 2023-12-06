@@ -17,13 +17,13 @@ except ImportError:
 class GeventTestThread(threading.Thread):
 
     def __init__(self, name, *args, **kwargs):
-        super(GeventTestThread, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.name = name
 
     def run(self):
         gevent.getcurrent().name = self.name
         gevent.get_hub().name = "Hub"
-        super(GeventTestThread, self).run()
+        super().run()
 
 
 @unittest.skipIf(
@@ -32,7 +32,7 @@ class GeventTestThread(threading.Thread):
 class GeventTest(YappiUnitTestCase):
 
     def setUp(self):
-        super(GeventTest, self).setUp()
+        super().setUp()
         yappi.set_clock_type("cpu")
         yappi.set_context_backend("greenlet")
         yappi.set_context_name_callback(self.get_greenlet_name)
@@ -48,7 +48,7 @@ class GeventTest(YappiUnitTestCase):
 
     @classmethod
     def spawn_greenlet(cls, name, func, *args, **kwargs):
-        name = "%s/%s" % (cls.get_greenlet_name(), name)
+        name = f"{cls.get_greenlet_name()}/{name}"
         gl = gevent.Greenlet(func, *args, **kwargs)
         gl.name = name
         gl.start()
@@ -56,7 +56,7 @@ class GeventTest(YappiUnitTestCase):
 
     @classmethod
     def spawn_thread(cls, name, func, *args, **kwargs):
-        name = "%s/%s" % (cls.get_greenlet_name(), name)
+        name = f"{cls.get_greenlet_name()}/{name}"
         t = GeventTestThread(name, target=func, args=args, kwargs=kwargs)
         t.start()
         return t

@@ -87,7 +87,7 @@ class YappiUnitTestCase(unittest.TestCase):
         if pos_threshold < 0.1:
             pos_threshold = 0.1
 
-        assert neg_threshold <= y <= pos_threshold, "%s <= %s <= %s is not True. [%s]" % (
+        assert neg_threshold <= y <= pos_threshold, "{} <= {} <= {} is not True. [{}]".format(
             neg_threshold, y, pos_threshold, err_msg
         )
 
@@ -114,10 +114,6 @@ def run_and_get_func_stats(func, *args, **kwargs):
 def run_and_get_thread_stats(func, *args, **kwargs):
     run_with_yappi(func, *args, **kwargs)
     return yappi.get_thread_stats()
-
-
-def is_py3x():
-    return sys.version_info > (3, 0)
 
 
 def find_stat_by_name(stats, name):

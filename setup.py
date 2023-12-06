@@ -7,7 +7,7 @@ from setuptools import setup
 from distutils.core import Extension
 from distutils.ccompiler import new_compiler
 
-with io.open('README.md', encoding='UTF-8') as f:
+with open('README.md', encoding='UTF-8') as f:
     long_description = f.read()
 
 HOMEPAGE = "https://github.com/sumerc/yappi"
@@ -49,8 +49,7 @@ CLASSIFIERS = [
     'Intended Audience :: Developers',
     'License :: OSI Approved :: MIT License',
     'Programming Language :: Python',
-    'Programming Language :: Python :: 2.7',
-    'Programming Language :: Python :: 3.5',
+    'Programming Language :: Python :: 3 :: Only',
     'Programming Language :: Python :: 3.6',
     'Programming Language :: Python :: 3.7',
     'Programming Language :: Python :: 3.8',
@@ -96,6 +95,7 @@ setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     keywords="python thread multithread asyncio gevent profiler",
+    python_requires='>=3.6',
     classifiers=CLASSIFIERS,
     license="MIT",
     url=HOMEPAGE,

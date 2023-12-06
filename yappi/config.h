@@ -15,10 +15,6 @@
 #include "stdint.h"
 #endif
 
-#if PY_MAJOR_VERSION >= 3
-#define IS_PY3K
-#endif
-
 // static pool sizes
 #define FL_PIT_SIZE 1000
 #define FL_CTX_SIZE 100

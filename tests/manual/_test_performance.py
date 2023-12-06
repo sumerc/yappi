@@ -4,8 +4,8 @@ import yappi
 
 
 def generate_func(code):
-    func_name = "func_{0}".format(i)
-    code = """def {0}(*args, **kwargs): {1}""".format(func_name, code)
+    func_name = f"func_{i}"
+    code = f"""def {func_name}(*args, **kwargs): {code}"""
     exec(code, {}, locals())
     return locals()[func_name]
 
@@ -22,4 +22,4 @@ yappi.start()
 for _, func in enumerate(funcs):
     for i in range(int(sys.argv[2])):
         func(i)
-print("Elapsed %0.6f secs." % (time.time() - t0))
+print(f"Elapsed {time.time() - t0:0.6f} secs.")

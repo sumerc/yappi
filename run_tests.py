@@ -6,7 +6,7 @@ def _testsuite_from_tests(tests):
     suite = unittest.TestSuite()
     loader = unittest.defaultTestLoader
     for t in tests:
-        test = loader.loadTestsFromName('tests.%s' % (t))
+        test = loader.loadTestsFromName(f'tests.{t}')
         suite.addTest(test)
     return suite
 
@@ -20,10 +20,9 @@ if __name__ == '__main__':
         'test_hooks',
         'test_tags',
         'test_gevent',
+        'test_asyncio',
     ]
     # TODO: make these auto-skip if cannot be imported
-    if sys.version_info >= (3, 4):
-        tests += ['test_asyncio']
     if sys.version_info >= (3, 7):
         tests += ['test_asyncio_context_vars']
     test_suite = test_loader.loadTestsFromNames(tests)
@@ -33,7 +32,7 @@ if __name__ == '__main__':
 
     #tests = ['test_functionality.BasicUsage.test_run_as_script']
 
-    print("Running following tests: %s" % (tests))
+    print(f"Running following tests: {tests}")
 
     result = test_runner.run(test_suite)
     sys.exit(not result.wasSuccessful())
