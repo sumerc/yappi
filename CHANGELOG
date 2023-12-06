@@ -1,6 +1,11 @@
 CHANGELOG
 =========
 
+1.5.1 (2022-12-06)
+
+- Add support for Python 3.12
+- Fix child callgrind functions disappear
+
 1.4.0 (2022-10-27)
 
 - Add support for Python 3.11

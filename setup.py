@@ -12,7 +12,7 @@ with io.open('README.md', encoding='UTF-8') as f:
 
 HOMEPAGE = "https://github.com/sumerc/yappi"
 NAME = "yappi"
-VERSION = "1.4.0"
+VERSION = "1.5.1"
 _DEBUG = False  # compile/link code for debugging
 _PROFILE = False  # profile yappi itself
 
