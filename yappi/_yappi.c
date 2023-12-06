@@ -224,7 +224,7 @@ static void _DebugPrintObjects(unsigned int arg_count, ...)
 
 int 
 IS_SUSPENDED(PyFrameObject *frame) {
-#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 11
+#if PY_VERSION_HEX >= 0x030B0000  // Python 3.11+
     PyGenObject *gen = (PyGenObject *)PyFrame_GetGenerator(frame);
     if (gen == NULL) {
         return 0;
