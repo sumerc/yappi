@@ -691,7 +691,7 @@ _code2pit(PyFrameObject *fobj, uintptr_t current_tag)
     if (cobj->co_argcount) {
         // There has been a lot going on with `co_varnames`, but finally in 
         // 3.11.0rc1, it is added as a public API
-#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 11
+#if PY_VERSION_HEX >= 0x030B0000 // Python 3.11+
         co_varnames = PyCode_GetVarnames(cobj);
 #else
         co_varnames = cobj->co_varnames;
