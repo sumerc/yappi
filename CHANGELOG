@@ -1,6 +1,11 @@
 CHANGELOG
 =========
 
+1.6.0 (2023-12-07)
+
+- Drop support 2.7-3.5 and clean backward compatible code (pull/152)
+- Add Python 3.12 wheels
+
 1.5.1 (2023-12-06)
 
 - Add support for Python 3.12
