@@ -5,7 +5,7 @@ import unittest
 import time
 
 import yappi
-import utils
+import tests.utils as utils
 
 
 def a():
