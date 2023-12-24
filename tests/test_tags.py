@@ -2,7 +2,7 @@ import unittest
 import yappi
 import threading
 import time
-from utils import YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io
+from tests.utils import YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io
 
 
 class MultiThreadTests(YappiUnitTestCase):

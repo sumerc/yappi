@@ -2,7 +2,7 @@ import unittest
 import yappi
 import asyncio
 import threading
-from utils import YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io
+from tests.utils import YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io
 
 
 async def async_sleep(sec):
