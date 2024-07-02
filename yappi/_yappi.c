@@ -1284,7 +1284,9 @@ _resume_greenlet_ctx(_ctx *ctx)
 static void 
 _eval_setprofile(PyThreadState *ts)
 {
-#if PY_VERSION_HEX > 0x030b0000
+#if PY_VERSION_HEX > 0x030c0000
+    PyEval_SetProfileAllThreads(_yapp_callback, NULL);
+#elif PY_VERSION_HEX > 0x030b0000
     _PyEval_SetProfile(ts, _yapp_callback, NULL);
 #elif PY_VERSION_HEX < 0x030a00b1
     ts->use_tracing = 1;
@@ -1298,7 +1300,9 @@ _eval_setprofile(PyThreadState *ts)
 static void
 _eval_unsetprofile(PyThreadState *ts)
 {
-#if PY_VERSION_HEX > 0x030b0000
+#if PY_VERSION_HEX > 0x030c0000
+    PyEval_SetProfileAllThreads(NULL, NULL);
+#elif PY_VERSION_HEX > 0x030b0000
     _PyEval_SetProfile(ts, NULL, NULL);
 #elif PY_VERSION_HEX < 0x030a00b1
     ts->use_tracing = 0;
