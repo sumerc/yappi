@@ -72,7 +72,7 @@ class YappiUnitTestCase(unittest.TestCase):
     ):
         # time sensitive tests fail on MacOS CI, increase threshold
         if sys.platform == 'darwin':
-            positive_err = 1.5
+            positive_err = 1.8
             negative_err = 0.6
 
         pos_epsilon = (x * positive_err)
