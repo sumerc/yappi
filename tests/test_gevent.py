@@ -2,7 +2,7 @@ import unittest
 import _yappi
 import yappi
 import threading
-from utils import (
+from tests.utils import (
     YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io, burn_io_gevent
 )
 
