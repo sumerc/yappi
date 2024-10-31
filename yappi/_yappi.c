@@ -688,8 +688,12 @@ _code2pit(PyFrameObject *fobj, uintptr_t current_tag)
                         if (class_name) {
                             pit->name = PyStr_FromFormat("%s.%s", PyStr_AS_CSTRING(class_name), PyStr_AS_CSTRING(cobj->co_name));
                             Py_DECREF(class_name);
+                        } else {
+                            PyErr_Clear();
                         }
                         Py_DECREF(class_obj);
+                    } else {
+                        PyErr_Clear();
                     }
                 }
             }

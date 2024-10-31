@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+1.6.1 (2024-10-31)
+
+- Fix error not cleared from an internal PyObject_GetAttrString call
+
 1.6.0 (2023-12-07)
 
 - Drop support 2.7-3.5 and clean backward compatible code (pull/152)
