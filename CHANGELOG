@@ -1,7 +1,7 @@
 CHANGELOG
 =========
 
-1.6.3 (2024-10-31)
+1.6.4 (2024-10-31)
 
 - Fix error not cleared from an internal PyObject_GetAttrString call
 
