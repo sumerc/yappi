@@ -1,8 +1,8 @@
 name: Build and upload to PyPI
 on:
-  push:
-    branches:
-      - master
+  # push:
+  #   branches:
+  #     - master
 
   release:
     types:
