@@ -12,6 +12,7 @@
 
 #include <mach/mach.h>
 #include <mach/thread_info.h>
+#include <sys/time.h>
 
 #define USE_CLOCK_TYPE_THREADINFO
 
