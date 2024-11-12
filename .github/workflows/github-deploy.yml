@@ -20,7 +20,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-20.04, windows-2019, macos-12]
-        arch: [x86_64, arm64]
 
     steps:
       - uses: actions/checkout@v4
