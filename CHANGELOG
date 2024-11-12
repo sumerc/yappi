@@ -1,6 +1,11 @@
 CHANGELOG
 =========
 
+1.6.10 (2024-11-12)
+
+- Fix source distribution not released
+
+
 1.6.9 (2024-10-31)
 
 - Fix error not cleared from an internal PyObject_GetAttrString call
