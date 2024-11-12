@@ -1,8 +1,8 @@
 name: Build and upload to PyPI
 on:
-  # push:
-  #   branches:
-  #     - master
+  push:
+    branches:
+      - master
 
   release:
     types:
@@ -20,6 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-20.04, windows-2019, macos-12]
+        arch: [x86_64, arm64]
 
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +44,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
+          name: dist-source
           path: dist/*.tar.gz
 
   upload_pypi:
