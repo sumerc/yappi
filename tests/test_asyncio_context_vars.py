@@ -5,7 +5,7 @@ import contextvars
 import functools
 import time
 import os
-import utils
+import tests.utils as utils
 import yappi
 
 async_context_id = contextvars.ContextVar('async_context_id')
