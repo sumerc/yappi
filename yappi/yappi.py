@@ -987,7 +987,7 @@ class YFuncStats(YStatsIndexable):
         type = type.upper()
         if type not in self._SUPPORTED_LOAD_FORMATS:
             raise NotImplementedError(
-                'Loading from (%s) format is not possible currently.'
+                f'Loading from "{type}" format is not possible currently.'
             )
         if isinstance(files, str):
             files = [
