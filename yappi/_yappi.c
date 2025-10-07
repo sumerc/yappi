@@ -13,6 +13,12 @@
 #error "Yappi requires long longs!"
 #endif
 
+#if PY_VERSION_HEX >= 0x030E0000  // Python 3.14+
+  #ifndef Py_BUILD_CORE
+    #define Py_BUILD_CORE
+  #endif
+  #include "internal/pycore_genobject.h"
+#endif
 #include "bytesobject.h"
 #include "frameobject.h"
 #include "callstack.h"
