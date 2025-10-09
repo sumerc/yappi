@@ -13,7 +13,7 @@
 #error "Yappi requires long longs!"
 #endif
 
-#if PY_VERSION_HEX >= 0x030E0000  // Python 3.14+
+#if PY_VERSION_HEX >= 0x030B0000  // Python 3.11+
   #ifndef Py_BUILD_CORE
     #define Py_BUILD_CORE
   #endif
