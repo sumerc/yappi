@@ -225,10 +225,11 @@ IS_SUSPENDED(PyFrameObject *frame) {
         return 0;
     }
 
-    // -1 is FRAME_SUSPENDED. See internal/pycore_frame.h
-    // TODO: Remove these after 3.12 make necessary public APIs.
-    // See https://discuss.python.org/t/python-3-11-frame-structure-and-various-changes/17895
-    return gen->gi_frame_state == -1;
+#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 13
+    return FRAME_STATE_SUSPENDED(gen->gi_frame_state);
+#else
+    return gen->gi_frame_state == FRAME_SUSPENDED;
+#endif
 #elif PY_VERSION_HEX >= 0x030A0000 // Python 3.10+
     return (frame->f_state == FRAME_SUSPENDED);
 #else
