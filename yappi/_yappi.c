@@ -18,6 +18,7 @@
     #define Py_BUILD_CORE
   #endif
   #include "internal/pycore_genobject.h"
+  #include "internal/pycore_frame.h"
 #endif
 #include "bytesobject.h"
 #include "frameobject.h"
