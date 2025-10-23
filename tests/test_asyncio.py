@@ -5,6 +5,15 @@ import threading
 from utils import YappiUnitTestCase, find_stat_by_name, burn_cpu, burn_io
 
 
+try:
+    _ = asyncio.get_event_loop()
+except RuntimeError as e:
+    if str(e).startswith('There is no current event loop in thread'):
+        _loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(_loop)
+    else:
+        raise
+
 async def async_sleep(sec):
     await asyncio.sleep(sec)
 
