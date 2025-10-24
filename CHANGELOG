@@ -1,9 +1,9 @@
 CHANGELOG
 =========
 
-1.7.2 (2025-10-24)
+1.7.3 (2025-10-24)
 
-- Better wheel support (https://github.com/sumerc/yappi/pull/196s)
+- Better wheel support (https://github.com/sumerc/yappi/pull/196)
 
 1.7.0 (2025-10-23)
 
