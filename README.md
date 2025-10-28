@@ -10,7 +10,7 @@
 [![FreePalestine.Dev](https://freepalestine.dev/header/1)](https://freepalestine.dev)
 
 <p align="center">
-    <a href="https://github.com/sumerc/yappi/actions/workflows/main.yml"><img src="https://github.com/sumerc/yappi/workflows/CI/badge.svg?branch=master"></a>
+    <a href="https://github.com/sumerc/yappi/actions/workflows/main.yml"><img src="https://github.com/sumerc/yappi/actions/workflows/main.yml/badge.svg?branch=master"></a>
     <a href="https://pypi.org/project/yappi/"><img src="https://img.shields.io/pypi/v/yappi.svg"></a>
     <a href="https://pypi.org/project/yappi/"><img src="https://img.shields.io/pypi/dw/yappi.svg"></a>
     <a href="https://pypi.org/project/yappi/"><img src="https://img.shields.io/pypi/pyversions/yappi.svg"></a>
