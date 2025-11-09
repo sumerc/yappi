@@ -1498,7 +1498,7 @@ def main():
         start(options.profile_builtins, not options.profile_single_thread)
         try:
             exec(
-                compile(open(sys.argv[0]).read(), sys.argv[0], 'exec'),
+                compile(open(sys.argv[0], encoding='utf8').read(), sys.argv[0], 'exec'),
                 sys._getframe(1).f_globals,
                 sys._getframe(1).f_locals
             )
