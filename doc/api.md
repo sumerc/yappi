@@ -4,10 +4,10 @@
 
 #### `start(builtins=False, profile_threads=True, profile_greenlets=True)`
 
-Starts profiling all threads in the current interpreter instance. 
-This function can be called from any thread at any time. 
+Starts profiling all threads in the current interpreter instance. 
+This function can be called from any thread at any time. 
 
-Resumes profiling if stop() is called previously.
+Resumes profiling if stop() is called previously.
 
 `builtins` enables profiling of builtin functions.
 
@@ -21,7 +21,7 @@ in the future will be profiled.
 
 Stop the profiler.
 
-Same profiling session might be resumed later by calling `start()`.
+Same profiling session might be resumed later by calling `start()`.
 
 #### `run(builtins=False, profile_threads=True, profile_greenlets=True)`
 
@@ -43,9 +43,9 @@ Do not nest `yappi.run()` contexts — the inner context will stop profiling whe
 
 #### `clear_stats()`
 
-Clears the profiler results. 
+Clears the profiler results. 
 
-All results stay in memory unless application (all threads including the main thread) exits or `clear_stats()` is explicitly called.
+All results stay in memory unless application (all threads including the main thread) exits or `clear_stats()` is explicitly called.
 
 
 #### `get_func_stats(tag=None, ctx_id=None, filter_callback=None)`
@@ -103,25 +103,25 @@ See [func_matches](#func_matchesstat-funcs) and [module_matches](#module_matches
 
 #### `get_thread_stats()`
 
-Returns the thread stats as a [`YThreadStat`](#ythreadstat) object.
+Returns the thread stats as a [`YThreadStat`](#ythreadstat) object.
 
 #### `get_greenlet_stats()`
 
-Returns the greenlet stats as a [`YGreenletStats`](#ygreenletstats) object.
+Returns the greenlet stats as a [`YGreenletStats`](#ygreenletstats) object.
 
 #### `is_running()`
 
-Returns a boolean indicating whether profiler is running or not.
+Returns a boolean indicating whether profiler is running or not.
 
 #### `get_clock_type()`
 
-Returns information about the underlying clock type Yappi should use to measure timing.
+Returns information about the underlying clock type Yappi should use to measure timing.
 
 Read [Clock Types](./clock_types.md) for more information.
 
 #### `set_clock_type(type)`
 
-Sets the underlying clock type. `type` must be one of `"wall"` or `"cpu"`.
+Sets the underlying clock type. `type` must be one of `"wall"` or `"cpu"`.
 
 Read [Clock Types](./clock_types.md) for more information.
 
@@ -256,17 +256,17 @@ Above code will aggregate all stats into a single tag for every function called 
 
 #### `yappi.get_mem_usage()`
 
-Returns the internal memory usage of the profiler itself.
+Returns the internal memory usage of the profiler itself.
 
 #### `convert2pstats(stats)`
 
-Converts the internal stat type of Yappi (as returned by `YFuncStat.get()`) to a [`pstats`](https://docs.python.org/3/library/profile.html#module-pstats) object.
+Converts the internal stat type of Yappi (as returned by `YFuncStat.get()`) to a [`pstats`](https://docs.python.org/3/library/profile.html#module-pstats) object.
 
 # Classes
 
 ## `YFuncStat`
 
-This holds the stat items as a list of `YFuncStat` objects. 
+This holds the stat items as a list of `YFuncStat` objects. 
 
 | Attribute   	| Description                                                                     	|
 |-------------	|---------------------------------------------------------------------------------	|
@@ -288,36 +288,42 @@ This holds the stat items as a list of `YFuncStat` objects. 
 
 #### `get()`
 
-This method retrieves the current profiling stats.      
+This method retrieves the current profiling stats.      
 
-[`yappi.get_func_stats()`](#get_func_statstagnone-ctx_idnone-filter_callbacknone) is actually just a wrapper for this function. 
+[`yappi.get_func_stats()`](#get_func_statstagnone-ctx_idnone-filter_callbacknone) is actually just a wrapper for this function. 
 
 #### `add(path, type="ystat")`
 
-This method loads the saved profile stats stored in file at `path`. 
+This method loads the saved profile stats stored in file at `path`. 
 
-`type` indicates the type of the saved profile stats.
+`type` indicates the type of the saved profile stats.
 
-Currently, only loading from `"ystat"` format is possible. `"ystat"` is the current Yappi internal format.`
+Currently, only loading from `"ystat"` format is possible. `"ystat"` is the current Yappi internal format.`
 
 
 #### `save(path, type="ystat")`
 
-This method saves the current profile stats to file at `path`. 
+This method saves the current profile stats to file at `path`. 
 
-`type` indicates the target type that the profile stats will be saved in.
+`type` indicates the target type that the profile stats will be saved in.
 
 Can be either
 [`"pstat"`](http://docs.python.org/3.3/library/profile.html?highlight=pstat#pstats.Stats.print_stats) or
 [`"callgrind"`](http://kcachegrind.sourceforge.net/html/CallgrindFormat.html).
 
-#### `print_all(out=sys.stdout)`
+#### `print_all(out=sys.stdout, limit=None)`
 
-This method prints the current profile stats to `out`.
+This method prints the current profile stats to `out`.
+
+`limit` limits the output to the first `limit` entries. When `None` (default), all entries are printed. Useful when you only want to see the top N results after sorting.
+
+```python
+yappi.get_func_stats().sort("ttot").print_all(limit=20)
+```
 
 #### `sort(sort_type, sort_order="desc")`
 
-This method sorts the current profile stats.
+This method sorts the current profile stats.
 
 The `sort_type` must be one of the following:
 
@@ -330,32 +336,32 @@ The `sort_type` must be one of the following:
 
 #### `clear()`
 
-Clears the stats.
+Clears the stats.
 
 ---
 **Note:**
 
-This method only clears the current object. You need to explicitly call [`yappi.clear_stats()`](#clear_stats) to clear the current profile session stats.
+This method only clears the current object. You need to explicitly call [`yappi.clear_stats()`](#clear_stats) to clear the current profile session stats.
 
 ---
 
 #### `empty()`
 
-Returns a boolean indicating whether we have any stats available or not.
+Returns a boolean indicating whether we have any stats available or not.
 
 #### `strip_dirs()`
 
-Strip the directory information from the results. Affects the child function stats too.
+Strip the directory information from the results. Affects the child function stats too.
 
 #### `debug_print()`
 
-This method _debug_ prints the current profile stats to stdout. 
+This method _debug_ prints the current profile stats to stdout. 
 
-Debug print prints out callee functions and more detailed info than the [`print_all()`](#print_alloutsysstdout-1) function call.
+Debug print prints out callee functions and more detailed info than the [`print_all()`](#print_alloutsysstdout-limitnone) function call.
 
 ## `YThreadStat`
 
-`YThreadStat` object has following attributes:
+`YThreadStat` object has following attributes:
 
 | Attribute   	| Description                                                                                    	|
 |-------------	|------------------------------------------------------------------------------------------------	|
@@ -367,7 +373,7 @@ Debug print prints out callee functions and more detailed info than t
 
 ## `YGreenletStats`
 
-`YGreenletStats` object has following attributes:
+`YGreenletStats` object has following attributes:
 
 | Attribute   	| Description                                                                                    	|
 |-------------	|------------------------------------------------------------------------------------------------	|
@@ -378,17 +384,19 @@ Debug print prints out callee functions and more detailed info than t
 
 #### `get()`
 
-This method retrieves the current thread stats.     
+This method retrieves the current thread stats.     
 
-[`yappi.get_thread_stats()`](#get_thread_stats) is actually just a wrapper for this function. 
+[`yappi.get_thread_stats()`](#get_thread_stats) is actually just a wrapper for this function. 
 
-#### `print_all(out=sys.stdout)`
+#### `print_all(out=sys.stdout, limit=None)`
 
- This method prints the current profile stats to the file `out`.
+ This method prints the current profile stats to the file `out`.
+
+`limit` limits the output to the first `limit` entries. When `None` (default), all entries are printed.
 
 #### `sort(sort_type, sort_order="desc")`
 
-This method sorts the current profile stats.
+This method sorts the current profile stats.
 
 `sort_type` must be either `"ttot"` or `"scnt"`
 
@@ -397,28 +405,28 @@ This method sorts the current profile stats.
 
 #### `clear()`
 
-Clears the retrieved stats. 
+Clears the retrieved stats. 
 
 ---
 **Note:**
 
-This method only clears the current object. You need to explicitly call [`yappi.clear_stats()`](#clear_stats) to clear the current profile session stats.
+This method only clears the current object. You need to explicitly call [`yappi.clear_stats()`](#clear_stats) to clear the current profile session stats.
 
 ---
 
 #### `empty()`
 
-Returns a `bool` indicating whether we have any stats available or not.
+Returns a `bool` indicating whether we have any stats available or not.
 
 ## `YChildFuncStat`
 
-This holds a list of child functions called from the main executed function as a `YChildFuncStat` object. 
+This holds a list of child functions called from the main executed function as a `YChildFuncStat` object. 
 
-This class holds a list of `YChildFuncStat` objects.
+This class holds a list of `YChildFuncStat` objects.
 
-For example, if `a` calls `b`, then `a.children` will hold `b` as a `YChildFuncStat` object.
+For example, if `a` calls `b`, then `a.children` will hold `b` as a `YChildFuncStat` object.
 
-`YChildFuncStat` object has following attributes:
+`YChildFuncStat` object has following attributes:
 
 | Attribute   	| Description                                                                     	|
 |-------------	|---------------------------------------------------------------------------------	|
