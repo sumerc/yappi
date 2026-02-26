@@ -66,13 +66,21 @@ to show that they are not also working for our case that is all.
 With v1.2, Yappi corrects above issues with coroutine profiling. Under the hood, it differentiates the `yield` from real function exit and
 if wall time is selected as the clock_type it will accumulate the time and corrects the call count metric.
 
-Let's see the output in Yappi v1.2 for above application:
+Let's see the output in Yappi v1.2 for above application (output trimmed to show only the relevant functions — the full output will include asyncio internals):
 
 ```
 profile_asyncio.py:25 foo             1      0.000044  4.004661  4.004661
 profile_asyncio.py:17 burn_async_io   2      0.000041  2.003238  1.001619
 profile_asyncio.py:21 burn_io         1      0.000019  1.001135  1.001135
 profile_asyncio.py:8 burn_cpu         1      0.935974  1.000244  1.000244
+```
+
+To get this focused output, use `filter_callback` to exclude framework internals:
+
+```python
+yappi.get_func_stats(
+    filter_callback=lambda s: 'profile_asyncio' in s.module
+).print_all()
 ```
 
 You can see that `foo` spent nearly 4 secs just like expected with a call count of 1.
