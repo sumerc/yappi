@@ -176,6 +176,8 @@ In Yappi terminology a `context` means a construct that has its own callstack. I
 
 This is an internally used function, so please do not play with unless you have a good reason.
 
+If you use `set_context_id_callback` without also calling `set_context_name_callback`, context names will fall back to reading from `threading._active`, which may produce unhelpful names like `_DummyThread` or `Thread` (especially under gevent). Always pair it with a `set_context_name_callback` for meaningful names. See [greenlet profiling](greenlet-profiling.md#customizing-greenlet-names) for details.
+
 ---
 **Note:**
 
