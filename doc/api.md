@@ -23,6 +23,24 @@ Stop the profiler.
 
 Same profiling session might be resumed later by calling `start()`.
 
+#### `run(builtins=False, profile_threads=True, profile_greenlets=True)`
+
+Context manager for profiling a block of code. Starts profiling on entry and stops on exit. Accepts the same arguments as [`start()`](#startbuiltinsfalse-profile_threadstrue-profile_greenletstrue).
+
+```python
+with yappi.run():
+    my_function()
+
+yappi.get_func_stats().print_all()
+```
+
+---
+**Note:**
+
+Do not nest `yappi.run()` contexts — the inner context will stop profiling when it exits, leaving the outer block unprofiled.
+
+---
+
 #### `clear_stats()`
 
 Clears the profiler results. 
