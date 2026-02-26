@@ -32,12 +32,18 @@ All results stay in memory unless application (all threads including th
 
 #### `get_func_stats(tag=None, ctx_id=None, filter_callback=None)`
 
-Returns the function stats as a list of [`YFuncStat`](#yfuncstat) object. As Yappi is a C extension, it catches the profile data in C API.
-Thus, the profile data collected is buffered until `clear_stats` is called. `get_func_stats` function enumerates the underlying
-buffered data and aggregates the information there. The functions that contain same index id will be aggregated in a single `YFuncStat`
-object. So, if you want to select a specific `tag` or `ctx_id`, you need to select by providing them as arguments to `get_func_stats`.
-Otherwise, data with different `tag`/`ctx_id` will be combined into one `YFuncStat` object. If you really would like to enumerate
-buffered stats in raw, you can use an undocumented function: `_yappi.enum_func_stats(enum_callback, filter_dict)`. You can see
+Returns the function stats as a list of [`YFuncStat`](#yfuncstat) object.
+
+Internally, Yappi stores profiling data per-thread (context) and per-tag in C. `get_func_stats` enumerates all of this
+buffered data and **merges entries that belong to the same function** (matched by `full_name`) into a single `YFuncStat`
+object — aggregating `ncall`, `ttot`, and `tsub` across all threads and tags. This means each unique function appears
+**exactly once** in the returned list, regardless of how many threads called it.
+
+If you need per-thread or per-tag breakdowns, pass `ctx_id` or `tag` to restrict the enumeration
+before merging. Otherwise, data from all threads and tags will be combined.
+
+If you really would like to enumerate buffered stats in raw (one entry per function per thread per tag),
+you can use an undocumented function: `_yappi.enum_func_stats(enum_callback, filter_dict)`. You can see
 the usage in `get_func_stats` function.
 
 ---
