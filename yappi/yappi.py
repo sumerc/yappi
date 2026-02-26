@@ -1316,6 +1316,7 @@ def clear_stats():
     Clears all of the profile results.
     """
     _yappi._pause()
+    _yappi._wait_for_callbacks()
     try:
         _yappi.clear_stats()
     finally:

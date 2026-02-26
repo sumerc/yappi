@@ -1510,6 +1510,40 @@ class MultithreadedScenarios(utils.YappiUnitTestCase):
         t1.join()
         yappi.stop()
 
+    def test_clear_stats_race(self):
+        # Regression test for issue #188: SIGSEGV when clear_stats() races
+        # with a tag_callback that releases the GIL (e.g. via time.sleep).
+        stop = threading.Event()
+
+        def _tag_cbk():
+            time.sleep(0.001)
+            return 1
+
+        def _worker():
+            def a():
+                pass
+            while not stop.is_set():
+                a()
+
+        def _clearer():
+            while not stop.is_set():
+                yappi.clear_stats()
+                time.sleep(0.001)
+
+        yappi.set_tag_callback(_tag_cbk)
+        yappi.start()
+
+        worker = threading.Thread(target=_worker)
+        clearer = threading.Thread(target=_clearer)
+        worker.start()
+        clearer.start()
+
+        time.sleep(2)
+        stop.set()
+        worker.join(timeout=2)
+        clearer.join(timeout=2)
+        yappi.stop()
+
 
 class NonRecursiveFunctions(utils.YappiUnitTestCase):
 
