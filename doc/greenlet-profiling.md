@@ -169,6 +169,19 @@ greenlet       1      0.006496  2
 Hub            2      0.000212  1
 ```
 
+### Customizing greenlet names
+
+By default, `set_context_backend("greenlet")` installs a name callback that returns `getcurrent().__class__.__name__`. This works well when each greenlet is a distinct subclass (e.g. `GreenletA`, `GreenletB`), but will show the same generic name (e.g. `Greenlet`, `greenlet`) for all greenlets spawned from the same class.
+
+If you need more descriptive names, use `set_context_name_callback` to provide your own naming logic:
+
+```python
+yappi.set_context_backend("greenlet")
+yappi.set_context_name_callback(lambda: f"worker-{id(greenlet.getcurrent())}")
+```
+
+> **Important:** If you set `set_context_id_callback` manually instead of using `set_context_backend("greenlet")`, yappi's name callback still defaults to reading from `threading._active`, which will return names like `_DummyThread`, `Thread`, or `N/A` — especially under gevent. Always pair a custom `set_context_id_callback` with a matching `set_context_name_callback` to get meaningful names.
+
 ### With 'threading' monkey patched
 
 When the threading module is monkey patched, `threading.Thread` is used to spawn greenlets instead
