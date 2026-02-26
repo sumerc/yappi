@@ -762,7 +762,8 @@ class YChildFuncStats(YStatsIndexable):
             2: ("tsub", 8),
             3: ("ttot", 8),
             4: ("tavg", 8)
-        }
+        },
+        limit=None
     ):
         """
         Prints all of the child function profiler results to a given file. (stdout by default)
@@ -775,7 +776,9 @@ class YChildFuncStats(YStatsIndexable):
 
         out.write(LINESEP)
         self._print_header(out, columns)
-        for stat in self:
+        for i, stat in enumerate(self):
+            if limit is not None and i >= limit:
+                break
             stat._print(out, columns)
 
     def strip_dirs(self):
@@ -1018,7 +1021,8 @@ class YFuncStats(YStatsIndexable):
             2: ("tsub", 8),
             3: ("ttot", 8),
             4: ("tavg", 8)
-        }
+        },
+        limit=None
     ):
         """
         Prints all of the function profiler results to a given file. (stdout by default)
@@ -1037,7 +1041,9 @@ class YFuncStats(YStatsIndexable):
         out.write(LINESEP)
 
         self._print_header(out, columns)
-        for stat in self:
+        for i, stat in enumerate(self):
+            if limit is not None and i >= limit:
+                break
             stat._print(out, columns)
 
     def sort(self, sort_type, sort_order="desc"):
@@ -1130,7 +1136,7 @@ class _YContextStats(YStats):
             self._SORT_TYPES[sort_type], SORT_ORDERS[sort_order]
         )
 
-    def print_all(self, out=sys.stdout, columns=None):
+    def print_all(self, out=sys.stdout, columns=None, limit=None):
         """
         Prints all of the thread profiler results to a given file. (stdout by default)
         """
@@ -1146,7 +1152,9 @@ class _YContextStats(YStats):
 
         out.write(LINESEP)
         self._print_header(out, columns)
-        for stat in self:
+        for i, stat in enumerate(self):
+            if limit is not None and i >= limit:
+                break
             stat._print(out, columns)
 
     def strip_dirs(self):
