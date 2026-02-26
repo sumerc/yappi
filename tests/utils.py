@@ -122,7 +122,7 @@ def find_stat_by_name(stats, name):
             if stat.module + '.' + stat.name == name:
                 return stat
 
-        if stat.name == name:
+        if stat.name == name or stat.name.endswith('.' + name):
             return stat
 
 

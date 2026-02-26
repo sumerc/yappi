@@ -655,7 +655,6 @@ _code2pit(PyFrameObject *fobj, uintptr_t current_tag)
     PyCodeObject *cobj;
     _pit *pit;
     _htab *pits;
-    PyObject *co_varnames;
 
     pits = _get_pits_tbl(current_tag);
     if (!pits) {
@@ -681,14 +680,16 @@ _code2pit(PyFrameObject *fobj, uintptr_t current_tag)
     pit->fn_descriptor = (PyObject *)cobj;
     Py_INCREF(cobj);
 
-    if (cobj->co_argcount) {
-        // There has been a lot going on with `co_varnames`, but finally in 
-        // 3.11.0rc1, it is added as a public API
+    // Python 3.11+ has co_qualname which gives the correct defining class
+    // name (e.g. "Base.sleep") regardless of which subclass instance calls
+    // the method. Before 3.11, fall back to runtime self.__class__ inspection
+    // which incorrectly labels inherited methods with the first caller's class.
 #if PY_VERSION_HEX >= 0x030B0000 // Python 3.11+
-        co_varnames = PyCode_GetVarnames(cobj);
+    Py_INCREF(cobj->co_qualname);
+    pit->name = cobj->co_qualname;
 #else
-        co_varnames = cobj->co_varnames;
-#endif
+    if (cobj->co_argcount) {
+        PyObject *co_varnames = cobj->co_varnames;
         const char *firstarg = PyStr_AS_CSTRING(PyTuple_GET_ITEM(co_varnames, 0));
 
         if (!strcmp(firstarg, "self")) {
@@ -717,6 +718,7 @@ _code2pit(PyFrameObject *fobj, uintptr_t current_tag)
         Py_INCREF(cobj->co_name);
         pit->name = cobj->co_name;
     }
+#endif
 
     return pit;
 }
@@ -872,8 +874,12 @@ _get_frame_elapsed(void)
 
     if (test_timings) {
         uintptr_t rlevel = get_rec_level((uintptr_t)cp);
+        // Use co_name (short name) for test timing keys, not the full
+        // qualname stored in pit->name, so test keys like "d_1" still work
+        PyObject *short_name = cp->builtin ?
+            cp->name : ((PyCodeObject *)cp->fn_descriptor)->co_name;
         PyObject *formatted_string = PyStr_FromFormat(
-                "%s_%d", PyStr_AS_CSTRING(cp->name), rlevel);
+                "%s_%d", PyStr_AS_CSTRING(short_name), rlevel);
 
         PyObject *tval = PyDict_GetItem(test_timings, formatted_string);
         Py_DECREF(formatted_string);
@@ -1656,8 +1662,19 @@ int _pit_filtered(_pit *pt, _ctxfuncenumarg *eargs)
     filter = eargs->enum_args->func_filter;
 
     if (filter.name) {
+        // Match exact qualname or trailing component (e.g. "sleep" matches
+        // "Base.sleep", "a" matches "TestClass.test.<locals>.a")
         if (!PyObject_RichCompareBool(pt->name, filter.name, Py_EQ)) {
-            return 1;
+            PyObject *dot_name = PyStr_FromFormat(".%s", PyStr_AS_CSTRING(filter.name));
+            Py_ssize_t name_len = PyUnicode_GET_LENGTH(pt->name);
+            Py_ssize_t dot_len = PyUnicode_GET_LENGTH(dot_name);
+            int suffix_match = PyUnicode_Tailmatch(
+                pt->name, dot_name, name_len - dot_len, name_len, 1);
+            Py_DECREF(dot_name);
+            if (suffix_match <= 0) {
+                if (suffix_match < 0) PyErr_Clear();
+                return 1;
+            }
         }
     }
 

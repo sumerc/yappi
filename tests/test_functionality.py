@@ -33,6 +33,37 @@ class BasicUsage(utils.YappiUnitTestCase):
         yappi.start()
         foo()
 
+    def test_issue125_inherited_method_name(self):
+        import sys
+        if sys.version_info < (3, 11):
+            self.skipTest("co_qualname requires Python 3.11+")
+
+        class Base:
+            def work(self):
+                pass
+
+        class A(Base):
+            def __init__(self):
+                self.work()
+
+        class B(Base):
+            def __init__(self):
+                self.work()
+
+        yappi.start(builtins=False)
+        A()
+        B()
+        B()
+        yappi.stop()
+        stats = yappi.get_func_stats()
+        fs = utils.find_stat_by_name(stats, 'Base.work')
+        self.assertIsNotNone(fs, "inherited method should be named 'Base.work'")
+        self.assertEqual(fs.ncall, 3)
+        # Ensure no stat named A.work or B.work exists
+        for stat in stats:
+            self.assertNotIn('A.work', stat.name)
+            self.assertNotIn('B.work', stat.name)
+
     def test_issue60(self):
 
         def foo():
@@ -1025,7 +1056,7 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
 
         fsa = None
         for stat in stats:
-            if stat.name == "a" and stat.ttot == 45:
+            if stat.name.endswith("a") and stat.ttot == 45:
                 fsa = stat
                 break
         self.assertTrue(fsa is not None)
