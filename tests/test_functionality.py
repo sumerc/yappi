@@ -435,6 +435,46 @@ class BasicUsage(utils.YappiUnitTestCase):
             yappi.convert2pstats(yappi.get_func_stats()) is not None
         )
 
+    def test_genexpr_child_of_caller(self):
+        """Issue #134: sum(genexpr) should show genexpr as child of the
+        calling function when builtins=False."""
+
+        def f():
+            return sum(x for x in range(10))
+
+        # builtins=False (default): genexpr should be a direct child of f
+        yappi.start(builtins=False)
+        f()
+        yappi.stop()
+        stats = yappi.get_func_stats()
+        fstat = utils.find_stat_by_name(stats, 'f')
+        self.assertTrue(fstat is not None)
+        genexpr_children = [c for c in fstat.children if c.name == '<genexpr>']
+        self.assertEqual(len(genexpr_children), 1,
+            "genexpr should be a direct child of f when builtins=False")
+        # sum should not appear in stats or as a child of f
+        sum_stat = utils.find_stat_by_name(stats, 'sum')
+        self.assertIsNone(sum_stat)
+        sum_children = [c for c in fstat.children if c.name == 'sum']
+        self.assertEqual(len(sum_children), 0,
+            "sum should not be a child of f when builtins=False")
+
+        yappi.clear_stats()
+
+        # builtins=True: genexpr should be child of sum, sum child of f
+        yappi.start(builtins=True)
+        f()
+        yappi.stop()
+        stats = yappi.get_func_stats()
+        fstat = utils.find_stat_by_name(stats, 'f')
+        sum_children = [c for c in fstat.children if c.name == 'sum']
+        self.assertEqual(len(sum_children), 1,
+            "sum should be a child of f when builtins=True")
+        sum_stat = utils.find_stat_by_name(stats, 'sum')
+        genexpr_children = [c for c in sum_stat.children if c.name == '<genexpr>']
+        self.assertEqual(len(genexpr_children), 1,
+            "genexpr should be a child of sum when builtins=True")
+
     def test_slice_child_stats_and_strip_dirs(self):
 
         def b():

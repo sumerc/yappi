@@ -1688,10 +1688,9 @@ _pitenumstat(_hitem *item, void *arg)
         return 0;
     }
 
-    // do not show builtin pits if specified
-    if  ((!flags.builtins) && (pt->builtin)) {
-        return 0;
-    }
+    // NOTE: builtin filtering is now handled in the Python layer
+    // (YFuncStats.get) to support reparenting builtin children
+    // to their Python callers (see issue #134)
 
     // convert children function index list to PyList
     children = PyList_New(0);

@@ -837,10 +837,52 @@ class YFuncStats(YStatsIndexable):
                     )
                     _childs.append(cfstat)
                 stat.children = _childs
+
+            # When builtins are not shown, reparent their children to the
+            # calling Python function. This fixes cases like sum(genexpr)
+            # where the genexpr would otherwise be orphaned. (issue #134)
+            start_flags = _yappi._get_start_flags()
+            if start_flags and not start_flags.get("profile_builtins", 0):
+                self._reparent_builtin_children()
+
             result = super().get()
         finally:
             _yappi._resume()
         return result
+
+    def _reparent_builtin_children(self):
+        """Replace builtin children with their own children, then remove
+        builtin stats from the collection. This promotes e.g. genexpr from
+        being a child of sum() to being a child of the calling function."""
+        has_builtins = any(stat.builtin for stat in self)
+        if not has_builtins:
+            return
+
+        for stat in self:
+            if stat.builtin:
+                continue
+            if not any(c.builtin for c in stat.children):
+                continue
+            new_children = YChildFuncStats()
+            for child in stat.children:
+                if child.builtin:
+                    # full_name lookup gets the canonical merged stat;
+                    # index lookup can return stale un-merged duplicates
+                    builtin_stat = self[child.full_name]
+                    if not builtin_stat:
+                        continue  # filtered or timing edge case
+                    for grandchild in builtin_stat.children:
+                        new_children.append(grandchild)
+                else:
+                    new_children.append(child)
+            stat.children = new_children
+
+        self._as_list = [s for s in self._as_list if not s.builtin]
+        self._as_dict = {k: v for k, v in self._as_dict.items() if not v.builtin}
+        self._additional_indexing = {
+            k: v for k, v in self._additional_indexing.items()
+            if not v.builtin
+        }
 
     def _enumerator(self, stat_entry):
         global _fn_descriptor_dict
