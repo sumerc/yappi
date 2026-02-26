@@ -517,8 +517,7 @@ _pycfunction_module_name(PyCFunctionObject *cfn)
     obj = cfn->m_module;
 
     if (!obj) {
-        // TODO: Is this always correct?
-        name = PyStr_FromString("__builtin__");
+        name = PyStr_FromString("builtins");
     } else if (PyStr_Check(obj)) {
         Py_INCREF(obj);
         name = obj;

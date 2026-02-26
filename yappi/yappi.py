@@ -932,21 +932,20 @@ class YFuncStats(YStatsIndexable):
         # add function definitions
         file_ids = ['']
         func_ids = ['']
-        func_idx_list = []
+        seen_indices = set()
         for func_stat in self:
-            file_ids += ['fl=(%d) %s' % (func_stat.index, func_stat.module)]
-            func_ids += [
-                'fn=(%d) %s %s:%s' % (
-                    func_stat.index, func_stat.name, func_stat.module,
-                    func_stat.lineno
-                )
-            ]
-            func_idx_list.append(func_stat.index)
-            
-            # also adds function information for children
+            if func_stat.index not in seen_indices:
+                file_ids += ['fl=(%d) %s' % (func_stat.index, func_stat.module)]
+                func_ids += [
+                    'fn=(%d) %s %s:%s' % (
+                        func_stat.index, func_stat.name, func_stat.module,
+                        func_stat.lineno
+                    )
+                ]
+                seen_indices.add(func_stat.index)
+
             for child in func_stat.children:
-                # ... but make sure to add each function only once
-                if child.index in func_idx_list:
+                if child.index in seen_indices:
                     continue
                 file_ids += ['fl=(%d) %s' % (child.index, child.module)]
                 func_ids += [
@@ -955,7 +954,7 @@ class YFuncStats(YStatsIndexable):
                         child.lineno
                     )
                 ]
-                func_idx_list.append(child.index)
+                seen_indices.add(child.index)
             
         lines += file_ids + func_ids
 

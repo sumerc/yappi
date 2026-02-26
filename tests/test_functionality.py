@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import time
 import threading
@@ -1044,6 +1045,74 @@ class StatSaveScenarios(utils.YappiUnitTestCase):
         self.assertEqual(fsc.tsub, 8)
         self.assertEqual(fsc.tavg, 4)
         self.assertEqual(fsc.nactualcall, fsc.ncall, 2)
+
+    def test_callgrind_basic(self):
+        _timings = {"a_1": 3, "b_1": 1}
+        _yappi._set_test_timings(_timings)
+
+        def b():
+            pass
+
+        def a():
+            b()
+
+        yappi.start()
+        a()
+        yappi.stop()
+
+        path = "tests/callgrind.out"
+        yappi.get_func_stats().save(path, type="callgrind")
+
+        with open(path) as f:
+            content = f.read()
+
+        self.assertIn("version: 1", content)
+        self.assertIn("events: Ticks", content)
+
+        lines = content.splitlines()
+        fl_defs = [l for l in lines if re.match(r'^fl=\(\d+\)', l)]
+        fn_defs = [l for l in lines if re.match(r'^fn=\(\d+\)', l)]
+
+        self.assertTrue(any('a' in l for l in fn_defs))
+        self.assertTrue(any('b' in l for l in fn_defs))
+        self.assertTrue(any(l.startswith('cfn=') for l in lines))
+        self.assertTrue(any(l.startswith('calls=') for l in lines))
+
+        os.remove(path)
+
+    def test_callgrind_no_duplicate_definitions(self):
+        # Regression: when a function appears as both a top-level stat and as
+        # a child of another function, its fl/fn definition was emitted twice,
+        # causing "Redefinition of name with id" errors in speedscope.
+        _timings = {"a_1": 3, "b_1": 1}
+        _yappi._set_test_timings(_timings)
+
+        def b():
+            pass
+
+        def a():
+            b()
+
+        yappi.start()
+        a()
+        b()  # b appears in self AND as child of a
+        yappi.stop()
+
+        path = "tests/callgrind_dedup.out"
+        yappi.get_func_stats().save(path, type="callgrind")
+
+        with open(path) as f:
+            lines = f.read().splitlines()
+
+        fl_ids = [m.group(1) for l in lines
+                  for m in [re.match(r'^fl=\((\d+)\)\s', l)] if m]
+        fn_ids = [m.group(1) for l in lines
+                  for m in [re.match(r'^fn=\((\d+)\)\s', l)] if m]
+
+        self.assertEqual(len(fl_ids), len(set(fl_ids)), "duplicate fl= definitions found")
+        self.assertEqual(len(fn_ids), len(set(fn_ids)), "duplicate fn= definitions found")
+
+        os.remove(path)
 
 
 class MultithreadedScenarios(utils.YappiUnitTestCase):
