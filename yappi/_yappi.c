@@ -166,6 +166,7 @@ static long long ycurthreadindex = 0;
 static int yapphavestats;   // start() called at least once or stats cleared?
 static int yapprunning;
 static int paused;
+static volatile int _callback_depth = 0;
 static time_t yappstarttime;
 static long long yappstarttick;
 static long long yappstoptick;
@@ -335,7 +336,9 @@ _call_funcobjargs(PyObject *func, PyObject *args)
 
     _local_current_ctx = current_ctx;
     _local_prev_ctx = prev_ctx;
+    _callback_depth++;
     result = PyObject_CallFunctionObjArgs(func, args);
+    _callback_depth--;
     current_ctx = _local_current_ctx;
     prev_ctx = _local_prev_ctx;
 
@@ -2164,6 +2167,16 @@ _resume(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+static PyObject*
+_wait_for_callbacks(PyObject *self, PyObject *args)
+{
+    Py_BEGIN_ALLOW_THREADS
+    while (_callback_depth > 0)
+        ;
+    Py_END_ALLOW_THREADS
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef yappi_methods[] = {
     {"start", start, METH_VARARGS, NULL},
     {"stop", stop, METH_NOARGS, NULL},
@@ -2187,6 +2200,7 @@ static PyMethodDef yappi_methods[] = {
     {"_profile_event", profile_event, METH_VARARGS, NULL}, // for internal usage.
     {"_pause", _pause, METH_VARARGS, NULL}, // for internal usage.
     {"_resume", _resume, METH_VARARGS, NULL}, // for internal usage.
+    {"_wait_for_callbacks", _wait_for_callbacks, METH_NOARGS, NULL}, // for internal usage.
     {NULL, NULL, 0, NULL}      /* sentinel */
 };
 
