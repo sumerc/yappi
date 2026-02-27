@@ -33,10 +33,8 @@ class BasicUsage(utils.YappiUnitTestCase):
         yappi.start()
         foo()
 
+    @unittest.skipIf(sys.version_info < (3, 11), "co_qualname requires Python 3.11+")
     def test_issue125_inherited_method_name(self):
-        import sys
-        if sys.version_info < (3, 11):
-            self.skipTest("co_qualname requires Python 3.11+")
 
         class Base:
             def work(self):

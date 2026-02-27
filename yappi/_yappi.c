@@ -680,10 +680,8 @@ _code2pit(PyFrameObject *fobj, uintptr_t current_tag)
     pit->fn_descriptor = (PyObject *)cobj;
     Py_INCREF(cobj);
 
-    // Python 3.11+ has co_qualname which gives the correct defining class
-    // name (e.g. "Base.sleep") regardless of which subclass instance calls
-    // the method. Before 3.11, fall back to runtime self.__class__ inspection
-    // which incorrectly labels inherited methods with the first caller's class.
+    // 3.11+ co_qualname resolves the defining class correctly (issue #125).
+    // Pre-3.11 uses runtime self.__class__ which misattributes inherited methods.
 #if PY_VERSION_HEX >= 0x030B0000 // Python 3.11+
     Py_INCREF(cobj->co_qualname);
     pit->name = cobj->co_qualname;
@@ -1666,6 +1664,10 @@ int _pit_filtered(_pit *pt, _ctxfuncenumarg *eargs)
         // "Base.sleep", "a" matches "TestClass.test.<locals>.a")
         if (!PyObject_RichCompareBool(pt->name, filter.name, Py_EQ)) {
             PyObject *dot_name = PyStr_FromFormat(".%s", PyStr_AS_CSTRING(filter.name));
+            if (!dot_name) {
+                PyErr_Clear();
+                return 1;
+            }
             Py_ssize_t name_len = PyUnicode_GET_LENGTH(pt->name);
             Py_ssize_t dot_len = PyUnicode_GET_LENGTH(dot_name);
             int suffix_match = PyUnicode_Tailmatch(
