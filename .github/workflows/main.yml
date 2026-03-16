@@ -46,6 +46,10 @@ jobs:
         ./configure --with-pydebug --prefix=$HOME/python-debug -q
         make -j$(nproc) -s && make install -s
     - name: Install test dependencies
-      run: ~/python-debug/bin/python3.12 -m pip install .[test]
+      run: |
+        export PATH=$HOME/python-debug/bin:$PATH
+        python3.12 -m pip install .[test]
     - name: Run tests (debug build)
-      run: ~/python-debug/bin/python3.12 run_tests.py
+      run: |
+        export PATH=$HOME/python-debug/bin:$PATH
+        python3.12 run_tests.py
