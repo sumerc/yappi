@@ -1856,6 +1856,7 @@ _filterdict_to_statfilter(PyObject *filter_dict, _fast_func_stat_filter* filter)
         if (PyErr_Occurred()) {
             PyErr_Clear();
             yerr("invalid tag passed to get_func_stats.");
+            PyErr_SetString(YappiProfileError, "invalid tag passed to get_func_stats");
             filter->tag = NULL;
             return 0;
         }
@@ -1867,6 +1868,7 @@ _filterdict_to_statfilter(PyObject *filter_dict, _fast_func_stat_filter* filter)
         if (PyErr_Occurred()) {
             PyErr_Clear();
             yerr("invalid ctx_id passed to get_func_stats.");
+            PyErr_SetString(YappiProfileError, "invalid ctx_id passed to get_func_stats");
             filter->ctx_id = NULL;
             return 0;
         }
