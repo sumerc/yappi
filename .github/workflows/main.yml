@@ -7,7 +7,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  test:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -26,3 +26,30 @@ jobs:
       run: python -m pip install .[test]
     - name: run tests
       run: python run_tests.py
+
+  test-debug:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Cache Python debug build
+      uses: actions/cache@v4
+      id: cache-python
+      with:
+        path: ~/python-debug
+        key: python-3.12.12-pydebug
+    - name: Build Python 3.12 with --with-pydebug
+      if: steps.cache-python.outputs.cache-hit != 'true'
+      run: |
+        sudo apt-get update -qq && sudo apt-get install -y -qq build-essential zlib1g-dev libffi-dev libssl-dev libbz2-dev libreadline-dev libsqlite3-dev liblzma-dev
+        curl -sL https://www.python.org/ftp/python/3.12.12/Python-3.12.12.tgz | tar xz
+        cd Python-3.12.12
+        ./configure --with-pydebug --prefix=$HOME/python-debug -q
+        make -j$(nproc) -s && make install -s
+    - name: Install test dependencies
+      run: |
+        export PATH=$HOME/python-debug/bin:$PATH
+        python3.12 -m pip install .[test]
+    - name: Run tests (debug build)
+      run: |
+        export PATH=$HOME/python-debug/bin:$PATH
+        python3.12 run_tests.py
