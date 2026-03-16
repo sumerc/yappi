@@ -461,9 +461,21 @@ _current_context_id(PyThreadState *ts)
         ytid = PyDict_GetItemString(ts->dict, "_yappi_tid");
         if (!ytid) {
             ytid = PyLong_FromLongLong(ycurthreadindex++);
-            PyDict_SetItemString(ts->dict, "_yappi_tid", ytid);
+            if (!ytid) {
+                PyErr_Clear();
+                return 0;
+            }
+            if (PyDict_SetItemString(ts->dict, "_yappi_tid", ytid) < 0) {
+                Py_DECREF(ytid);
+                PyErr_Clear();
+                return 0;
+            }
         }
         rc = PyLong_AsVoidPtr(ytid);
+        if (PyErr_Occurred()) {
+            PyErr_Clear();
+            return 0;
+        }
 
         return rc;
     }
@@ -601,15 +613,21 @@ _ccode2pit(void *cco, uintptr_t current_tag)
             name = PyStr_FromString(cfn->m_ml->ml_name);
             if (name != NULL) {
                 obj_type = PyObject_Type(cfn->m_self);
+                if (obj_type == NULL) {
+                    PyErr_Clear();
+                    Py_DECREF(name);
+                    goto fallback_name;
+                }
 
                 // use method descriptor instead of instance methods for builtin
-                // objects. Othwerwise, there might be some errors since we INCREF
+                // objects. Otherwise, there might be some errors since we INCREF
                 // on the bound method. See: https://github.com/sumerc/yappi/issues/60
                 method_descriptor = PyObject_GetAttr(obj_type, name);
                 if (method_descriptor) {
                     pit->fn_descriptor = method_descriptor;
                     Py_INCREF(method_descriptor);
                 }
+                PyErr_Clear();
 
                 // get name from type+name
                 mo = _PyType_Lookup((PyTypeObject *)obj_type, name);
@@ -625,6 +643,7 @@ _ccode2pit(void *cco, uintptr_t current_tag)
             PyErr_Clear();
         }
 
+fallback_name:
         if (pit->fn_descriptor == NULL) {
             pit->fn_descriptor = (PyObject *)cfn;
             Py_INCREF(cfn);
@@ -1652,17 +1671,26 @@ enum_context_stats(PyObject *self, PyObject *args)
 int _pit_filtered(_pit *pt, _ctxfuncenumarg *eargs)
 {
     _fast_func_stat_filter filter;
+    int cmp;
 
     filter = eargs->enum_args->func_filter;
 
     if (filter.name) {
-        if (!PyObject_RichCompareBool(pt->name, filter.name, Py_EQ)) {
+        cmp = PyObject_RichCompareBool(pt->name, filter.name, Py_EQ);
+        if (cmp == -1) {
+            PyErr_Clear();
+        }
+        if (cmp != 1) {
             return 1;
         }
     }
 
     if (filter.modname) {
-        if (!PyObject_RichCompareBool(pt->modname, filter.modname, Py_EQ)) {
+        cmp = PyObject_RichCompareBool(pt->modname, filter.modname, Py_EQ);
+        if (cmp == -1) {
+            PyErr_Clear();
+        }
+        if (cmp != 1) {
             return 1;
         }
     }
@@ -1826,6 +1854,7 @@ _filterdict_to_statfilter(PyObject *filter_dict, _fast_func_stat_filter* filter)
     if (fv) {
         PyLong_AsVoidPtr(fv);
         if (PyErr_Occurred()) {
+            PyErr_Clear();
             yerr("invalid tag passed to get_func_stats.");
             filter->tag = NULL;
             return 0;
@@ -1836,6 +1865,7 @@ _filterdict_to_statfilter(PyObject *filter_dict, _fast_func_stat_filter* filter)
     if (fv) {
         PyLong_AsVoidPtr(fv);
         if (PyErr_Occurred()) {
+            PyErr_Clear();
             yerr("invalid ctx_id passed to get_func_stats.");
             filter->ctx_id = NULL;
             return 0;
