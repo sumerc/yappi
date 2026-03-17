@@ -30,10 +30,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Build wheels
+      - name: Build and verify wheels
         uses: pypa/cibuildwheel@v3.2.1
         env:
           CIBW_ARCHS: ${{ matrix.cibw_archs }}
+          CIBW_TEST_COMMAND: python -c "import yappi; yappi.set_clock_type('cpu'); yappi.start(); sum(range(1000)); yappi.stop(); stats=yappi.get_func_stats(); assert len(stats)>0; print('OK:', len(stats), 'functions profiled')"
 
       - uses: actions/upload-artifact@v5
         with:
@@ -48,6 +49,11 @@ jobs:
 
       - name: Build sdist
         run: pipx run build --sdist
+
+      - name: Verify sdist
+        run: |
+          pip install dist/*.tar.gz
+          python -c "import yappi; yappi.set_clock_type('cpu'); yappi.start(); sum(range(1000)); yappi.stop(); stats=yappi.get_func_stats(); assert len(stats)>0; print('OK:', len(stats), 'functions profiled')"
 
       - uses: actions/upload-artifact@v5
         with:
