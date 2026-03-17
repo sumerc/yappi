@@ -1,6 +1,15 @@
 CHANGELOG
 =========
 
+Here's the CHANGELOG entry:
+
+1.7.5 (2026-03-17)
+
+- Fix callgrind export producing duplicate entries for top-level functions
+- Fix various edge cases
+- Add limit parameter to print_all
+- Fix file reading to use UTF-8 encoding
+
 1.7.3 (2025-10-24)
 
 - Better wheel support (https://github.com/sumerc/yappi/pull/196)
