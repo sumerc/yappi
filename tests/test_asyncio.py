@@ -69,6 +69,41 @@ class SingleThreadTests(YappiUnitTestCase):
         stats = yappi.get_func_stats()
         self.assert_traces_almost_equal(r1, stats)
 
+    def test_mem_leak(self):
+        import gc
+        import types
+
+        async def noop():
+            return
+
+        async def run_batch(n):
+            await asyncio.gather(*(noop() for _ in range(n)))
+
+        def exhausted_coroutines():
+            gc.collect()
+            return sum(
+                1
+                for o in gc.get_objects()
+                if isinstance(o, types.CoroutineType) and o.cr_frame is None
+            )
+
+        batch_size = 1000
+
+        yappi.set_clock_type("cpu")
+        yappi.start()
+        asyncio.get_event_loop().run_until_complete(run_batch(batch_size))
+        yappi.stop()
+        yappi.clear_stats()
+        baseline = exhausted_coroutines()
+
+        yappi.start()
+        asyncio.get_event_loop().run_until_complete(run_batch(batch_size))
+        yappi.stop()
+        yappi.clear_stats()
+        after = exhausted_coroutines()
+
+        self.assertLess(after - baseline, batch_size // 3)
+
     def test_basic_old_style(self):
 
         async def a():
