@@ -1,6 +1,11 @@
 CHANGELOG
 =========
 
+1.7.7 (2026-05-22)
+
+- Fix reference leak in PyFrame_GetGenerator (#217)
+- Add per-distro tests after wheel generation
+
 1.7.6 (2026-03-18)
 
 - Fix VERSION file missing from source distribution (sdist)
