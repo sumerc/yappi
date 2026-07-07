@@ -506,7 +506,7 @@ _thread2ctx(PyThreadState *ts)
 }
 
 // the pit will be cleared by the relevant freelist. we do not free it here.
-// we only DECREF the CodeObject or the MethodDescriptive string.
+// we only DECREF the Python objects the pit owns (fn_descriptor, name, modname).
 static void
 _del_pit(_pit *pit)
 {
@@ -522,6 +522,9 @@ _del_pit(_pit *pit)
         it = next;
     }
     pit->children = NULL;
+    // name/modname can be NULL if their creation failed in _code2pit/_ccode2pit
+    Py_XDECREF(pit->name);
+    Py_XDECREF(pit->modname);
     Py_DECREF(pit->fn_descriptor);
 }
 
