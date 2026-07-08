@@ -421,6 +421,39 @@ class BasicUsage(utils.YappiUnitTestCase):
         fsa = utils.find_stat_by_name(stats, 'a')
         self.assertEqual(fsa.ncall, 1)
 
+    def test_clear_stats_does_not_leak_pit_name_refs(self):
+        # https://github.com/sumerc/yappi/issues/220
+        # _del_pit() must release pit->name / pit->modname. We profile a code
+        # object carrying runtime-built (non-interned, mortal) name strings —
+        # compile-interned strings are immortal on 3.12+ and hide the leak —
+        # and assert their refcounts do not grow across profile/clear cycles.
+        import types
+
+        def target():
+            return 42
+
+        # built at runtime: identifier-like literals would be compile-interned
+        code = target.__code__.replace(
+            co_name='leaky_name_' + '2f8a1c' * 4,
+            co_filename='leaky_file_' + '2f8a1c' * 4 + '.py',
+        )
+        fn = types.FunctionType(code, target.__globals__)
+
+        def cycle(n):
+            for _ in range(n):
+                yappi.start()
+                fn()
+                yappi.stop()
+                yappi.clear_stats()
+
+        cycle(3)  # warmup any one-time caches
+        base_name = sys.getrefcount(code.co_name)
+        base_modname = sys.getrefcount(code.co_filename)
+        N = 10
+        cycle(N)
+        self.assertEqual(sys.getrefcount(code.co_name), base_name)
+        self.assertEqual(sys.getrefcount(code.co_filename), base_modname)
+
     def test_generator(self):
 
         def _gen(n):
