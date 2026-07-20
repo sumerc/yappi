@@ -4,8 +4,8 @@ import io
 import os
 import sys
 from setuptools import setup
-from distutils.core import Extension
-from distutils.ccompiler import new_compiler
+from setuptools import Extension
+from setuptools._distutils.ccompiler import new_compiler
 
 with open('README.md', encoding='UTF-8') as f:
     long_description = f.read()
