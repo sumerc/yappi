@@ -229,10 +229,10 @@ IS_SUSPENDED(PyFrameObject *frame) {
     if (gen == NULL) {
         return 0;
     }
-#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION == 14
+#if PY_VERSION_HEX >= 0x030E0000  // Python 3.14+
     unsigned char curr_op_code = (*frame->f_frame->instr_ptr).op.code;
     suspended = curr_op_code == YIELD_VALUE || curr_op_code == INSTRUMENTED_YIELD_VALUE;
-#elif PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION == 13
+#elif PY_VERSION_HEX >= 0x030D0000  // Python 3.13
     suspended = FRAME_STATE_SUSPENDED(gen->gi_frame_state);
 #else
     suspended = gen->gi_frame_state == FRAME_SUSPENDED;
